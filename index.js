@@ -396,14 +396,13 @@ Sua ideia pode fazer parte das próximas atualizações!`);
             break;
 
         case '/iniciar':
-            await msg.reply(iniciar, { sendSeen: false });(`👽❄️ *YUKON BOT ATIVADO* ❄️👽
+            await msg.reply(`👽❄️ *YUKON BOT ATIVADO* ❄️👽
 Olá, tripulantes!
 
 Eu sou o *Yukon BOT* e agora estou ativo neste grupo 🛰️
 Estou aqui para ajudar na organização e na experiência de Among Us.
 
-Use *(/painel)* para ver as opções disponíveis ou *(/help)* para obter ajuda.`);
-            break;
+Use *(/painel)* para ver as opções disponíveis ou *(/help)* para obter ajuda.`, { sendSeen: false });
 
         case '/f':
         case '/figu':
