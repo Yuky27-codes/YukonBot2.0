@@ -359,8 +359,6 @@ if (msg.hasQuotedMsg) {
 ⛔ /ban (respondendo) — Banir jogador (com imagem)
 📋 /listaadv — Lista de jogadores advertidos
 📣 /todos — Marcar todos os tripulantes
-➕ /addpts (respondendo) — Adiciona pontos ao usuário (comando desativado)
-➖ /rmvpts (respondendo) — Remove pontos do Usuário (comando desativado)
 
 ━━━━━━━━━━━━━━━━━━━━━━
 
@@ -398,7 +396,7 @@ Sua ideia pode fazer parte das próximas atualizações!`);
             break;
 
         case '/iniciar':
-            await msg.reply(menuTexto, { sendSeen: false });(`👽❄️ *YUKON BOT ATIVADO* ❄️👽
+            await msg.reply(iniciar, { sendSeen: false });(`👽❄️ *YUKON BOT ATIVADO* ❄️👽
 Olá, tripulantes!
 
 Eu sou o *Yukon BOT* e agora estou ativo neste grupo 🛰️
