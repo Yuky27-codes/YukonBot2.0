@@ -138,15 +138,27 @@ client.on('message_create', async msg => {
 
     switch(command) {
         case '/sala':
-            await chat.sendMessage(`${codigoSalvo}`, { sendSeen: false });
-            const listaGeral = chat.participants;
-            let mencoesGeral = [];
-            let textoMencao = "📢 *CHAMANDO TODOS:* ";
-            for (let p of listaGeral) {
-                mencoesGeral.push(p.id._serialized);
-                textoMencao += `@${p.id.user} `;
+            try {
+                await chat.sendMessage(`${codigoSalvo}`, { sendSeen: false });
+                
+                // Força o carregamento dos participantes para não vir vazio
+                const participantesSala = chat.participants || await chat.groupMetadata.participants;
+                let mencoesGeral = [];
+                let textoMencao = "📢 *CHAMANDO TODOS PARA A SALA:* ";
+
+                for (let p of participantesSala) {
+                    mencoesGeral.push(p.id._serialized);
+                    textoMencao += `@${p.id.user} `;
+                }
+
+                await chat.sendMessage(textoMencao, { 
+                    mentions: mencoesGeral, 
+                    sendSeen: false 
+                });
+            } catch (e) {
+                console.log("Erro no comando /sala:", e);
+                msg.reply("❌ Erro ao buscar tripulantes. Tente novamente.", null, { sendSeen: false });
             }
-            await chat.sendMessage(textoMencao, { mentions: mencoesGeral, sendSeen: false });
             break;
 
         case '/addsala':
@@ -193,14 +205,25 @@ client.on('message_create', async msg => {
             break;
 
         case '/todos':
-            let mentais = [];
-            let texto = "📢 *ATENÇÃO TRIPULAÇÃO:*\n\n";
-            const participantes = chat.participants;
-            for (let p of participantes) {
-                mentais.push(p.id._serialized);
-                texto += `@${p.id.user} `;
+            try {
+                // Força o carregamento dos participantes
+                const todosParticipantes = chat.participants || await chat.groupMetadata.participants;
+                let mentais = [];
+                let texto = "📢 *ATENÇÃO TRIPULAÇÃO:*\n\n";
+
+                for (let p of todosParticipantes) {
+                    mentais.push(p.id._serialized);
+                    texto += `@${p.id.user} `;
+                }
+
+                await chat.sendMessage(texto, { 
+                    mentions: mentais, 
+                    sendSeen: false 
+                });
+            } catch (e) {
+                console.log("Erro no comando /todos:", e);
+                msg.reply("❌ Não consegui marcar todo mundo. Verifique se sou admin.", null, { sendSeen: false });
             }
-            await chat.sendMessage(texto, { mentions: mentais, sendSeen: false });
             break;
             
         case '/ban':
