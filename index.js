@@ -695,5 +695,12 @@ Use *(/painel)* para ver as opções disponíveis ou *(/help)* para obter ajuda.
             break;
     }
 });
+// Impede que o bot desligue sozinho por erros internos do WhatsApp
+process.on('uncaughtException', (err) => {
+    console.error('ERRO EVITADO:', err.message);
+});
 
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('REJEIÇÃO EVITADA:', reason);
+});
 client.initialize();
