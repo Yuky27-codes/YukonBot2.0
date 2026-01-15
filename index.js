@@ -398,7 +398,7 @@ Sua ideia pode fazer parte das próximas atualizações!`);
             break;
 
         case '/iniciar':
-            msg.reply(`👽❄️ *YUKON BOT ATIVADO* ❄️👽
+            await msg.reply(menuTexto, { sendSeen: false });(`👽❄️ *YUKON BOT ATIVADO* ❄️👽
 Olá, tripulantes!
 
 Eu sou o *Yukon BOT* e agora estou ativo neste grupo 🛰️
