@@ -66,16 +66,21 @@ const superUsersPath = path.join(__dirname, 'database', 'superusers.json');
 fs.ensureDirSync(path.join(__dirname, 'database'));
 if (!fs.existsSync(superUsersPath)) fs.writeJsonSync(superUsersPath, []);
 
-// --- INICIALIZAÇÃO DO CLIENTE ---
 const client = new Client({
-    authStrategy: new LocalAuth(),
-    // webVersionCache fica FORA do puppeteer
-    webVersionCache: { 
-        type: 'remote', 
-        remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version-historical/plugin/sample/6.2.0.html' 
+    authStrategy: new LocalAuth({
+        clientId: "sessao_cliente_yukon"
+    }),
+    webVersionCache: {
+        type: 'remote',
+        remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version-historical/plugin/sample/6.2.0.html'
     },
     puppeteer: {
-        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+        headless: true,
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage'
+        ]
     }
 });
 
@@ -219,7 +224,7 @@ client.on('message_create', async msg => {
             .map(p => p.id.user.replace(/\D/g, '')) : [];
         
         const savedSuperUsers = fs.readJsonSync(superUsersPath);
-        const fixedOwners = ['29790077755587', '5524988268426', '94386822062195', '12060503109759', '143130204626959'];
+        const fixedOwners = ['29790077755587', '5524988268426', '94386822062195', '12060503109759', '143130204626959', '266533322399806', '185165066305729', '94386822062195', '31443908599826', '172606179270807', '22385906442270' ];
 
         const isSuperAdmin = userDb.roles && userDb.roles.includes("Super Admin");
         const isAdmin = groupAdmins.includes(senderNumber) || 
@@ -299,7 +304,7 @@ cron.schedule('0 4 * * *', async () => {
         // --- COMANDOS ---
         switch(command) {
 
-            case '$$sala':
+            case '/sala':
             try {
                 const chatId = msg.from.toString();
                 // O objeto 'chat' precisa ser obtido de forma segura
@@ -329,7 +334,7 @@ cron.schedule('0 4 * * *', async () => {
             }
             break;
 
-        case '$$addsala':
+        case '/addsala':
             try {
                 const chatId = msg.from.toString();
                 const novoCodigo = args[0];
@@ -347,7 +352,7 @@ cron.schedule('0 4 * * *', async () => {
             }
             break;
 
-            case '$$adv':
+            case '/adv':
             if (!isAdmin) return;
             
             try {
@@ -399,25 +404,43 @@ cron.schedule('0 4 * * *', async () => {
             }
             break;
 
-            case '$$listaadv':
-            const advertidos = await User.find({ groupId: groupId, advs: { $gt: 0 }, userId: { $nin: ignorados } });
-            if (advertidos.length === 0) return msg.reply("✅ Ninguém com advertências neste grupo.", { sendSeen: false });
-            
-            let listaMsg = "📋 *LISTA DE ADVs DESTE SETOR:*\n\n";
-            let targets = [];
-            
-            advertidos.forEach(u => {
-                listaMsg += `• @${u.userId.split('@')[0]}: ${u.advs}/3\n`;
-                targets.push(u.userId);
-            });
-            
-            await chat.sendMessage(listaMsg, { 
-                mentions: targets, 
-                sendSeen: false 
-            });
-            break;
+           case '/listaadv':
+    try {
+        const advertidos = await User.find({ 
+            groupId: groupId, 
+            advs: { $gt: 0 }, 
+            userId: { $nin: ignorados } 
+        });
 
-            case '$$todos':
+        if (advertidos.length === 0) {
+            return client.sendMessage(msg.from, "✅ Ninguém com advertências neste grupo.", { sendSeen: false });
+        }
+
+        let listaMsg = "📋 *LISTA DE ADVs DESTE SETOR:*\n\n";
+        let targets = [];
+
+        for (const u of advertidos) {
+            // FORÇANDO A CONVERSÃO PARA STRING (O PULO DO GATO)
+            const userIdStr = String(u.userId); 
+            
+            listaMsg += `• @${userIdStr.split('@')[0]}: ${u.advs}/3\n`;
+            targets.push(userIdStr);
+        }
+
+        // SEMPRE use client.sendMessage com msg.from para evitar erros de contexto
+        await client.sendMessage(msg.from, listaMsg, { 
+            mentions: targets, 
+            sendSeen: false 
+        });
+
+    } catch (error) {
+        console.error("❌ ERRO NO LISTAADV:", error);
+        // Não usamos msg.reply aqui para evitar que o erro se repita na resposta
+        client.sendMessage(msg.from, "⚠️ Erro interno ao processar a lista.");
+    }
+    break;
+
+            case '/todos':
             if (!isAdmin) return msg.reply('❌ Somente cargos de comando (ADMs) podem usar este sinal.', { sendSeen: false });
             
             let mentais = [];
@@ -434,7 +457,7 @@ cron.schedule('0 4 * * *', async () => {
             });
             break;
 
-           case '$$ban':
+           case '/ban':
             try {
                 const chatId = msg.from.toString();
                 
@@ -483,7 +506,7 @@ cron.schedule('0 4 * * *', async () => {
             }
             break;
 
-           case '$$mute':
+           case '/mute':
             try {
                 const chatId = msg.from.toString();
                 if (!isAdmin || !iAmAdmin) return;
@@ -501,7 +524,7 @@ cron.schedule('0 4 * * *', async () => {
             }
             break;
 
-        case '$$desmute':
+        case '/desmute':
             try {
                 const chatId = msg.from.toString();
                 if (!isAdmin || !iAmAdmin) return;
@@ -519,7 +542,7 @@ cron.schedule('0 4 * * *', async () => {
             }
             break;
 
-           case '$$mutep':
+           case '/mutep':
             try {
                 const chatId = msg.from.toString();
                 if (!isAdmin) return;
@@ -560,7 +583,7 @@ cron.schedule('0 4 * * *', async () => {
             }
             break;
 
-        case '$$desmutep':
+        case '/desmutep':
             try {
                 const chatId = msg.from.toString();
                 if (!isAdmin) return;
@@ -592,7 +615,7 @@ cron.schedule('0 4 * * *', async () => {
             }
             break;
 
-            case '$$rmvadv':
+            case '/rmvadv':
             if (!isAdmin) return; // Apenas ADMs podem remover
             
             try {
@@ -634,7 +657,7 @@ cron.schedule('0 4 * * *', async () => {
             }
             break;
 
-        case '$$promover':
+        case '/promover':
             try {
                 const chatId = msg.from.toString();
                 
@@ -674,7 +697,7 @@ cron.schedule('0 4 * * *', async () => {
             }
             break;
 
-        case '$$rebaixa':
+        case '/rebaixa':
             try {
                 const chatId = msg.from.toString(); // Força o ID do grupo a ser string pura
                 
@@ -714,25 +737,25 @@ cron.schedule('0 4 * * *', async () => {
             break;
 
             // --- MENU PRINCIPAL (O GUIA) ---
-      case '$$painel':
+      case '/painel':
             const menuPrincipal = `🚀 *YUKONBOT — CENTRAL DE COMANDO* 🚀
 ━━━━━━━━━━━━━━━━━━━━━━
 
 Olá tripulante! Escolha um setor para navegar:
 
-🛡️ */menu adm* — Segurança e Moderação
-🧪 */menu ia* — Laboratório de I.A.
-💰 */menu economia* — Mineração e Ranking
-🎰 */menu diversao* — Cassino e Jogos
-💘 */menu social* — Relacionamentos
-🎮 */menu sala* — Gerenciamento de Sala
-📖 */menu util* — Utilidades Gerais
+🛡️ */menu_adm* — Segurança e Moderação
+🧪 */menu_ia* — Laboratório de I.A.
+💰 */menu_economia* — Mineração e Ranking
+🎰 */menu_diversao* — Cassino e Jogos
+💘 */menu_social* — Relacionamentos
+🎮 */menu_sala* — Gerenciamento de Sala
+📖 */menu_util* — Utilidades Gerais
 
 ━━━━━━━━━━━━━━━━━━━━━━`;
             await enviarMenuComFoto(msg, 'painel.jpg', menuPrincipal);
             break;
 
-        case '$$menu_adm':
+        case '/menu_adm':
             const txtAdm = `🛡️ *SETOR DE SEGURANÇA*
 ━━━━━━━━━━━━━━━━━━━━━━
 ⚠️ */adv* — Advertir
@@ -741,11 +764,15 @@ Olá tripulante! Escolha um setor para navegar:
 🔓 */unbanblack* — Remover Blacklist
 📋 */blacklist* — Ver Inimigos
 🔇 */mute / desmute* — Silenciar
+🤐 */mutep / desmutep* — Mute no Banco
+🔼 */promover* — Tornar Administrador
+🔽 */rebaixar* — Remover Administração
+🆔 */id* — Ver Dados Técnicos
 ━━━━━━━━━━━━━━━━━━━━━━`;
             await enviarMenuComFoto(msg, 'menu_adm.jpg', txtAdm);
             break;
 
-        case '$$menu_ia':
+        case '/menu_ia':
             const txtIA = `🧪 *LABORATÓRIO DE I.A.*
 ━━━━━━━━━━━━━━━━━━━━━━
 💬 */ia* ou */bot* — Chat com a Yukon
@@ -754,7 +781,7 @@ Olá tripulante! Escolha um setor para navegar:
             await enviarMenuComFoto(msg, 'menu_ia.jpg', txtIA);
             break;
 
-        case '$$menu_economia':
+        case '/menu_economia':
             const txtEco = `💰 *ECONOMIA E STATUS*
 ━━━━━━━━━━━━━━━━━━━━━━
 👤 */perfil* — Seus Dados
@@ -766,10 +793,11 @@ Olá tripulante! Escolha um setor para navegar:
             await enviarMenuComFoto(msg, 'menu_economia.jpg', txtEco);
             break;
 
-        case '$$menu_social':
+        case '/menu_social':
             const txtSoc = `💘 *MÓDULO SOCIAL*
 ━━━━━━━━━━━━━━━━━━━━━━
 💖 */ship* — Romance
+😊 */amizade - Ver pontos de amizade 
 💍 */casar* — Casamento
 📜 */casais* — Lista de Casados
 📃 */solteiros* — Disponíveis
@@ -780,7 +808,7 @@ Olá tripulante! Escolha um setor para navegar:
             await enviarMenuComFoto(msg, 'menu_social.jpg', txtSoc);
             break;
 
-        case '$$menu_diversao':
+        case '/menu_diversao':
             const txtDiv = `🎰 *CASSINO E ENTRETENIMENTO*
 ━━━━━━━━━━━━━━━━━━━━━━
 🎲 */cassino* — Menu de Jogos
@@ -791,7 +819,7 @@ Olá tripulante! Escolha um setor para navegar:
             await enviarMenuComFoto(msg, 'menu_diversao.jpg', txtDiv);
             break;
 
-        case '$$menu_sala':
+        case '/menu_sala':
             const txtSala = `🎮 *GERENCIAMENTO DE SALA*
 ━━━━━━━━━━━━━━━━━━━━━━
 🆔 */addsala* — Definir Código
@@ -800,7 +828,7 @@ Olá tripulante! Escolha um setor para navegar:
             await enviarMenuComFoto(msg, 'menu_sala.jpg', txtSala);
             break;
 
-        case '$$menu_util':
+        case '/menu_util':
             const txtUtil = `📖 *SISTEMA CENTRAL*
 ━━━━━━━━━━━━━━━━━━━━━━
 ▶️ */iniciar* — Iniciar Bot
@@ -811,7 +839,7 @@ Olá tripulante! Escolha um setor para navegar:
             break;
 
 
-       case '$$help':
+       case '/help':
             try {
                 const chatId = msg.from.toString(); // Higieniza o ID do chat
 
@@ -832,7 +860,7 @@ Sua ideia pode fazer parte das próximas atualizações!`;
             }
             break;
 
-        case '$$iniciar':
+        case '/iniciar':
             try {
                 // Forçamos o ID a ser uma string pura para evitar o erro t.replace
                 const chatId = msg.from.toString();
@@ -850,8 +878,8 @@ Sua ideia pode fazer parte das próximas atualizações!`;
             }
             break;
 
-        case '$$f':
-        case '$$figu':
+        case '/f':
+        case '/figu':
             try {
                 const chatId = msg.from.toString();
                 let messageWithMedia = null;
@@ -888,7 +916,7 @@ Sua ideia pode fazer parte das próximas atualizações!`;
             }
             break;
 
-        case '$$perfil':
+        case '/perfil':
             try {
                 const chatId = msg.from.toString();
                 const senderId = senderRaw.toString();
@@ -948,8 +976,8 @@ Sua ideia pode fazer parte das próximas atualizações!`;
             }
             break;
 
-      case '$$yukonshop':
-        case '$$loja':
+      case '/yukonshop':
+        case '/loja':
             try {
                 // Forçamos o ID do chat para string para evitar o erro interno da biblioteca
                 const chatId = msg.from.toString();
@@ -979,7 +1007,7 @@ Sua ideia pode fazer parte das próximas atualizações!`;
             }
             break;
 
-        case '$$comprar':
+        case '/comprar':
             try {
                 const chatId = msg.from.toString(); // Higieniza o ID
                 const item = args[0];
@@ -1048,8 +1076,8 @@ Sua ideia pode fazer parte das próximas atualizações!`;
             }
             break;
 
-        case '$$rank':
-        case '$$top':
+        case '/rank':
+        case '/top':
             try {
                 const chatId = msg.from.toString();
                 
@@ -1118,8 +1146,8 @@ Sua ideia pode fazer parte das próximas atualizações!`;
             }
             break;
 
-        case '$$rankglobal':
-        case '$$topglobal':
+        case '/rankglobal':
+        case '/topglobal':
             try {
                 const chatId = msg.from.toString();
 
@@ -1181,8 +1209,8 @@ Sua ideia pode fazer parte das próximas atualizações!`;
             }
             break;
 
-        case '$$ia':
-        case '$$bot':
+        case '/ia':
+        case '/bot':
             // 1. Captura o ID imediatamente para evitar o erro t.replace
             const iaChatId = msg.from.toString();
             
@@ -1222,7 +1250,7 @@ Sua ideia pode fazer parte das próximas atualizações!`;
             }
             break;
 
-        case '$$amizade':
+        case '/amizade':
             try {
                 const chatId = msg.from.toString();
                 
@@ -1279,7 +1307,7 @@ Sua ideia pode fazer parte das próximas atualizações!`;
             }
             break;
 
-       case '$$ship':
+       case '/ship':
             try {
                 const chatId = msg.from.toString();
                 
@@ -1352,7 +1380,7 @@ Sua ideia pode fazer parte das próximas atualizações!`;
             }
             break;
 
-      case '$$casar':
+      case '/casar':
             try {
                 const chatId = msg.from.toString();
                 if (!msg.mentionedIds[0]) {
@@ -1375,7 +1403,7 @@ Sua ideia pode fazer parte das próximas atualizações!`;
             } catch (e) { console.error(e); }
             break;
 
-        case '$$aceitarp':
+        case '/aceitarp':
             try {
                 const chatId = msg.from.toString();
                 
@@ -1422,7 +1450,7 @@ Sua ideia pode fazer parte das próximas atualizações!`;
             }
             break;
         
-        case '$$cassino':
+        case '/cassino':
             try {
                 const chatId = msg.from.toString();
                 const senderId = senderRaw.toString();
@@ -1435,10 +1463,10 @@ Sua ideia pode fazer parte das próximas atualizações!`;
                 // Menu Inicial
                 if (!jogo) {
                     const menuCassino = `🎰 *CENTRAL DE APOSTAS YUKON* 🎰\n\n` +
-                                      `🚀 *$$cassino apostar [valor] [mult]*\n` +
-                                      `💀 *$$cassino roleta [valor]*\n` +
-                                      `🃏 *$$cassino 21 [valor] [2 a 21]*\n` +
-                                      `🛸 *$$cassino corrida [valor]*`;
+                                      `🚀 */cassino apostar [valor] [mult]*\n` +
+                                      `💀 */cassino roleta [valor]*\n` +
+                                      `🃏 */cassino 21 [valor] [2 a 21]*\n` +
+                                      `🛸 */cassino corrida [valor]*`;
                     return client.sendMessage(chatId, menuCassino, { sendSeen: false });
                 }
 
@@ -1469,7 +1497,7 @@ Sua ideia pode fazer parte das próximas atualizações!`;
                         }
                         break;
 
-                    case '$$roleta':
+                    case 'roleta':
                         if (Math.floor(Math.random() * 6) === 0) {
                             const perdaFatal = Math.floor(player.coins * 0.8);
                             await User.updateOne({ userId: senderId, groupId: chatId }, { $inc: { coins: -perdaFatal } });
@@ -1481,7 +1509,7 @@ Sua ideia pode fazer parte das próximas atualizações!`;
                         }
                         break;
 
-                    case '$$21':
+                    case '21':
                         const alvo = parseInt(parametroExtra);
                         if (isNaN(alvo) || alvo < 2 || alvo > 21) {
                             return client.sendMessage(chatId, "🃏 Escolha um alvo entre 2 e 21!\nEx: *$$cassino 21 100 18*", { sendSeen: false });
@@ -1504,7 +1532,7 @@ Sua ideia pode fazer parte das próximas atualizações!`;
                         }
                         break;
 
-                    case '$$corrida':
+                    case 'corrida':
                         const naves = ["🚀", "🛸", "🛰️", "✈️"];
                         const minhaNave = naves[Math.floor(Math.random() * naves.length)];
                         client.sendMessage(chatId, `🏁 Sua nave ${minhaNave} entrou na pista! Aguarde o resultado...`, { sendSeen: false });
@@ -1538,7 +1566,7 @@ Sua ideia pode fazer parte das próximas atualizações!`;
             }
             break;
             
-        case '$$divorciar':
+        case '/divorciar':
             try {
                 const chatId = msg.from.toString();
                 const senderId = senderRaw.toString();
@@ -1570,7 +1598,7 @@ Sua ideia pode fazer parte das próximas atualizações!`;
             }
             break;
 
-        case '$$aceitard':
+        case '/aceitard':
             try {
                 const chatId = msg.from.toString();
                 const aceitanteId = senderRaw.toString();
@@ -1618,8 +1646,8 @@ Sua ideia pode fazer parte das próximas atualizações!`;
             }
             break;
 
-        case '$$casais':
-        case '$$listacasal':
+        case '/casais':
+        case '/listacasal':
             try {
                 const chatId = msg.from.toString();
 
@@ -1676,7 +1704,7 @@ Sua ideia pode fazer parte das próximas atualizações!`;
             }
             break;
 
-        case '$$solteiros':
+        case '/solteiros':
             try {
                 const chatId = msg.from.toString();
 
@@ -1730,7 +1758,7 @@ Sua ideia pode fazer parte das próximas atualizações!`;
             }
             break;
 
-         case '$$banblack':
+         case '/banblack':
             // 1. Checagens de Segurança
             if (!isAdmin) return; 
             const chatId = msg.from.toString();
@@ -1784,7 +1812,7 @@ Sua ideia pode fazer parte das próximas atualizações!`;
             }
             break;
 
-        case '$$unbanblack':
+        case '/unbanblack':
             if (!isAdmin) return;
 
             try {
@@ -1836,7 +1864,7 @@ Sua ideia pode fazer parte das próximas atualizações!`;
             }
             break;
 
-           case '$$blacklist':
+           case '/blacklist':
             if (!isAdmin) return;
 
             try {
@@ -1884,7 +1912,7 @@ Sua ideia pode fazer parte das próximas atualizações!`;
             }
             break;
 
-         case '$$resumir':
+         case '/resumir':
             if (!isGroup) return; // Silencioso se não for grupo
 
             try {
@@ -1944,9 +1972,9 @@ Sua ideia pode fazer parte das próximas atualizações!`;
             }
             break;
 
-        case '$$chutar':
-        case '$$tapa':
-        case '$$abraçar':
+        case '/chutar':
+        case '/tapa':
+        case '/abraçar':
             try {
                 const chatId = msg.from.toString();
                 const mencoes = msg.mentionedIds;
@@ -1967,9 +1995,9 @@ Sua ideia pode fazer parte das próximas atualizações!`;
 
                 // 2. Mapeamento de Ações (Ajustado para aceitar o comando com ou sem $$)
                 const acoes = {
-                    '$$chutar': { emoji: '👟', frase: 'deu um chute em' },
-                    '$$tapa': { emoji: '🖐️', frase: 'deu um tapa em' },
-                    '$$abraçar': { emoji: '🫂', frase: 'deu um abraço apertado em' },
+                    '/chutar': { emoji: '👟', frase: 'deu um chute em' },
+                    '/tapa': { emoji: '🖐️', frase: 'deu um tapa em' },
+                    '/abraçar': { emoji: '🫂', frase: 'deu um abraço apertado em' },
                 };
 
                 // Pega a configuração baseada no comando disparado
@@ -1996,7 +2024,7 @@ Sua ideia pode fazer parte das próximas atualizações!`;
             }
             break;
 
-           case '$$beijar':
+           case '/beijar':
             try {
                 const chatId = msg.from.toString();
                 const mencoes = msg.mentionedIds;
@@ -2058,7 +2086,7 @@ Sua ideia pode fazer parte das próximas atualizações!`;
             }
             break;
 
-            case '$$missão':
+            case '/missão':
             try {
                 const chatId = msg.from.toString();
                 const autorId = String(senderRaw).trim();
@@ -2156,6 +2184,44 @@ case '$$dupla':
     }
     break;
 
+            case '/id':
+    try {
+        const chatId = msg.from.toString();
+        
+        // Verifica se há alguém mencionado ou se é resposta a uma mensagem
+        let targetId;
+        if (msg.hasQuotedMsg) {
+            const quotedMsg = await msg.getQuotedMessage();
+            targetId = quotedMsg.author || quotedMsg.from;
+        } else if (msg.mentionedIds.length > 0) {
+            targetId = msg.mentionedIds[0];
+        } else {
+            return client.sendMessage(chatId, "❓ *ERRO:* Marque alguém ou responda a uma mensagem para ver o ID.");
+        }
+
+        // Busca os dados no MongoDB
+        const targetData = await User.findOne({ userId: targetId, groupId: chatId });
+
+        if (!targetData) {
+            return client.sendMessage(chatId, `⚠️ Usuário @${targetId.split('@')[0]} não encontrado no banco de dados deste grupo.`, {
+                mentions: [targetId]
+            });
+        }
+
+        // Monta a resposta
+        const infoMsg = `🆔 *INFORMAÇÕES DO USUÁRIO*\n\n` +
+                        `👤 *User ID:* \`${targetData.userId}\`\n` +
+                        `👥 *Group ID:* \`${targetData.groupId}\`\n` +
+                        `💍 *Casado com:* ${targetData.marriedWith ? `\`${targetData.marriedWith}\`` : "_Ninguém_"}`;
+
+        await client.sendMessage(chatId, infoMsg);
+
+    } catch (e) {
+        console.error("❌ ERRO NO COMANDO /ID:", e);
+        client.sendMessage(msg.from.toString(), "⚠️ Erro ao buscar ID do usuário.");
+    }
+    break;
+            
    } // Fim do switch(command) ou switch(jogo)
         } catch (e) {
             console.error(e);
