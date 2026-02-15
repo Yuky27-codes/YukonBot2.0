@@ -2,7 +2,7 @@ const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const fs = require('fs-extra');
 const path = require('path');
-const mongoose = require('mongoose');
+const mongoURL = "mongodb+srv://admin:QxnFzNxmqxkLqV3@cluster0.4wymucf.mongodb.net/test?retryWrites=true&w=majority";
 const ffmpeg = require('fluent-ffmpeg');
 const Groq = require("groq-sdk");
 require('events').EventEmitter.defaultMaxListeners = 100;
