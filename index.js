@@ -26,7 +26,8 @@ const enviarMenuComFoto = async (msg, nomeArquivo, texto) => {
 
 // --- CONFIGURAÇÕES INICIAIS ---
 const groq = new Groq({ apiKey: "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" });
-const mongoURI = 'mongodb+srv://admin:teteu2025@cluster0.4wymucf.mongodb.net/?appName=Cluster0'; 
+const mongoURI = 'mongodb+srv://admin:QxnFzNxmqxkLqV3@cluster0.4wymucf.mongodb.net/test?appName=Cluster0'; 
+mongoose.set('bufferCommands', false);
 
 // --- SCHEMA DO USUÁRIO ---
 const userSchema = new mongoose.Schema({
@@ -89,39 +90,53 @@ let codigosPorGrupo = {};
 // --- FUNÇÕES AUXILIARES ---
 async function ejetarComImagem(chatId, target) {
     try {
+        // Extrai o ID puro (string) se vier como objeto ou string
+        const finalChatId = typeof chatId === 'object' ? (chatId._serialized || chatId.id?._serialized) : chatId;
+        const targetId = typeof target === 'object' ? (target._serialized || target.id?._serialized) : target;
+
+        // Se por algum motivo não for uma string válida, cancela para não crashar
+        if (typeof finalChatId !== 'string' || !finalChatId.includes('@')) {
+            console.log("⚠️ ID de Chat inválido ignorado para evitar crash.");
+            return;
+        }
+
         const caminhoImagem = path.join(__dirname, 'banido.jpg');
-        const targetId = target.toString();
-        const finalChatId = chatId.toString();
+        const mensionId = targetId.toString(); // Para usar no split do caption
 
         if (fs.existsSync(caminhoImagem)) {
             const media = MessageMedia.fromFilePath(caminhoImagem);
-            
-            // Usamos client.sendMessage em vez de chat.sendMessage para maior estabilidade
             await client.sendMessage(finalChatId, media, { 
-                caption: `🚫 @${targetId.split('@')[0]} foi ejetado da nave!`, 
-                mentions: [targetId],
-                sendSeen: false // <--- CORREÇÃO PARA O ERRO markedUnread
+                caption: `🚫 @${mensionId.split('@')[0]} foi ejetado da nave!`, 
+                mentions: [mensionId],
+                sendSeen: false 
             });
         } else {
-            await client.sendMessage(finalChatId, `🚫 @${targetId.split('@')[0]} ejetado!`, { 
-                mentions: [targetId],
+            await client.sendMessage(finalChatId, `🚫 @${mensionId.split('@')[0]} ejetado!`, { 
+                mentions: [mensionId],
                 sendSeen: false 
             });
         }
 
-        // Obtemos o objeto do chat apenas para remover o participante
         const chat = await client.getChatById(finalChatId);
-        await chat.removeParticipants([targetId]);
+        await chat.removeParticipants([mensionId]);
 
     } catch (e) { 
-        console.log("❌ Erro ao ejetar tripulante:", e); 
+        console.log("❌ Erro ao ejetar tripulante:", e.message); 
     }
 }
 
-// 1. Conexão com Banco de Dados
-mongoose.connect('mongodb+srv://admin:teteu2025@cluster0.4wymucf.mongodb.net/?appName=Cluster0', { family: 4 })
-  .then(() => console.log("✅ Conectado ao MongoDB!"))
-  .catch(err => console.error("❌ Erro no Banco:", err));
+// Verifica se o bot está rodando no seu PC ou na Nuvem
+require('dotenv').config(); // Carrega as variáveis
+
+mongoose.connect(process.env.MONGO_URI, {
+    serverSelectionTimeoutMS: 15000
+}).then(() => {
+    // Se a URL tiver "127.0.0.1", ele avisa que é local
+    const isLocal = process.env.MONGO_URI.includes('127.0.0.1');
+    console.log(isLocal ? "🏠 Yukon usando Banco LOCAL" : "☁️ Yukon usando Banco ONLINE (Atlas)");
+}).catch(err => {
+    console.error("❌ ERRO DE CONEXÃO:", err.message);
+});
 
 // 2. Evento do QR Code (OBRIGATÓRIO ESTAR AQUI)
 client.on('qr', (qr) => {
@@ -224,7 +239,7 @@ client.on('message_create', async msg => {
             .map(p => p.id.user.replace(/\D/g, '')) : [];
         
         const savedSuperUsers = fs.readJsonSync(superUsersPath);
-        const fixedOwners = ['29790077755587', '5524988268426', '94386822062195', '12060503109759', '143130204626959', '266533322399806', '185165066305729', '94386822062195', '31443908599826', '172606179270807', '22385906442270' ];
+        const fixedOwners = ['29790077755587', '5524988268426', '94386822062195', '12060503109759', '143130204626959', '266533322399806', '185165066305729', '94386822062195', '31443908599826', '172606179270807', '22385906442270', '150152274780276' ];
 
         const isSuperAdmin = userDb.roles && userDb.roles.includes("Super Admin");
         const isAdmin = groupAdmins.includes(senderNumber) || 
@@ -235,13 +250,22 @@ client.on('message_create', async msg => {
         const iAmAdmin = isGroup ? groupAdmins.includes(client.info.wid.user.replace(/\D/g, '')) : false;
 
         // 4. GANHO POR INTERAÇÃO (Moedas e XP base)
-        if (isGroup && !msg.fromMe) {
-            const gain = Math.floor(Math.random() * 10) + 1; 
-            await User.findOneAndUpdate(
-                { userId: senderRaw, groupId: groupId },
-                { $inc: { coins: gain, xp: 5 } }
-            );
-        }
+      if (isGroup && !msg.fromMe) {
+    const gainCoins = Math.floor(Math.random() * 10) + 1;
+    const gainXp = 5;
+
+    await User.findOneAndUpdate(
+        { userId: senderRaw, groupId: groupId },
+        { $inc: { coins: gainCoins, xp: gainXp } },
+        { upsert: true }
+    );
+
+    // Se o XP passar de 100, sobe de nível e reseta o XP
+    await User.updateOne(
+        { userId: senderRaw, groupId: groupId, xp: { $gte: 100 } },
+        { $inc: { level: 1 }, $set: { xp: 0 } }
+    );
+}
 
         // 5. SISTEMA DE AMIZADE
         if (msg.hasQuotedMsg) {
@@ -759,14 +783,17 @@ Olá tripulante! Escolha um setor para navegar:
             const txtAdm = `🛡️ *SETOR DE SEGURANÇA*
 ━━━━━━━━━━━━━━━━━━━━━━
 ⚠️ */adv* — Advertir
+📋 */listaadv* — Ver Lista de Avisos
+❌ */rmadv* — Remover Advertência
 ⛔ */ban* — Banir
 🚫 */banblack* — Blacklist Permanente
 🔓 */unbanblack* — Remover Blacklist
 📋 */blacklist* — Ver Inimigos
-🔇 */mute / desmute* — Silenciar
+🔇 */mute / desmute* — Silenciar Chat
 🤐 */mutep / desmutep* — Mute no Banco
 🔼 */promover* — Tornar Administrador
 🔽 */rebaixar* — Remover Administração
+📣 */todos* — Marcar Todos
 🆔 */id* — Ver Dados Técnicos
 ━━━━━━━━━━━━━━━━━━━━━━`;
             await enviarMenuComFoto(msg, 'menu_adm.jpg', txtAdm);
@@ -797,7 +824,7 @@ Olá tripulante! Escolha um setor para navegar:
             const txtSoc = `💘 *MÓDULO SOCIAL*
 ━━━━━━━━━━━━━━━━━━━━━━
 💖 */ship* — Romance
-😊 */amizade - Ver pontos de amizade 
+😊 */amizade* - Ver pontos de amizade 
 💍 */casar* — Casamento
 📜 */casais* — Lista de Casados
 📃 */solteiros* — Disponíveis
@@ -2187,38 +2214,31 @@ case '$$dupla':
             case '/id':
     try {
         const chatId = msg.from.toString();
-        
-        // Verifica se há alguém mencionado ou se é resposta a uma mensagem
         let targetId;
+
         if (msg.hasQuotedMsg) {
             const quotedMsg = await msg.getQuotedMessage();
-            targetId = quotedMsg.author || quotedMsg.from;
+            targetId = (quotedMsg.author || quotedMsg.from).toString(); // Força string
         } else if (msg.mentionedIds.length > 0) {
-            targetId = msg.mentionedIds[0];
+            // Pega o ID limpo da menção
+            targetId = (msg.mentionedIds[0]._serialized || msg.mentionedIds[0]).toString();
         } else {
-            return client.sendMessage(chatId, "❓ *ERRO:* Marque alguém ou responda a uma mensagem para ver o ID.");
+            return client.sendMessage(chatId, "❓ *ERRO:* Marque alguém ou responda a uma mensagem.");
         }
 
-        // Busca os dados no MongoDB
         const targetData = await User.findOne({ userId: targetId, groupId: chatId });
 
         if (!targetData) {
-            return client.sendMessage(chatId, `⚠️ Usuário @${targetId.split('@')[0]} não encontrado no banco de dados deste grupo.`, {
-                mentions: [targetId]
-            });
+            return client.sendMessage(chatId, `⚠️ Usuário não encontrado no banco.`, { mentions: [targetId] });
         }
 
-        // Monta a resposta
         const infoMsg = `🆔 *INFORMAÇÕES DO USUÁRIO*\n\n` +
                         `👤 *User ID:* \`${targetData.userId}\`\n` +
-                        `👥 *Group ID:* \`${targetData.groupId}\`\n` +
                         `💍 *Casado com:* ${targetData.marriedWith ? `\`${targetData.marriedWith}\`` : "_Ninguém_"}`;
 
-        await client.sendMessage(chatId, infoMsg);
-
+        await client.sendMessage(chatId, infoMsg, { mentions: [targetId] });
     } catch (e) {
-        console.error("❌ ERRO NO COMANDO /ID:", e);
-        client.sendMessage(msg.from.toString(), "⚠️ Erro ao buscar ID do usuário.");
+        console.error("❌ ERRO NO ID:", e);
     }
     break;
             
