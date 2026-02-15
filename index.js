@@ -1,40 +1,36 @@
 require('dotenv').config();
 const mongoose = require('mongoose');
-mongoose.set('bufferCommands', false); 
 const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const fs = require('fs-extra');
 const path = require('path');
-const mongoURL = "mongodb+srv://admin:QxnFzNxmqxkLqV3@cluster0.4wymucf.mongodb.net/test?retryWrites=true&w=majority";
 const ffmpeg = require('fluent-ffmpeg');
 const Groq = require("groq-sdk");
-require('events').EventEmitter.defaultMaxListeners = 100;
 
-// COLOQUE ISSO NO TOPO DO ARQUIVO (após os requires)
-const enviarMenuComFoto = async (msg, nomeArquivo, texto) => {
-    const caminho = path.join(__dirname, nomeArquivo);
-    try {
-        if (fs.existsSync(caminho)) {
-            const media = MessageMedia.fromFilePath(caminho);
-            await client.sendMessage(msg.from, media, { caption: texto, sendSeen: false });
-        } else {
-            console.log(`⚠️ Aviso: Imagem ${nomeArquivo} não encontrada. Enviando apenas texto.`);
-            await client.sendMessage(msg.from, texto, { sendSeen: false });
-        }
-    } catch (e) {
-        console.error(`❌ Erro ao enviar menu ${nomeArquivo}:`, e);
-        await client.sendMessage(msg.from, texto, { sendSeen: false });
-    }
-};
+// --- 1. CONFIGURAÇÃO DO BANCO (UNIFICADA) ---
+// Se houver variável no painel da Square, ele usa ela. Se não, usa o link direto que coloquei abaixo.
+const linkBanco = process.env.MONGO_URI || "mongodb+srv://admin:QxnFzNxmqxkLqV3@cluster0.4wymucf.mongodb.net/test?retryWrites=true&w=majority";
 
-// --- CONFIGURAÇÕES INICIAIS ---
-const groq = new Groq({ apiKey: "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" });
-const mongoURI = 'mongodb+srv://admin:QxnFzNxmqxkLqV3@cluster0.4wymucf.mongodb.net/test?appName=Cluster0'; 
 mongoose.set('bufferCommands', false);
 
-// --- SCHEMA DO USUÁRIO ---
+// --- 2. CONEXÃO COM O MONGODB ---
+mongoose.connect(linkBanco, {
+    serverSelectionTimeoutMS: 15000
+}).then(() => {
+    const isLocal = linkBanco.includes('127.0.0.1');
+    console.log(isLocal ? "🏠 Yukon usando Banco LOCAL" : "☁️ Yukon usando Banco ONLINE (Atlas)");
+    
+    // O BOT SÓ LIGA DEPOIS QUE O BANCO CONECTAR
+    console.log("🚀 Iniciando YukonBot...");
+    client.initialize();
+}).catch(err => {
+    console.error("❌ ERRO CRÍTICO DE CONEXÃO NO BANCO:", err.message);
+    console.log("O bot não será iniciado para evitar erros de 'findOne'.");
+});
+
+// --- 3. SCHEMAS ---
 const userSchema = new mongoose.Schema({
-    userId: { type: String, required: true }, // Removi o unique daqui
+    userId: { type: String, required: true },
     groupId: { type: String, required: true },
     coins: { type: Number, default: 0 },
     xp: { type: Number, default: 0 },
@@ -48,9 +44,7 @@ const userSchema = new mongoose.Schema({
     isBlacklisted: { type: Boolean, default: false },
     lastDaily: { type: Date },
 });
-
 userSchema.index({ userId: 1, groupId: 1 }, { unique: true });
-
 const User = mongoose.model('User', userSchema);
 
 const messageSchema = new mongoose.Schema({
@@ -59,52 +53,54 @@ const messageSchema = new mongoose.Schema({
     body: { type: String, required: true },
     timestamp: { type: Date, default: Date.now }
 });
-
 const GroupMessage = mongoose.model('GroupMessage', messageSchema);
-// ---------------------------------
 
-// --- CONFIGURAÇÃO DE ARQUIVOS E IDs ---
-const ignorados = ['@lid', '@lid'];
-const superUsersPath = path.join(__dirname, 'database', 'superusers.json');
-
-fs.ensureDirSync(path.join(__dirname, 'database'));
-if (!fs.existsSync(superUsersPath)) fs.writeJsonSync(superUsersPath, []);
-
+// --- 4. CONFIGURAÇÃO DO CLIENTE WHATSAPP ---
 const client = new Client({
-    authStrategy: new LocalAuth({
-        clientId: "sessao_cliente_yukon"
-    }),
+    authStrategy: new LocalAuth({ clientId: "sessao_cliente_yukon" }),
     webVersionCache: {
         type: 'remote',
         remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version-historical/plugin/sample/6.2.0.html'
     },
     puppeteer: {
         headless: true,
-        args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage'
-        ]
+        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
     }
 });
 
-let codigosPorGrupo = {};
+// --- 5. EVENTOS DO CLIENTE ---
+client.on('qr', (qr) => {
+    qrcode.generate(qr, { small: true });
+    console.log("📸 Escaneie o QR Code acima!");
+});
 
-// --- FUNÇÕES AUXILIARES ---
+client.on('ready', () => {
+    console.log('✅ YukonBot está online e operante!');
+});
+
+// --- 6. FUNÇÕES AUXILIARES ---
+const enviarMenuComFoto = async (msg, nomeArquivo, texto) => {
+    const caminho = path.join(__dirname, nomeArquivo);
+    try {
+        if (fs.existsSync(caminho)) {
+            const media = MessageMedia.fromFilePath(caminho);
+            await client.sendMessage(msg.from, media, { caption: texto, sendSeen: false });
+        } else {
+            await client.sendMessage(msg.from, texto, { sendSeen: false });
+        }
+    } catch (e) {
+        await client.sendMessage(msg.from, texto, { sendSeen: false });
+    }
+};
+
 async function ejetarComImagem(chatId, target) {
     try {
-        // Extrai o ID puro (string) se vier como objeto ou string
         const finalChatId = typeof chatId === 'object' ? (chatId._serialized || chatId.id?._serialized) : chatId;
         const targetId = typeof target === 'object' ? (target._serialized || target.id?._serialized) : target;
-
-        // Se por algum motivo não for uma string válida, cancela para não crashar
-        if (typeof finalChatId !== 'string' || !finalChatId.includes('@')) {
-            console.log("⚠️ ID de Chat inválido ignorado para evitar crash.");
-            return;
-        }
+        if (typeof finalChatId !== 'string' || !finalChatId.includes('@')) return;
 
         const caminhoImagem = path.join(__dirname, 'banido.jpg');
-        const mensionId = targetId.toString(); // Para usar no split do caption
+        const mensionId = targetId.toString();
 
         if (fs.existsSync(caminhoImagem)) {
             const media = MessageMedia.fromFilePath(caminhoImagem);
@@ -113,45 +109,11 @@ async function ejetarComImagem(chatId, target) {
                 mentions: [mensionId],
                 sendSeen: false 
             });
-        } else {
-            await client.sendMessage(finalChatId, `🚫 @${mensionId.split('@')[0]} ejetado!`, { 
-                mentions: [mensionId],
-                sendSeen: false 
-            });
         }
-
         const chat = await client.getChatById(finalChatId);
         await chat.removeParticipants([mensionId]);
-
-    } catch (e) { 
-        console.log("❌ Erro ao ejetar tripulante:", e.message); 
-    }
+    } catch (e) { console.log("❌ Erro ao ejetar:", e.message); }
 }
-
-// Verifica se o bot está rodando no seu PC ou na Nuvem
-require('dotenv').config(); // Carrega as variáveis
-
-mongoose.connect(process.env.MONGO_URI, {
-    serverSelectionTimeoutMS: 15000
-}).then(() => {
-    // Se a URL tiver "127.0.0.1", ele avisa que é local
-    const isLocal = process.env.MONGO_URI.includes('127.0.0.1');
-    console.log(isLocal ? "🏠 Yukon usando Banco LOCAL" : "☁️ Yukon usando Banco ONLINE (Atlas)");
-}).catch(err => {
-    console.error("❌ ERRO DE CONEXÃO:", err.message);
-});
-
-// 2. Evento do QR Code (OBRIGATÓRIO ESTAR AQUI)
-client.on('qr', (qr) => {
-    console.log('qr'); // Isso confirma que o evento disparou
-    qrcode.generate(qr, { small: true });
-    console.log("🚀 YukonBot: Escaneie o QR Code acima para iniciar a missão!");
-});
-
-// 3. Evento de Pronto
-client.on('ready', () => {
-    console.log('✅ YukonBot está online e operante!');
-});
 
 // 4. Inicialização (DEVE SER A ÚLTIMA LINHA)
 client.initialize();
