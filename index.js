@@ -1,3 +1,6 @@
+require('dotenv').config();
+const mongoose = require('mongoose');
+mongoose.set('bufferCommands', false); 
 const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
 const fs = require('fs-extra');
