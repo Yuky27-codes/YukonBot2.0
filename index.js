@@ -10,6 +10,7 @@ const cron = require('node-cron');
 
 // --- 1. CONFIGURAÇÃO DE CAMINHOS (USANDO VAR PARA GARANTIR ESCOPO GLOBAL) ---
 global.superUsersPath = path.join(__dirname, 'database', 'superusers.json');
+const superUsersPath = global.superUsersPath;
 if (!fs.existsSync(path.join(__dirname, 'database'))) {
     fs.mkdirSync(path.join(__dirname, 'database'), { recursive: true });
 }
