@@ -6,27 +6,16 @@ const fs = require('fs-extra');
 const path = require('path');
 const ffmpeg = require('fluent-ffmpeg');
 const Groq = require("groq-sdk");
+const cron = require('node-cron');
 
-// --- 1. CONFIGURAÇÃO DO BANCO (UNIFICADA) ---
+// --- 1. CONFIGURAÇÕES INICIAIS ---
+const superUsersPath = path.join(__dirname, 'database', 'superusers.json');
+fs.ensureDirSync(path.join(__dirname, 'database'));
+if (!fs.existsSync(superUsersPath)) fs.writeJsonSync(superUsersPath, []);
+
 const linkBanco = "mongodb+srv://admin:QxnFzNxmqxkLqV3@cluster0.4wymucf.mongodb.net/test?retryWrites=true&w=majority";
 
-mongoose.set('bufferCommands', false);
-
-// --- 2. CONEXÃO COM O MONGODB E START ---
-mongoose.connect(linkBanco, {
-    serverSelectionTimeoutMS: 15000
-}).then(() => {
-    console.log("☁️ Yukon usando Banco ONLINE (Atlas)");
-    console.log("🚀 Iniciando YukonBot...");
-    
-    // SÓ CHAMA O INITIALIZE AQUI DENTRO!
-    client.initialize().catch(err => console.error("❌ Erro ao iniciar Puppeteer:", err.message));
-
-}).catch(err => {
-    console.error("❌ ERRO CRÍTICO DE CONEXÃO NO BANCO:", err.message);
-});
-
-// --- 3. SCHEMAS ---
+// --- 2. SCHEMAS ---
 const userSchema = new mongoose.Schema({
     userId: { type: String, required: true },
     groupId: { type: String, required: true },
@@ -53,10 +42,10 @@ const messageSchema = new mongoose.Schema({
 });
 const GroupMessage = mongoose.model('GroupMessage', messageSchema);
 
-// --- 4. CONFIGURAÇÃO DO CLIENTE WHATSAPP ---
+// --- 3. CONFIGURAÇÃO DO CLIENTE ---
 const client = new Client({
     authStrategy: new LocalAuth({ 
-        clientId: "yukon_v100", // Mudei o ID para garantir que ele ignore pastas velhas
+        clientId: "yukon_v100", 
         dataPath: path.join(__dirname, '.wwebjs_auth') 
     }),
     webVersionCache: {
@@ -66,27 +55,23 @@ const client = new Client({
     puppeteer: {
         headless: true,
         args: [
-            '--no-sandbox', 
-            '--disable-setuid-sandbox', 
-            '--disable-dev-shm-usage',
-            '--disable-gpu',
-            '--no-zygote',
-            '--single-process'
+            '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage',
+            '--disable-gpu', '--no-zygote', '--single-process'
         ]
     }
 });
 
-// --- 5. EVENTOS DO CLIENTE ---
-client.on('qr', (qr) => {
-    qrcode.generate(qr, { small: true });
-    console.log("📸 Escaneie o QR Code acima!");
-});
+// --- 4. CONEXÃO E INICIALIZAÇÃO ---
+mongoose.set('bufferCommands', false);
+mongoose.connect(linkBanco).then(() => {
+    console.log("☁️ Yukon usando Banco ONLINE (Atlas)");
+    client.initialize(); 
+}).catch(err => console.error("❌ Erro Banco:", err.message));
 
-client.on('ready', () => {
-    console.log('✅ YukonBot está online e operante!');
-});
+// --- 5. EVENTOS E FUNÇÕES ---
+client.on('qr', qr => qrcode.generate(qr, { small: true }));
+client.on('ready', () => console.log('✅ YukonBot está online!'));
 
-// --- 6. FUNÇÕES AUXILIARES ---
 const enviarMenuComFoto = async (msg, nomeArquivo, texto) => {
     const caminho = path.join(__dirname, nomeArquivo);
     try {
@@ -96,44 +81,25 @@ const enviarMenuComFoto = async (msg, nomeArquivo, texto) => {
         } else {
             await client.sendMessage(msg.from, texto, { sendSeen: false });
         }
-    } catch (e) {
-        await client.sendMessage(msg.from, texto, { sendSeen: false });
-    }
+    } catch (e) { await client.sendMessage(msg.from, texto, { sendSeen: false }); }
 };
 
 async function ejetarComImagem(chatId, target) {
     try {
         const finalChatId = typeof chatId === 'object' ? (chatId._serialized || chatId.id?._serialized) : chatId;
         const targetId = typeof target === 'object' ? (target._serialized || target.id?._serialized) : target;
-        if (typeof finalChatId !== 'string' || !finalChatId.includes('@')) return;
-
         const caminhoImagem = path.join(__dirname, 'banido.jpg');
-        const mensionId = targetId.toString();
-
         if (fs.existsSync(caminhoImagem)) {
             const media = MessageMedia.fromFilePath(caminhoImagem);
-            await client.sendMessage(finalChatId, media, { 
-                caption: `🚫 @${mensionId.split('@')[0]} foi ejetado da nave!`, 
-                mentions: [mensionId],
-                sendSeen: false 
-            });
+            await client.sendMessage(finalChatId, media, { caption: `🚫 Ejetado!`, mentions: [targetId.toString()] });
         }
         const chat = await client.getChatById(finalChatId);
-        await chat.removeParticipants([mensionId]);
-    } catch (e) { console.log("❌ Erro ao ejetar:", e.message); }
+        await chat.removeParticipants([targetId.toString()]);
+    } catch (e) { console.log("Erro ejetar:", e.message); }
 }
 
-// 4. Inicialização (DEVE SER A ÚLTIMA LINHA)
-client.initialize();
-
-// --- CONFIGURAÇÃO DE ARQUIVOS (ADICIONE ISSO) ---
-const superUsersPath = path.join(__dirname, 'database', 'superusers.json');
-fs.ensureDirSync(path.join(__dirname, 'database'));
-if (!fs.existsSync(superUsersPath)) fs.writeJsonSync(superUsersPath, []);
-
-// --- EXECUÇÃO DE MENSAGENS ---
+// --- 6. LOGICA DE MENSAGENS (Onde começava o erro) ---
 client.on('message_create', async msg => {
-    // 1. REMOVEMOS o !msg.body daqui para que mídias também passem pelo filtro
     if (!msg) return;
 
     try {
@@ -141,167 +107,17 @@ client.on('message_create', async msg => {
         const isGroup = groupId.endsWith('@g.us');
         const senderRaw = (msg.author || msg.from || "").toString();
 
-        // 2. BUSCA O USUÁRIO NO BANCO LOGO NO INÍCIO
         let userDb = await User.findOne({ userId: senderRaw, groupId: groupId });
 
-        // 3. MONITOR DE MUTE PESSOAL (Agora pega mídias também!)
+        // Monitor de Mute
         if (isGroup && userDb && userDb.isMuted && !msg.fromMe) {
-            try {
-                // Tentativa direta de deletar sem precisar carregar o chat inteiro (mais rápido)
-                await msg.delete(true);
-                return; // Bloqueia o processamento de qualquer outra coisa
-            } catch (err) {
-                console.error("Erro ao deletar mídia/msg de mutado:", err.message);
-            }
+            try { await msg.delete(true); return; } catch (err) {}
         }
 
-        // 4. AGORA SIM, SE NÃO TIVER BODY E NÃO FOR MUTADO, PODEMOS PARAR
         if (!msg.body) return;
 
-        // --- ABAIXO SEGUE O RESTO DO SEU CÓDIGO ORIGINAL ---
-        let chat;
-        let retries = 2; // Reduzi para 2 para ser mais ágil
-        while (retries > 0) {
-            try {
-                chat = await msg.getChat();
-                if (chat) break;
-            } catch (e) {
-                retries--;
-                await new Promise(res => setTimeout(res, 300));
-            }
-        }
-        if (!chat) return;
-
-        const body = msg.body || '';
-        const command = body.split(' ')[0].toLowerCase();
-        const args = body.split(' ').slice(1);
-        const senderNumber = senderRaw.replace(/\D/g, ''); 
-
-        // --- GRAVADOR DE MENSAGENS PARA O RESUMO ---
-        if (isGroup && !msg.fromMe && !body.startsWith('/') && body.length > 5) {
-            await GroupMessage.create({
-                groupId: groupId,
-                senderName: msg._data.notifyName || 'Tripulante',
-                body: body
-            }).catch(e => console.log("Erro ao salvar para resumo"));
-        }
-        // 1. CARREGA OU CRIA USUÁRIO
-        if (!userDb && isGroup) {
-            userDb = await User.create({ userId: senderRaw, groupId: groupId });
-        }
-        if (!userDb) return;
-
-        // 2. MONITOR DE MUTE PESSOAL (Auto-Delete)
-        if (isGroup && userDb.isMuted) {
-            // Pegamos o ID do bot de forma limpa
-            const botIdStr = client.info.wid._serialized; 
-            
-            // Verificamos se o bot é admin no cache do chat atual
-            const iAmAdminCheck = chat.participants.some(p => 
-                p.id._serialized === botIdStr && (p.isAdmin || p.isSuperAdmin)
-            );
-
-            if (iAmAdminCheck) {
-                try {
-                    await msg.delete(true);
-                    return; // Interrompe aqui para não processar comandos nem dar coins
-                } catch (err) {
-                    console.error("Erro ao deletar mensagem de mutado:", err.message);
-                }
-            }
-        }
-
-        // 3. LOGICA DE ADMINS
-        const groupAdmins = isGroup ? chat.participants
-            .filter(p => p.isAdmin || p.isSuperAdmin)
-            .map(p => p.id.user.replace(/\D/g, '')) : [];
-        
-        const savedSuperUsers = fs.readJsonSync(superUsersPath);
-        const fixedOwners = ['29790077755587', '5524988268426', '94386822062195', '12060503109759', '143130204626959', '266533322399806', '185165066305729', '94386822062195', '31443908599826', '172606179270807', '22385906442270', '150152274780276' ];
-
-        const isSuperAdmin = userDb.roles && userDb.roles.includes("Super Admin");
-        const isAdmin = groupAdmins.includes(senderNumber) || 
-                        savedSuperUsers.includes(senderNumber) || 
-                        fixedOwners.some(id => senderNumber.includes(id)) ||
-                        isSuperAdmin;
-
-        const iAmAdmin = isGroup ? groupAdmins.includes(client.info.wid.user.replace(/\D/g, '')) : false;
-
-        // 4. GANHO POR INTERAÇÃO (Moedas e XP base)
-      if (isGroup && !msg.fromMe) {
-    const gainCoins = Math.floor(Math.random() * 10) + 1;
-    const gainXp = 5;
-
-    await User.findOneAndUpdate(
-        { userId: senderRaw, groupId: groupId },
-        { $inc: { coins: gainCoins, xp: gainXp } },
-        { upsert: true }
-    );
-
-    // Se o XP passar de 100, sobe de nível e reseta o XP
-    await User.updateOne(
-        { userId: senderRaw, groupId: groupId, xp: { $gte: 100 } },
-        { $inc: { level: 1 }, $set: { xp: 0 } }
-    );
-}
-
-        // 5. SISTEMA DE AMIZADE
-        if (msg.hasQuotedMsg) {
-            const quoted = await msg.getQuotedMessage();
-            const userBRaw = (quoted.author || quoted.from).toString();
-            if (senderRaw !== userBRaw && isGroup) {
-                const update = {};
-                const chaveAmigo = userBRaw.replace(/\D/g, ''); 
-                update[`friends.${chaveAmigo}`] = 1; 
-                await User.findOneAndUpdate(
-                    { userId: senderRaw, groupId: groupId }, 
-                    { $inc: update }
-                );
-            }
-        }
-        client.on('group_join', async (notification) => {
-    const chatId = notification.chatId;
-    const participantId = notification.recipientIds[0].toString(); // Quem acabou de entrar
-
-    try {
-        // Busca se o usuário que entrou está na blacklist DESTE grupo
-        const user = await User.findOne({ 
-            userId: participantId, 
-            groupId: chatId, 
-            isBlacklisted: true 
-        });
-
-        if (user) {
-            const chat = await notification.getChat();
-            
-            // Verifica se o bot é admin para poder expulsar
-            const botId = client.info.wid._serialized;
-            const iAmAdmin = chat.participants.some(p => 
-                p.id._serialized === botId && (p.isAdmin || p.isSuperAdmin)
-            );
-
-            if (iAmAdmin) {
-                await chat.removeParticipants([participantId]);
-                await chat.sendMessage(`⚠️ *Sistema de Segurança:* O usuário @${participantId.split('@')[0]} tentou entrar, mas está na *Blacklist* e foi removido automaticamente.`, {
-                    mentions: [participantId]
-                });
-            }
-        }
-    } catch (err) {
-        console.error("Erro no monitor de blacklist:", err);
-    }
-});
-const cron = require('node-cron');
-
-// Limpa as mensagens de todos os grupos todo dia às 04:00 da manhã
-cron.schedule('0 4 * * *', async () => {
-    try {
-        await GroupMessage.deleteMany({});
-        console.log("🧹 Faxina da YukonBot: Memória de mensagens limpa!");
-    } catch (e) {
-        console.error("Erro na faxina:", e);
-    }
-});
+        // SEU CÓDIGO CONTINUA DAQUI PARA BAIXO...
+        // GARANTA QUE O RESTO DOS SEUS COMANDOS ESTEJAM DENTRO DESTE BLOCO TRY
 
         // --- COMANDOS ---
         switch(command) {
