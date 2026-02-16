@@ -58,7 +58,8 @@ const GroupMessage = mongoose.model('GroupMessage', messageSchema);
 // --- 4. CONFIGURAÇÃO DO CLIENTE WHATSAPP ---
 const client = new Client({
     authStrategy: new LocalAuth({ 
-        clientId: "yukon_nova_missao" // MUDAMOS ESSE NOME AQUI
+        clientId: "yukon_final",
+        dataPath: '/tmp/.wwebjs_auth' // Força a gravar no diretório temporário
     }),
     webVersionCache: {
         type: 'remote',
@@ -69,7 +70,8 @@ const client = new Client({
         args: [
             '--no-sandbox', 
             '--disable-setuid-sandbox', 
-            '--disable-dev-shm-usage'
+            '--disable-dev-shm-usage',
+            '--disable-gpu'
         ]
     }
 });
