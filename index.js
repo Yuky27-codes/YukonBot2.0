@@ -9,7 +9,7 @@ const Groq = require("groq-sdk");
 const cron = require('node-cron');
 
 // --- 1. CONFIGURAÇÃO DE CAMINHOS (USANDO VAR PARA GARANTIR ESCOPO GLOBAL) ---
-var superUsersPath = path.join(__dirname, 'database', 'superusers.json');
+global.superUsersPath = path.join(__dirname, 'database', 'superusers.json');
 if (!fs.existsSync(path.join(__dirname, 'database'))) {
     fs.mkdirSync(path.join(__dirname, 'database'), { recursive: true });
 }
