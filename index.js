@@ -9,6 +9,7 @@ const fs = require('fs-extra');
 const path = require('path');
 const Groq = require("groq-sdk");
 const cron = require('node-cron');
+const superUsersPath = SUPER_USERS_PATH;
 
 /***********************
  * 2. CAMINHOS FIXOS (SEM GLOBAL)
