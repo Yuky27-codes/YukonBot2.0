@@ -8,14 +8,35 @@ const ffmpeg = require('fluent-ffmpeg');
 const Groq = require("groq-sdk");
 const cron = require('node-cron');
 
-// --- 1. CONFIGURAÇÕES INICIAIS ---
-const superUsersPath = path.join(__dirname, 'database', 'superusers.json');
-fs.ensureDirSync(path.join(__dirname, 'database'));
-if (!fs.existsSync(superUsersPath)) fs.writeJsonSync(superUsersPath, []);
+// --- 1. CONFIGURAÇÃO DE CAMINHOS (USANDO VAR PARA GARANTIR ESCOPO GLOBAL) ---
+var superUsersPath = path.join(__dirname, 'database', 'superusers.json');
+if (!fs.existsSync(path.join(__dirname, 'database'))) {
+    fs.mkdirSync(path.join(__dirname, 'database'), { recursive: true });
+}
+if (!fs.existsSync(superUsersPath)) {
+    fs.writeFileSync(superUsersPath, JSON.stringify([]));
+}
 
-const linkBanco = "mongodb+srv://admin:QxnFzNxmqxkLqV3@cluster0.4wymucf.mongodb.net/test?retryWrites=true&w=majority";
+// --- 2. CONFIGURAÇÃO DO BANCO ---
+const MONGO_URI = process.env.MONGO_URI;
 
-// --- 2. SCHEMAS ---
+if (!MONGO_URI) {
+    console.error("❌ MONGO_URI não definida no ambiente");
+    process.exit(1);
+}
+
+mongoose.set('strictQuery', true);
+
+mongoose.connect(MONGO_URI, {
+    serverSelectionTimeoutMS: 15000,
+}).then(() => {
+    console.log("☁️ Yukon conectado ao MongoDB Atlas");
+}).catch(err => {
+    console.error("❌ ERRO AO CONECTAR NO MONGO:", err);
+    process.exit(1);
+});
+
+// --- 3. SCHEMAS ---
 const userSchema = new mongoose.Schema({
     userId: { type: String, required: true },
     groupId: { type: String, required: true },
@@ -42,10 +63,10 @@ const messageSchema = new mongoose.Schema({
 });
 const GroupMessage = mongoose.model('GroupMessage', messageSchema);
 
-// --- 3. CONFIGURAÇÃO DO CLIENTE ---
+// --- 4. CONFIGURAÇÃO DO CLIENTE (ID ALTERADO PARA DESTRAVAR) ---
 const client = new Client({
     authStrategy: new LocalAuth({ 
-        clientId: "yukon_v100", 
+        clientId: "yukon_final_session", // Mudei aqui para o Puppeteer abrir do zero
         dataPath: path.join(__dirname, '.wwebjs_auth') 
     }),
     webVersionCache: {
@@ -55,23 +76,27 @@ const client = new Client({
     puppeteer: {
         headless: true,
         args: [
-            '--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage',
-            '--disable-gpu', '--no-zygote', '--single-process'
+            '--no-sandbox', 
+            '--disable-setuid-sandbox', 
+            '--disable-dev-shm-usage',
+            '--disable-gpu',
+            '--no-zygote',
+            '--single-process'
         ]
     }
 });
 
-// --- 4. CONEXÃO E INICIALIZAÇÃO ---
-mongoose.set('bufferCommands', false);
-mongoose.connect(linkBanco).then(() => {
-    console.log("☁️ Yukon usando Banco ONLINE (Atlas)");
-    client.initialize(); 
-}).catch(err => console.error("❌ Erro Banco:", err.message));
+// --- 5. EVENTOS DO CLIENTE ---
+client.on('qr', (qr) => {
+    qrcode.generate(qr, { small: true });
+    console.log("📸 Escaneie o QR Code abaixo!");
+});
 
-// --- 5. EVENTOS E FUNÇÕES ---
-client.on('qr', qr => qrcode.generate(qr, { small: true }));
-client.on('ready', () => console.log('✅ YukonBot está online!'));
+client.on('ready', () => {
+    console.log('✅ YukonBot está online e operante!');
+});
 
+// --- 6. FUNÇÕES AUXILIARES ---
 const enviarMenuComFoto = async (msg, nomeArquivo, texto) => {
     const caminho = path.join(__dirname, nomeArquivo);
     try {
@@ -81,7 +106,9 @@ const enviarMenuComFoto = async (msg, nomeArquivo, texto) => {
         } else {
             await client.sendMessage(msg.from, texto, { sendSeen: false });
         }
-    } catch (e) { await client.sendMessage(msg.from, texto, { sendSeen: false }); }
+    } catch (e) {
+        await client.sendMessage(msg.from, texto, { sendSeen: false });
+    }
 };
 
 async function ejetarComImagem(chatId, target) {
@@ -89,36 +116,34 @@ async function ejetarComImagem(chatId, target) {
         const finalChatId = typeof chatId === 'object' ? (chatId._serialized || chatId.id?._serialized) : chatId;
         const targetId = typeof target === 'object' ? (target._serialized || target.id?._serialized) : target;
         const caminhoImagem = path.join(__dirname, 'banido.jpg');
+        const mensionId = targetId.toString();
+
         if (fs.existsSync(caminhoImagem)) {
             const media = MessageMedia.fromFilePath(caminhoImagem);
-            await client.sendMessage(finalChatId, media, { caption: `🚫 Ejetado!`, mentions: [targetId.toString()] });
+            await client.sendMessage(finalChatId, media, { 
+                caption: `🚫 @${mensionId.split('@')[0]} ejetado!`, 
+                mentions: [mensionId]
+            });
         }
         const chat = await client.getChatById(finalChatId);
-        await chat.removeParticipants([targetId.toString()]);
-    } catch (e) { console.log("Erro ejetar:", e.message); }
+        await chat.removeParticipants([mensionId]);
+    } catch (e) { console.log("❌ Erro ao ejetar:", e.message); }
 }
 
-// --- 6. LOGICA DE MENSAGENS (Onde começava o erro) ---
+// --- 7. INICIALIZAÇÃO ---
+console.log("🚀 Iniciando YukonBot...");
+client.initialize();
+
+// --- 8. EVENTO DE MENSAGEM (O RESTO DO SEU CÓDIGO CONTINUA AQUI) ---
 client.on('message_create', async msg => {
     if (!msg) return;
-
     try {
         const groupId = msg.from.toString();
         const isGroup = groupId.endsWith('@g.us');
         const senderRaw = (msg.author || msg.from || "").toString();
 
         let userDb = await User.findOne({ userId: senderRaw, groupId: groupId });
-
-        // Monitor de Mute
-        if (isGroup && userDb && userDb.isMuted && !msg.fromMe) {
-            try { await msg.delete(true); return; } catch (err) {}
-        }
-
-        if (!msg.body) return;
-
-        // SEU CÓDIGO CONTINUA DAQUI PARA BAIXO...
-        // GARANTA QUE O RESTO DOS SEUS COMANDOS ESTEJAM DENTRO DESTE BLOCO TRY
-
+        
         // --- COMANDOS ---
         switch(command) {
 
