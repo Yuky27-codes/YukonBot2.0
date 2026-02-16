@@ -9,10 +9,9 @@ const fs = require('fs-extra');
 const path = require('path');
 const Groq = require("groq-sdk");
 const cron = require('node-cron');
-const superUsersPath = SUPER_USERS_PATH;
 
 /***********************
- * 2. CAMINHOS FIXOS (SEM GLOBAL)
+ * 2. CAMINHOS FIXOS
  ***********************/
 const DATABASE_DIR = path.resolve(__dirname, 'database');
 const SUPER_USERS_PATH = path.join(DATABASE_DIR, 'superusers.json');
@@ -70,16 +69,8 @@ const userSchema = new mongoose.Schema({
 userSchema.index({ userId: 1, groupId: 1 }, { unique: true });
 const User = mongoose.model('User', userSchema);
 
-const messageSchema = new mongoose.Schema({
-    groupId: { type: String, required: true },
-    senderName: { type: String, default: 'Tripulante' },
-    body: { type: String, required: true },
-    timestamp: { type: Date, default: Date.now }
-});
-const GroupMessage = mongoose.model('GroupMessage', messageSchema);
-
 /***********************
- * 5. CLIENT WHATSAPP (ÚNICO)
+ * 5. CLIENT WHATSAPP
  ***********************/
 const client = new Client({
     authStrategy: new LocalAuth({
@@ -100,7 +91,23 @@ const client = new Client({
 });
 
 /***********************
- * 6. EVENTOS BÁSICOS
+ * 6. FUNÇÕES AUXILIARES
+ ***********************/
+function lerSuperUsers() {
+    try {
+        return JSON.parse(fs.readFileSync(SUPER_USERS_PATH, 'utf8'));
+    } catch {
+        return [];
+    }
+}
+
+function isAdminUser(userId) {
+    const lista = lerSuperUsers();
+    return lista.includes(userId);
+}
+
+/***********************
+ * 7. EVENTOS BÁSICOS
  ***********************/
 client.on('qr', qr => {
     console.log("📸 Escaneie o QR Code:");
@@ -112,21 +119,6 @@ client.on('ready', () => {
 });
 
 /***********************
- * 7. FUNÇÕES AUXILIARES
- ***********************/
-async function lerSuperUsers() {
-    try {
-        return JSON.parse(fs.readFileSync(SUPER_USERS_PATH, 'utf8'));
-    } catch {
-        return [];
-    }
-}
-
-async function salvarSuperUsers(lista) {
-    fs.writeFileSync(SUPER_USERS_PATH, JSON.stringify(lista, null, 2));
-}
-
-/***********************
  * 8. INICIALIZAÇÃO
  ***********************/
 console.log("🚀 Iniciando YukonBot...");
@@ -134,17 +126,16 @@ client.initialize();
 
 /***********************
  * 9. EVENTO DE MENSAGEM
- * (SEU SWITCH VEM ABAIXO)
  ***********************/
 client.on('message_create', async (msg) => {
     if (!msg || !msg.body) return;
 
     const chatId = msg.from.toString();
-    const isGroup = chatId.endsWith('@g.us');
     const senderRaw = (msg.author || msg.from || "").toString();
+    const isAdmin = isAdminUser(senderRaw);
 
     try {
-
+        
         // --- COMANDOS ---
         switch(command) {
 
