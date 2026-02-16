@@ -13,8 +13,8 @@ global.superUsersPath = path.join(__dirname, 'database', 'superusers.json');
 if (!fs.existsSync(path.join(__dirname, 'database'))) {
     fs.mkdirSync(path.join(__dirname, 'database'), { recursive: true });
 }
-if (!fs.existsSync(superUsersPath)) {
-    fs.writeFileSync(superUsersPath, JSON.stringify([]));
+if (!fs.existsSync(global.superUsersPath)) {
+    fs.writeFileSync(global.superUsersPath, JSON.stringify([]));
 }
 
 // --- 2. CONFIGURAÇÃO DO BANCO ---
@@ -67,7 +67,7 @@ const GroupMessage = mongoose.model('GroupMessage', messageSchema);
 const client = new Client({
     authStrategy: new LocalAuth({ 
         clientId: "yukon_final_session", // Mudei aqui para o Puppeteer abrir do zero
-        dataPath: path.join(__dirname, '.wwebjs_auth') 
+        dataPath: path.join(__dirname, '.wwebjs_auth_v2') 
     }),
     webVersionCache: {
         type: 'remote',
