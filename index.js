@@ -8,24 +8,22 @@ const ffmpeg = require('fluent-ffmpeg');
 const Groq = require("groq-sdk");
 
 // --- 1. CONFIGURAÇÃO DO BANCO (UNIFICADA) ---
-// Se houver variável no painel da Square, ele usa ela. Se não, usa o link direto que coloquei abaixo.
-const linkBanco = process.env.MONGO_URI || "mongodb+srv://admin:QxnFzNxmqxkLqV3@cluster0.4wymucf.mongodb.net/test?retryWrites=true&w=majority";
+const linkBanco = "mongodb+srv://admin:QxnFzNxmqxkLqV3@cluster0.4wymucf.mongodb.net/test?retryWrites=true&w=majority";
 
 mongoose.set('bufferCommands', false);
 
-// --- 2. CONEXÃO COM O MONGODB ---
+// --- 2. CONEXÃO COM O MONGODB E START ---
 mongoose.connect(linkBanco, {
     serverSelectionTimeoutMS: 15000
 }).then(() => {
-    const isLocal = linkBanco.includes('127.0.0.1');
-    console.log(isLocal ? "🏠 Yukon usando Banco LOCAL" : "☁️ Yukon usando Banco ONLINE (Atlas)");
-    
-    // O BOT SÓ LIGA DEPOIS QUE O BANCO CONECTAR
+    console.log("☁️ Yukon usando Banco ONLINE (Atlas)");
     console.log("🚀 Iniciando YukonBot...");
-    client.initialize();
+    
+    // SÓ CHAMA O INITIALIZE AQUI DENTRO!
+    client.initialize().catch(err => console.error("❌ Erro ao iniciar Puppeteer:", err.message));
+
 }).catch(err => {
     console.error("❌ ERRO CRÍTICO DE CONEXÃO NO BANCO:", err.message);
-    console.log("O bot não será iniciado para evitar erros de 'findOne'.");
 });
 
 // --- 3. SCHEMAS ---
@@ -58,8 +56,8 @@ const GroupMessage = mongoose.model('GroupMessage', messageSchema);
 // --- 4. CONFIGURAÇÃO DO CLIENTE WHATSAPP ---
 const client = new Client({
     authStrategy: new LocalAuth({ 
-        clientId: "yukon_final",
-        dataPath: '/tmp/.wwebjs_auth' // Força a gravar no diretório temporário
+        clientId: "yukon_v100", // Mudei o ID para garantir que ele ignore pastas velhas
+        dataPath: path.join(__dirname, '.wwebjs_auth') 
     }),
     webVersionCache: {
         type: 'remote',
@@ -72,9 +70,8 @@ const client = new Client({
             '--disable-setuid-sandbox', 
             '--disable-dev-shm-usage',
             '--disable-gpu',
-            '--no-first-run',
             '--no-zygote',
-            '--single-process' // Isso ajuda muito em ambientes de nuvem
+            '--single-process'
         ]
     }
 });
