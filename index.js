@@ -126,6 +126,11 @@ async function ejetarComImagem(chatId, target) {
 // 4. Inicialização (DEVE SER A ÚLTIMA LINHA)
 client.initialize();
 
+// --- CONFIGURAÇÃO DE ARQUIVOS (ADICIONE ISSO) ---
+const superUsersPath = path.join(__dirname, 'database', 'superusers.json');
+fs.ensureDirSync(path.join(__dirname, 'database'));
+if (!fs.existsSync(superUsersPath)) fs.writeJsonSync(superUsersPath, []);
+
 // --- EXECUÇÃO DE MENSAGENS ---
 client.on('message_create', async msg => {
     // 1. REMOVEMOS o !msg.body daqui para que mídias também passem pelo filtro
