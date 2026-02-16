@@ -1,6 +1,4 @@
-/***********************
- * 1. DEPENDÊNCIAS
- ***********************/
+console.log("🚨 TESTE DE ARQUIVO — SE APARECER, É ESSE INDEX 🚨");
 require('dotenv').config();
 const mongoose = require('mongoose');
 const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
