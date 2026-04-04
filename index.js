@@ -331,34 +331,8 @@ if (msg.hasQuotedMsg) {
             }
         }
 
-        // --- INÍCIO DO SWITCH DE COMANDOS (ANTIGO/LEGADO) ---
-        // Comandos que ainda não foram movidos para a pasta /commands ficam aqui
         switch (command) {
  
-            case '/sala':
-    try {
-        const chatId = msg.from.toString();
-        const chat = await msg.getChat();
-        
-        const codigoDesteGrupo = codigosPorGrupo[groupId] || "Nenhuma sala aberta.";
-
-        // --- MENSAGEM 1: O CÓDIGO (LIMPO) ---
-        await client.sendMessage(chatId, `${codigoDesteGrupo}`, { sendSeen: false });
-
-        // --- MENSAGEM 2: A MARCAÇÃO (SILENCIOSA VISUALMENTE) ---
-        // Pegamos todos os IDs dos participantes
-        const mencoesGeral = chat.participants.map(p => p.id._serialized);
-
-        // Enviamos o texto sem os '@' individuais
-        await client.sendMessage(chatId, "📢O código da sala foi gerado acima!", {
-            mentions: mencoesGeral // Aqui é onde a mágica da marcação acontece
-        });
-
-    } catch (err) {
-        console.error("Erro no /sala:", err);
-    }
-    break;
-
         case '/addsala':
             try {
                 const chatId = msg.from.toString();
