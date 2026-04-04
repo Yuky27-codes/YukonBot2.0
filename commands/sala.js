@@ -17,7 +17,7 @@ module.exports = {
                 : "🛰️ Nenhuma sala aberta no momento.";
 
             // --- MENSAGEM 1: O CÓDIGO ---
-            await client.sendMessage(chatId, `*CÓDIGO DA SALA:* \n\n${codigoDesteGrupo}`, { sendSeen: false });
+            await client.sendMessage(chatId, `\n\n${codigoDesteGrupo}`, { sendSeen: false });
 
             // --- MENSAGEM 2: A MARCAÇÃO GERAL ---
             if (chat.isGroup) {

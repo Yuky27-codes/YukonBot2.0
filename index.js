@@ -26,7 +26,7 @@ module.exports = mongoose.model('GroupMessage', GroupMessageSchema);
 // ===============================
 // VARIÁVEIS GLOBAIS DE ESTADO
 // ===============================
-const codigosPorGrupo = {};
+global.codigosPorGrupo = {};
 
 const LISTA_ADMS = [
     '143130204626959@lid', '29790077755587@lid', '270978714218641@lid', '150328603320468@lid', '22385906442270@lid', '94386822062195@lid', '172606179270807@lid', '31443908599826@lid', '185165066305729@lid', '12060503109759@lid', '150152274780276@lid'
@@ -333,24 +333,6 @@ if (msg.hasQuotedMsg) {
 
         switch (command) {
  
-        case '/addsala':
-            try {
-                const chatId = msg.from.toString();
-                const novoCodigo = args[0];
-
-                if (!novoCodigo) {
-                    return client.sendMessage(chatId, "❌ Digite o código!", { sendSeen: false });
-                }
-
-                // Salva na sua variável original
-                codigosPorGrupo[groupId] = novoCodigo.toUpperCase();
-
-                await client.sendMessage(chatId, `✅ Sala *${novoCodigo.toUpperCase()}* definida com sucesso!`, { sendSeen: false });
-            } catch (err) {
-                console.error("❌ Erro no comando addsala:", err);
-            }
-            break;
-
             case '/adv':
     try {
         // Agora usamos apenas a variável isAdmin que já está definida no message_create
