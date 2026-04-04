@@ -333,48 +333,6 @@ if (msg.hasQuotedMsg) {
 
         switch (command) {
  
-        
-          case '/listaadv':
-    try {
-        const idDoGrupo = msg.from._serialized || msg.from.toString();
-
-        // 1. Busca os usuários que têm mais de 0 ADVs no grupo atual
-        const advertidos = await User.find({ 
-            groupId: idDoGrupo, 
-            advs: { $gt: 0 } 
-        });
-
-        if (!advertidos || advertidos.length === 0) {
-            return client.sendMessage(idDoGrupo, "✅ Ninguém com advertências neste grupo.", { sendSeen: false });
-        }
-
-        let listaMsg = "📋 *LISTA DE ADVERTÊNCIAS:*\n\n";
-        let targets = [];
-
-        // 2. Monta a lista e o array de menções
-        for (const u of advertidos) {
-            const userIdStr = String(u.userId).trim(); 
-            
-            // Extrai o número antes do @ (seja @c.us ou @lid)
-            const numeroExibicao = userIdStr.split('@')[0];
-            
-            listaMsg += `• @${numeroExibicao}: *${u.advs}/3*\n`;
-            targets.push(userIdStr);
-        }
-
-        // 3. Envio usando client.sendMessage (mais estável para t.replace)
-        await client.sendMessage(idDoGrupo, listaMsg, { 
-            mentions: targets, 
-            sendSeen: false 
-        });
-
-    } catch (error) {
-        console.error("❌ ERRO NO LISTAADV:", error);
-        const idDoGrupo = msg.from._serialized || msg.from.toString();
-        client.sendMessage(idDoGrupo, "⚠️ Erro interno ao processar a lista.");
-    }
-    break;
-
            case '/todos':
     // 1. Verificação de permissão (usando sua LISTA_ADMS + superusers)
     if (!isAdmin) return msg.reply('❌ Somente cargos de comando (ADMs) podem usar este sinal.', { sendSeen: false });
