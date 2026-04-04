@@ -333,61 +333,6 @@ if (msg.hasQuotedMsg) {
 
         switch (command) {
  
-            case '/adv':
-    try {
-        // Agora usamos apenas a variável isAdmin que já está definida no message_create
-        if (!isAdmin) {
-            return msg.reply("❌ Você não tem permissão para usar este comando.", { sendSeen: false });
-        }
-
-        const chat = await msg.getChat();
-        const idDoGrupo = msg.from._serialized || msg.from.toString();
-        const meuId = client.info.wid._serialized;
-
-        // O bot ainda precisa saber se ELE é admin para poder ejetar
-        const iAmAdmin = chat.isGroup ? chat.participants.some(p => p.id._serialized === meuId && p.isAdmin) : false;
-
-        let targetAdv;
-        if (msg.hasQuotedMsg) {
-            const quoted = await msg.getQuotedMessage();
-            targetAdv = (quoted.author || quoted.from)._serialized || (quoted.author || quoted.from).toString();
-        } else if (msg.mentionedIds.length > 0) {
-            targetAdv = msg.mentionedIds[0]._serialized || msg.mentionedIds[0].toString();
-        }
-
-        if (!targetAdv) return msg.reply("❗ Marque ou responda alguém.", { sendSeen: false });
-
-        const targetStr = String(targetAdv).trim();
-
-        const userDb = await User.findOneAndUpdate(
-            { userId: targetStr, groupId: idDoGrupo },
-            { $inc: { advs: 1 } },
-            { upsert: true, returnDocument: 'after' }
-        );
-
-        if (userDb.advs >= 3) {
-            await client.sendMessage(idDoGrupo, `🚫 @${targetStr.split('@')[0]} atingiu 3 advertências e será ejetado!`, { 
-                mentions: [targetStr] 
-            });
-            
-            if (iAmAdmin) {
-                await chat.removeParticipants([targetStr]);
-            }
-
-            await User.findOneAndUpdate(
-                { userId: targetStr, groupId: idDoGrupo },
-                { $set: { advs: 0 } }
-            );
-        } else {
-            await client.sendMessage(idDoGrupo, `⚠️ @${targetStr.split('@')[0]} recebeu uma advertência! (${userDb.advs}/3)`, { 
-                mentions: [targetStr] 
-            });
-        }
-
-    } catch (err) {
-        console.error("❌ ERRO NO ADV:", err);
-    }
-    break;
         
           case '/listaadv':
     try {
