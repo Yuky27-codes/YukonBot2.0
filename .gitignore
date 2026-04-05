@@ -3,4 +3,3 @@ node_modules
 .wwebjs_cache
 database/*.json
 .env
-assests
