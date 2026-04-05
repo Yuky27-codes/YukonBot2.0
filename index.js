@@ -156,7 +156,9 @@ function isAdminUser(userId) {
 global.enviarMenuComFoto = async (msg, fotoNome, texto) => {
     try {
         const chatId = msg.from.toString();
-        // ADICIONE ESTA LINHA ABAIXO:
+        
+        // Esta linha garante que ele ache a pasta assets na raiz do projeto,
+        // não importa de onde a função seja chamada.
         const caminhoImagem = path.resolve(__dirname, 'assets', fotoNome); 
 
         if (fs.existsSync(caminhoImagem)) {
@@ -166,6 +168,8 @@ global.enviarMenuComFoto = async (msg, fotoNome, texto) => {
                 sendSeen: false
             });
         } else {
+            // Se a imagem não for encontrada, ele envia pelo menos o texto
+            console.error(`⚠️ Imagem não encontrada: ${caminhoImagem}`);
             await client.sendMessage(chatId, texto, { sendSeen: false });
         }
     } catch (err) {
