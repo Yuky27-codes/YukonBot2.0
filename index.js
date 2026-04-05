@@ -1,6 +1,3 @@
-/**********************************************************
- * 1. DEPENDÊNCIAS
- **********************************************************/
 require('dotenv').config();
 const mongoose = require('mongoose');
 const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
@@ -338,11 +335,7 @@ if (msg.hasQuotedMsg) {
             }
         }
 
-        switch (command) {
-
-
-   } // Fim do switch(command) ou switch(jogo)
         } catch (e) {
             console.error(e);
         }
-    }); // Fim do client.on('message')
+    });

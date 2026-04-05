@@ -54,8 +54,7 @@ module.exports = {
             }
 
             // 6. ENVIO DA MÍDIA
-            // Ajuste o caminho se o arquivo estiver em uma subpasta
-            const caminhoBeijo = path.join(__dirname, '..', 'beijos.mp4');
+const caminhoBeijo = path.join(__dirname, '..', 'assets', 'beijo.mp4');
 
             if (fs.existsSync(caminhoBeijo)) {
                 const media = MessageMedia.fromFilePath(caminhoBeijo);
