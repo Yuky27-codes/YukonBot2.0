@@ -2,7 +2,8 @@ const path = require('path');
 const fs = require('fs');
 
 module.exports = {
-    name: 'abraçar',
+    name: 'abraçar', // O usuário digita com 'ç'
+    aliases: ['abracar', 'abraco', 'abraço'], // Aceita variações
     async execute(client, msg, { chatId, senderRaw, MessageMedia }) {
         try {
             const mencoes = msg.mentionedIds;
@@ -13,18 +14,28 @@ module.exports = {
             const autorId = String(senderRaw).trim();
             const alvoId = String(alvoRaw).trim();
 
-            const texto = `🫂 | @${autorId.split('@')[0]} deu um abraço em @${alvoId.split('@')[0]}!`;
+            const nomeAutor = autorId.split('@')[0];
+            const nomeAlvo = alvoId.split('@')[0];
+
+            const texto = `🫂 | @${nomeAutor} deu um abraço apertado em @${nomeAlvo}!`;
+            
+            // BUSCA O ARQUIVO SEM O 'Ç' PARA EVITAR ERRO DE SISTEMA
             const caminho = path.resolve(__dirname, '..', 'assets', 'abraco.mp4');
 
             if (fs.existsSync(caminho)) {
-                await client.sendMessage(chatId, MessageMedia.fromFilePath(caminho), {
+                const media = MessageMedia.fromFilePath(caminho);
+                await client.sendMessage(chatId, media, {
                     caption: texto,
                     mentions: [autorId, alvoId],
                     sendVideoAsGif: true
                 });
             } else {
+                // Se não achar o vídeo, ele avisa no console o caminho exato que tentou
+                console.error(`❌ Vídeo de abraço não encontrado em: ${caminho}`);
                 await client.sendMessage(chatId, texto, { mentions: [autorId, alvoId] });
             }
-        } catch (e) { console.error(e); }
+        } catch (e) { 
+            console.error("❌ ERRO NO ABRACAR:", e.message); 
+        }
     }
 };
