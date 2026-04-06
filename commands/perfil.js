@@ -1,15 +1,22 @@
 module.exports = {
     name: 'perfil',
-    // Note que agora incluímos o "User" dentro das chaves {}
     async execute(client, msg, { chatId, senderRaw, User }) { 
         try {
             const senderId = senderRaw.toString();
             
-            // Agora ele usa o User que veio do index.js!
             const userProfile = await User.findOne({ userId: senderId, groupId: chatId });
 
             if (!userProfile) {
                 return await client.sendMessage(chatId, "❌ Registro não encontrado nos arquivos da Yukon.", { sendSeen: false });
+            }
+
+            // --- LÓGICA DE ANIVERSÁRIO ---
+            const hoje = new Date();
+            const diaMesHoje = `${String(hoje.getDate()).padStart(2, '0')}/${String(hoje.getMonth() + 1).padStart(2, '0')}`;
+            
+            let displayAniversario = userProfile.birthday || "Não registrado";
+            if (userProfile.birthday === diaMesHoje) {
+                displayAniversario += " 🎂 *[HOJE!]*";
             }
 
             let patente = "❄️ Recruta do Gelo";
@@ -43,14 +50,12 @@ module.exports = {
 ❄️ *ID DE ACESSO — YUKON STATION* ❄️
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ┃👤 *NOME:* ${nomeUsuario}
+┃🎂 *ANIVER:* ${displayAniversario}
 ┃🎖️ *PATENTE:* ${patente}
 ┃🆙 *NÍVEL:* ${lvl}
 ┃💰 *CRÉDITOS:* ${moedas} YC
-┠━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ┃📊 *XP:* [${barra}] ${xpAtual}%
 ┃📜 *STATUS:* ${statusCivil}
-┠━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-🏅 *CARGOS:* ${userProfile.roles && userProfile.roles.length > 0 ? userProfile.roles.join(' | ') : 'Tripulante'}
 ┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`.trim();
 
             await client.sendMessage(chatId, perfilCustom, { 
