@@ -15,6 +15,17 @@ module.exports = {
             const alvoData = await User.findOne({ userId: alvoId, groupId: chatId });
 
             if (!alvoData || alvoData.coins <= 0) return await client.sendMessage(chatId, "⚠️ O alvo não tem moedas.");
+            
+            // --- 🛡️ VERIFICAÇÃO DE PROTEÇÃO (ESCUDO) ---
+            const agora = Date.now();
+            if (alvoData.protectedUntil && alvoData.protectedUntil > agora) {
+                const tempoRestanteMs = alvoData.protectedUntil - agora;
+                const horas = Math.floor(tempoRestanteMs / (1000 * 60 * 60));
+                const minutos = Math.floor((tempoRestanteMs % (1000 * 60 * 60)) / (1000 * 60));
+
+                return await client.sendMessage(chatId, `🛡️ *ACESSO NEGADO:* O alvo está protegido por um Escudo de Plasma!\n⏳ O escudo expira em: *${horas}h ${minutos}min*`, { mentions: [alvoId] });
+            }
+
             if (!autorData || autorData.coins < 50) return await client.sendMessage(chatId, "⚠️ Você precisa de 50 coins para arriscar um roubo.");
 
             const sucesso = Math.random() < 0.40; // 40% de chance

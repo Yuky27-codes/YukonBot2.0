@@ -19,6 +19,11 @@ module.exports = {
                 displayAniversario += " 🎂 *[HOJE!]*";
             }
 
+            // --- LÓGICA DE PROTEÇÃO (ESCUDO) ---
+            const agora = Date.now();
+            const estaProtegido = userProfile.protectedUntil && userProfile.protectedUntil > agora;
+            const statusEscudo = estaProtegido ? "🛡️ ATIVO" : "🔓 VULNERÁVEL";
+
             let patente = "❄️ Recruta do Gelo";
             const lvl = userProfile.level || 1;
             if (lvl >= 5) patente = "🏹 Explorador Ártico";
@@ -51,6 +56,7 @@ module.exports = {
 ┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ┃👤 *NOME:* ${nomeUsuario}
 ┃🎂 *ANIVER:* ${displayAniversario}
+┃🛡️ *ESCUDO:* ${statusEscudo}
 ┃🎖️ *PATENTE:* ${patente}
 ┃🆙 *NÍVEL:* ${lvl}
 ┃💰 *CRÉDITOS:* ${moedas} YC

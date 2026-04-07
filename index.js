@@ -18,7 +18,14 @@ const GroupMessageSchema = new mongoose.Schema({
     timestamp: { type: Date, default: Date.now }
 });
 
-module.exports = mongoose.model('GroupMessage', GroupMessageSchema);
+const GroupMessage = mongoose.models.GroupMessage || mongoose.model('GroupMessage', GroupMessageSchema);
+
+// --- 🟢 ADIÇÃO: SCHEMA DE CONFIGURAÇÃO DO GRUPO (LOCK/UNLOCK) ---
+const groupConfigSchema = new mongoose.Schema({
+    groupId: { type: String, required: true, unique: true },
+    onlyAdms: { type: Boolean, default: false }
+});
+const GroupConfig = mongoose.model('GroupConfig', groupConfigSchema);
 
 // ===============================
 // VARIÁVEIS GLOBAIS DE ESTADO
@@ -81,10 +88,14 @@ const userSchema = new mongoose.Schema({
     inventory: { type: Object, default: {} },
     advs: { type: Number, default: 0 },
     isMuted: { type: Boolean, default: false },
-    muteExpires: { type: Number, default: null }, // NOVO: Guarda o timestamp de soltura
+    muteExpires: { type: Number, default: null }, 
     isBlacklisted: { type: Boolean, default: false },
+    protectedUntil: { type: Number, default: null },
     lastDaily: { type: Date },
+    marriedWith: { type: String, default: null },
+    loverWith: { type: String, default: null },
     birthday: { type: String, default: null },
+    family: { type: Array, default: [] },
     amongStats: {
         partidasJogadas: { type: Number, default: 0 },
         vezesImpostor: { type: Number, default: 0 },
@@ -96,15 +107,6 @@ const userSchema = new mongoose.Schema({
 
 userSchema.index({ userId: 1, groupId: 1 }, { unique: true });
 const User = mongoose.model('User', userSchema);
-
-const groupMessageSchema = new mongoose.Schema({
-    groupId: { type: String, required: true },
-    senderName: { type: String, default: 'Tripulante' },
-    body: { type: String, required: true },
-    timestamp: { type: Date, default: Date.now }
-});
-
-const GroupMessage = mongoose.models.GroupMessage || mongoose.model('GroupMessage', groupMessageSchema);
 
 /**********************************************************
  * 5. CLIENT WHATSAPP
@@ -129,7 +131,6 @@ const client = new Client({
 
 /**********************************************************
  * 6. FUNÇÕES AUXILIARES GLOBAIS
- * 👉 SE DER ERRO NO FUTURO, ADICIONE NOVAS FUNÇÕES AQUI
  **********************************************************/
 function lerSuperUsers() {
     try {
@@ -141,23 +142,14 @@ function lerSuperUsers() {
 
 function isAdminUser(userId) {
     if (!userId) return false;
-    
-    // Converte para string e limpa espaços
     const idLimpo = userId.toString().trim();
-    
-    // Tenta ler do arquivo superusers.json (se existir)
     const listaSuper = lerSuperUsers(); 
-
-    // Retorna true se estiver na nossa LISTA_ADMS ou no arquivo
     return LISTA_ADMS.includes(idLimpo) || listaSuper.includes(idLimpo);
 }
 
 global.enviarMenuComFoto = async (msg, fotoNome, texto) => {
     try {
         const chatId = msg.from.toString();
-        
-        // Esta linha garante que ele ache a pasta assets na raiz do projeto,
-        // não importa de onde a função seja chamada.
         const caminhoImagem = path.resolve(__dirname, 'assets', fotoNome); 
 
         if (fs.existsSync(caminhoImagem)) {
@@ -167,7 +159,6 @@ global.enviarMenuComFoto = async (msg, fotoNome, texto) => {
                 sendSeen: false
             });
         } else {
-            // Se a imagem não for encontrada, ele envia pelo menos o texto
             console.error(`⚠️ Imagem não encontrada: ${caminhoImagem}`);
             await client.sendMessage(chatId, texto, { sendSeen: false });
         }
@@ -206,6 +197,7 @@ client.on('message_create', async (msg) => {
     const chatId = msg.from._serialized || msg.from.toString();
     const senderRaw = (msg.author || msg.from)._serialized || (msg.author || msg.from).toString();
     const groupId = chatId;
+    const isAdmin = isAdminUser(senderRaw);
 
     try {
         // --- 🟢 1. CARCEREIRA DA YUKON (SISTEMA DE PRISÃO/ROUBAR) ---
@@ -214,24 +206,29 @@ client.on('message_create', async (msg) => {
 
             if (userData && userData.isMuted) {
                 const agora = Date.now();
-
-                // Verifica se o tempo de prisão acabou
                 if (userData.muteExpires && agora > userData.muteExpires) {
-                    // SOLTURA AUTOMÁTICA
                     await User.updateOne(
                         { userId: senderRaw, groupId: groupId },
                         { $set: { isMuted: false, muteExpires: null } }
                     );
                     console.log(`🔓 Tripulante ${senderRaw} cumpriu a pena e foi solto.`);
                 } else {
-                    // MENSAGEM APAGADA ENQUANTO PRESO
                     try {
                         await msg.delete(true);
-                        return; // Interrompe tudo aqui (não ganha XP nem executa comando)
+                        return; 
                     } catch (e) {
-                        console.error("❌ Erro ao apagar mensagem de preso. O bot é admin?");
+                        console.error("❌ Erro ao apagar mensagem de preso.");
                     }
                 }
+            }
+        }
+
+        // --- 🟢 ADIÇÃO: FILTRO DE MODO LOCK (APENAS ADMS) ---
+        if (chatId.endsWith('@g.us')) {
+            const config = await GroupConfig.findOne({ groupId: chatId }).lean();
+            if (config && config.onlyAdms && !isAdmin) {
+                const body = msg.body ? msg.body.trim() : "";
+                if (body.startsWith('/')) return; // Bloqueia o comando se não for ADM
             }
         }
 
@@ -241,7 +238,6 @@ client.on('message_create', async (msg) => {
             
             if (mensagemTexto && !mensagemTexto.startsWith('/')) {
                 try {
-                    // Grava a mensagem para o resumo
                     await GroupMessage.create({
                         groupId: chatId,
                         senderName: msg._data?.notifyName || msg.author?.split('@')[0] || 'Tripulante',
@@ -249,7 +245,6 @@ client.on('message_create', async (msg) => {
                         timestamp: new Date()
                     });
 
-                    // Ganho de XP e Level Up
                     const xpGanho = 1; 
                     const userUpdate = await User.findOneAndUpdate(
                         { userId: senderRaw, groupId: groupId },
@@ -260,19 +255,16 @@ client.on('message_create', async (msg) => {
                         { upsert: true, returnDocument: 'after' }
                     ).lean();
 
-                    let xpNoBanco = userUpdate.xp;
-                    let levelNoBanco = userUpdate.level;
-
-                    if (xpNoBanco >= 100) {
+                    if (userUpdate.xp >= 100) {
                         await User.updateOne(
                             { userId: senderRaw, groupId: groupId },
                             { 
-                                $set: { level: levelNoBanco + 1, xp: 0 }, 
+                                $set: { level: userUpdate.level + 1, xp: 0 }, 
                                 $inc: { coins: 150 } 
                             }
                         );
 
-                        await client.sendMessage(chatId, `🆙 *LEVEL UP - YUKON*\n\n@${senderRaw.split('@')[0]}, você enviou mais 100 mensagens e subiu para o **Nível ${levelNoBanco + 1}**!\n💰 Bônus: *150 YukonCoins*`, {
+                        await client.sendMessage(chatId, `🆙 *LEVEL UP - YUKON*\n\n@${senderRaw.split('@')[0]}, você enviou mais 100 mensagens e subiu para o **Nível ${userUpdate.level + 1}**!\n💰 Bônus: *150 YukonCoins*`, {
                             mentions: [senderRaw]
                         });
                     }
@@ -305,9 +297,7 @@ client.on('message_create', async (msg) => {
 
         const args = body.slice(prefix.length).trim().split(/\s+/);
         const commandName = args.shift().toLowerCase();
-        const isAdmin = isAdminUser(senderRaw);
 
-        // Checa se o bot é admin no grupo
         const chat = await msg.getChat();
         let iAmAdmin = false;
         if (chat.isGroup) {
@@ -316,7 +306,6 @@ client.on('message_create', async (msg) => {
             iAmAdmin = botNoGrupo ? botNoGrupo.isAdmin : false;
         }
 
-        // HANDLER DE COMANDOS DINÂMICOS
         const commandPath = path.join(__dirname, 'commands', `${commandName}.js`);
         
         if (fs.existsSync(commandPath)) {
@@ -329,6 +318,7 @@ client.on('message_create', async (msg) => {
                     isAdmin,
                     groupId,
                     User,
+                    GroupConfig, // <-- ADICIONADO PARA LOCK/UNLOCK FUNCIONAREM
                     MessageMedia,
                     iAmAdmin,
                     groq,
@@ -343,6 +333,10 @@ client.on('message_create', async (msg) => {
         console.error("❌ ERRO GERAL NO INDEX:", e.message);
     }
 });
+
+/**********************************************************
+ * 10. SISTEMA DE ANIVERSÁRIO (CRON JOB)
+ **********************************************************/
 cron.schedule('01 00 * * *', async () => {
     console.log("🎂 Checando aniversariantes do dia...");
     const hoje = new Date();
@@ -350,10 +344,7 @@ cron.schedule('01 00 * * *', async () => {
     const dia01 = hoje.getDate() === 1;
 
     try {
-        // Busca todos os usuários de todos os grupos que têm aniversário
         const usuariosAniversariantes = await User.find({ birthday: diaMesHoje });
-        
-        // Agrupar por grupo para mandar uma mensagem só por chat
         const grupos = {};
         usuariosAniversariantes.forEach(u => {
             if (!grupos[u.groupId]) grupos[u.groupId] = [];
@@ -364,18 +355,15 @@ cron.schedule('01 00 * * *', async () => {
             const listaMencoes = grupos[groupId];
             const nomes = listaMencoes.map(id => `@${id.split('@')[0]}`).join(', ');
 
-            // 1. Dá os 5.000 coins para todos os aniversariantes do dia naquele grupo
             await User.updateMany(
                 { userId: { $in: listaMencoes }, groupId: groupId },
                 { $inc: { coins: 5000 } }
             );
 
-            // 2. Manda a mensagem de parabéns
             const msgAniver = `🎉 *COMEMORAÇÃO ESTELAR!* 🎉\n━━━━━━━━━━━━━━━━━━━━━\nHoje o dia é especial para: ${nomes}!\n\n🎈 A Yukon Station deseja um feliz aniversário! \n🎁 Presente enviado: *5.000 YukonCoins*!\n━━━━━━━━━━━━━━━━━━━━━`;
             await client.sendMessage(groupId, msgAniver, { mentions: listaMencoes });
         }
 
-        // --- MENSAGEM DO DIA 01 (Aniversariantes do Mês) ---
         if (dia01) {
             const mesAtual = String(hoje.getMonth() + 1).padStart(2, '0');
             const todosAniversariantes = await User.find({ birthday: { $regex: `.*/${mesAtual}$` } });
@@ -396,5 +384,48 @@ cron.schedule('01 00 * * *', async () => {
         }
     } catch (e) {
         console.error("Erro no Cron de Aniversário:", e);
+    }
+});
+/**********************************************************
+ * 11. BOAS-VINDAS DINÂMICO COM FOTO - YUKON STATION
+ **********************************************************/
+client.on('group_join', async (notification) => {
+    try {
+        const chatId = notification.chatId;
+        const participantId = notification.recipientIds[0];
+        
+        // Buscamos os dados do grupo e do usuário
+        const chat = await client.getChatById(chatId);
+        const nomeDoGrupo = chat.name || "Estação Desconhecida";
+        const mencao = `@${participantId.split('@')[0]}`;
+
+        const mensagemBoasVindas = `
+🚀 *BEM-VINDO À ${nomeDoGrupo.toUpperCase()}!* 🚀
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Olá, ${mencao}! Um novo tripulante acaba de acoplar na nossa base.
+
+🛰️ *DIRETRIZES DA MISSÃO:*
+1. Explore os comandos usando */ajuda*.
+2. Verifique sua ficha técnica em */perfil*.
+3. Registre seu ciclo em */meu_aniver* para bônus.
+
+⚠️ *AVISO CRÍTICO:*
+Para uma melhor experiência de todos na estação, pedimos que siga as **REGRAS** do grupo. A Carcereira da Yukon está sempre de vigia e infrações podem resultar em confinamento (mute) ou perda de créditos!
+
+Que sua estadia em *${nomeDoGrupo}* seja de muita prosperidade e XP!
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`.trim();
+
+        await global.enviarMenuComFoto({ from: chatId }, 'welcome.jpg', mensagemBoasVindas);
+
+        console.log(`✨ [BOAS-VINDAS] Foto e texto enviados para ${participantId} no grupo: ${nomeDoGrupo}`);
+
+    } catch (err) {
+        console.error("❌ Erro ao enviar boas-vindas com foto:", err.message);
+        
+        // Backup: Se a foto falhar, tenta mandar apenas o texto para não deixar o membro sem saudação
+        try {
+            const chatId = notification.chatId;
+            await client.sendMessage(chatId, "🚀 Bem-vindo à estação!");
+        } catch {}
     }
 });
