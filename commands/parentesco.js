@@ -1,43 +1,61 @@
-// Variável temporária na memória para guardar quem está sendo "parentado"
+// Variável temporária na memória (fora do module.exports)
 const aguardandoParentesco = new Map();
 
 module.exports = {
     name: 'parentesco',
     async execute(client, msg, { chatId, senderRaw, User, args }) {
-        const autorId = String(senderRaw).trim();
-        const mencoes = msg.mentionedIds;
+        try {
+            const autorId = String(senderRaw).trim();
+            const mencoes = msg.mentionedIds;
 
-        // ETAPA 2: Escolha do número
-        if (args.length === 1 && !isNaN(args[0])) {
-            const sessao = aguardandoParentesco.get(autorId);
-            if (!sessao) return await msg.reply("❌ Use `/parentesco @alvo` primeiro.");
+            // --- ETAPA 2: Escolha do número (Ex: /parentesco 1) ---
+            if (args.length === 1 && !isNaN(args[0]) && !msg.body.includes('@')) {
+                const sessao = aguardandoParentesco.get(autorId);
+                
+                if (!sessao) {
+                    return await client.sendMessage(chatId, "❌ *ERRO:* Use `/parentesco @alvo` primeiro para selecionar a pessoa.");
+                }
 
-            const escolha = parseInt(args[0]);
-            const graus = { 1: 'Tio/Tia', 2: 'Irmão/Irmã', 3: 'Primo/Prima', 4: 'Avô/Avó' };
-            const grauNome = graus[escolha];
+                const escolha = parseInt(args[0]);
+                const graus = { 
+                    1: 'Tio/Tia', 
+                    2: 'Irmão/Irmã', 
+                    3: 'Primo/Prima', 
+                    4: 'Avô/Avó' 
+                };
+                
+                const grauNome = graus[escolha];
+                if (!grauNome) return await msg.reply("❌ Opção inválida! Escolha de 1 a 4.");
 
-            if (!grauNome) return await msg.reply("❌ Opção inválida! Escolha de 1 a 4.");
+                const alvoIdFinal = String(sessao.alvoId).trim();
 
-            // Salva no banco
-            await User.updateOne(
-                { userId: autorId, groupId: chatId },
-                { $push: { family: { userId: sessao.alvoId, role: grauNome } } }
-            );
+                // Salva no banco de dados
+                await User.updateOne(
+                    { userId: autorId, groupId: chatId },
+                    { $push: { family: { userId: alvoIdFinal, role: grauNome } } }
+                );
 
-            await msg.reply(`✅ O(a) **${grauNome}** @${sessao.alvoId.split('@')[0]} entrou para a família!`, {
-                mentions: [sessao.alvoId]
-            });
-            
-            return aguardandoParentesco.delete(autorId);
-        }
+                // Limpa a sessão da memória
+                aguardandoParentesco.delete(autorId);
 
-        // ETAPA 1: Mencionar a pessoa
-        if (!mencoes.length) return await msg.reply("❓ Mencione o futuro parente.");
-        
-        const alvoId = String(mencoes[0]._serialized || mencoes[0]).trim();
-        aguardandoParentesco.set(autorId, { alvoId });
+                return await client.sendMessage(chatId, `✅ O(a) *${grauNome}* @${alvoIdFinal.split('@')[0]} entrou para a família!`, {
+                    mentions: [alvoIdFinal]
+                });
+            }
 
-        const menuParentesco = `
+            // --- ETAPA 1: Mencionar a pessoa (Ex: /parentesco @pessoa) ---
+            if (mencoes.length === 0) {
+                return await msg.reply("❓ *COMO USAR:*\n1º: `/parentesco @tripulante`\n2º: Escolha o número de 1 a 4.");
+            }
+
+            // Garante que o ID seja uma String limpa
+            const alvoRaw = mencoes[0]._serialized || mencoes[0];
+            const alvoId = String(alvoRaw).trim();
+
+            // Salva na memória quem é o alvo desse autor
+            aguardandoParentesco.set(autorId, { alvoId: alvoId });
+
+            const menuParentesco = `
 🧬 *REGISTRO DE PARENTESCO*
 Escolha o nível para @${alvoId.split('@')[0]}:
 
@@ -46,8 +64,15 @@ Escolha o nível para @${alvoId.split('@')[0]}:
 3️⃣ Primo/Prima
 4️⃣ Avô/Avó
 
-👉 Digite \`/parentesco [número]\``;
+👉 Digite: */parentesco [número]*`.trim();
 
-        await msg.reply(menuParentesco, { mentions: [alvoId] });
+            await client.sendMessage(chatId, menuParentesco, { 
+                mentions: [alvoId] 
+            });
+
+        } catch (e) {
+            console.error("❌ Erro no comando parentesco:", e);
+            await msg.reply("❌ Ocorreu um erro no sistema de DNA da Yukon.");
+        }
     }
 };
