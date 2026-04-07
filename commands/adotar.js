@@ -1,49 +1,30 @@
 module.exports = {
     name: 'adotar',
-    async execute(client, msg, { chatId, senderRaw, User, args }) {
-        try {
-            const mencoes = msg.mentionedIds;
-            const autorId = String(senderRaw).trim();
-            
-            // Lista de graus permitidos
-            const grausPermitidos = ['filho', 'filha', 'pai', 'mãe', 'irmão', 'irmã', 'primo', 'prima', 'tio', 'tia'];
+    async execute(client, msg, { chatId, senderRaw, User }) {
+        const mencoes = msg.mentionedIds;
+        const autorId = String(senderRaw).trim();
+        const autorData = await User.findOne({ userId: autorId, groupId: chatId });
 
-            if (mencoes.length === 0 || args.length < 2) {
-                return await msg.reply(`❓ *COMO USAR:* \`/adotar @tripulante [grau]\`\nEx: \`/adotar @fulano filho\`\n\n*Graus:* ${grausPermitidos.join(', ')}`);
-            }
+        if (!mencoes.length) return await msg.reply("❓ Mencione quem deseja adotar como filho(a).");
+        if (!autorData.marriedWith) return await msg.reply("❌ Apenas casais podem adotar filhos oficialmente.");
 
-            const alvoId = String(mencoes[0]._serialized || mencoes[0]).trim();
-            const grauInformado = args.find(a => grausPermitidos.includes(a.toLowerCase()));
+        const alvoId = String(mencoes[0]._serialized || mencoes[0]).trim();
+        const conjugeId = autorData.marriedWith;
 
-            if (!grauInformado) {
-                return await msg.reply("❌ *SISTEMA:* Grau de parentesco inválido ou não reconhecido pela Yukon.");
-            }
+        // Adiciona o filho para AMBOS (Pai e Mãe)
+        const novoFilho = { userId: alvoId, role: 'filho' };
+        await User.updateOne({ userId: autorId, groupId: chatId }, { $push: { family: novoFilho } });
+        await User.updateOne({ userId: conjugeId, groupId: chatId }, { $push: { family: novoFilho } });
 
-            if (alvoId === autorId) return await msg.reply("❓ Você não pode adotar a si mesmo no vácuo do espaço.");
+        const textoAdocao = `
+🍼 *NOVO TRIPULANTE NA FAMÍLIA!*
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+O pequeno(a) @${alvoId.split('@')[0]} foi adotado(a) com sucesso!
 
-            // Adiciona na família do autor
-            await User.updateOne(
-                { userId: autorId, groupId: chatId },
-                { $push: { family: { userId: alvoId, role: grauInformado.toLowerCase() } } }
-            );
+👨‍👩‍👦 *Pais:* @${autorId.split('@')[0]} & @${conjugeId.split('@')[0]}
+Que este novo membro traga muita alegria à cabine de vocês!
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`.trim();
 
-            // (Opcional) Adiciona a relação inversa simplificada ou deixa apenas de um lado
-            // Vamos manter do lado de quem adotou para facilitar
-
-            const textoSucesso = `
-🧬 *NOVO MEMBRO NA FAMÍLIA!*
-━━━━━━━━━━━━━━━━━━━━━
-O registro civil da Yukon Station informa:
-@${autorId.split('@')[0]} adotou @${alvoId.split('@')[0]} como seu(sua) **${grauInformado.toUpperCase()}**!
-
-🏠 *A base ficou mais acolhedora agora.*
-━━━━━━━━━━━━━━━━━━━━━`.trim();
-
-            await client.sendMessage(chatId, textoSucesso, { mentions: [autorId, alvoId] });
-
-        } catch (e) {
-            console.error(e);
-            await msg.reply("❌ Erro ao registrar parentesco no banco de dados.");
-        }
+        await client.sendMessage(chatId, textoAdocao, { mentions: [alvoId, autorId, conjugeId] });
     }
 };

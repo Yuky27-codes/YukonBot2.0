@@ -1,28 +1,29 @@
 module.exports = {
     name: 'familia',
     async execute(client, msg, { chatId, senderRaw, User }) {
-        try {
-            const user = await User.findOne({ userId: senderRaw, groupId: chatId });
+        const user = await User.findOne({ userId: senderRaw, groupId: chatId });
+        if (!user) return;
 
-            if (!user || !user.family || user.family.length === 0) {
-                return await msg.reply("📭 *YUKON:* Você ainda não tem parentes registrados nesta estação.");
-            }
+        const conjugeNome = user.marriedWith ? `@${user.marriedWith.split('@')[0]}` : "Solteiro(a)";
+        const filhos = user.family.filter(p => p.role === 'filho');
+        const parentes = user.family.filter(p => p.role !== 'filho');
 
-            let listaFamilia = `🏠 *FAMÍLIA DE @${senderRaw.split('@')[0]}*\n━━━━━━━━━━━━━━━━━━━━━\n`;
-            const mentions = [senderRaw];
+        let texto = `👨‍👩‍👧‍👦 *FAMÍLIA YUKON*\n`;
+        texto += `━━━━━━━━━━━━━━━━━━━━━\n`;
+        texto += `💍 *CASAL:* @${senderRaw.split('@')[0]} & ${conjugeNome}\n\n`;
+        
+        texto += `👶 *FILHOS [${filhos.length}]:*\n`;
+        filhos.forEach(f => texto += `• @${f.userId.split('@')[0]}\n`);
 
-            user.family.forEach(parente => {
-                const idCurto = parente.userId.split('@')[0];
-                listaFamilia += `• **${parente.role.toUpperCase()}:** @${idCurto}\n`;
-                mentions.push(parente.userId);
-            });
+        texto += `\n🧬 *PARENTES:*\n`;
+        parentes.forEach(p => texto += `• @${p.userId.split('@')[0]} (${p.role})\n`);
+        
+        texto += `━━━━━━━━━━━━━━━━━━━━━`;
 
-            listaFamilia += `━━━━━━━━━━━━━━━━━━━━━`;
+        const mentions = [senderRaw, ...user.family.map(p => p.userId)];
+        if (user.marriedWith) mentions.push(user.marriedWith);
 
-            await client.sendMessage(chatId, listaFamilia, { mentions });
-
-        } catch (e) {
-            console.error(e);
-        }
+        // Usando sua função de imagem
+        await global.enviarMenuComFoto({ from: chatId }, 'familia.jpg', texto, mentions);
     }
 };
