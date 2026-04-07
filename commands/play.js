@@ -43,11 +43,12 @@ module.exports = {
             }
 
             // 3. Download do Áudio com Cookies/User-Agent (Evita bloqueios)
-            const stream = ytdl(url, { 
-                filter: 'audioonly', 
-                quality: 'highestaudio',
-                highWaterMark: 1 << 25 // Buffer de 32MB para download liso
-            });
+            // Mude de 'highestaudio' para apenas 'audio' ou tire o filter
+const stream = ytdl(url, { 
+    filter: 'audioonly', 
+    quality: 'lowestaudio', 
+    highWaterMark: 1 << 25 
+});
 
             const fileStream = fs.createWriteStream(tempFile);
             stream.pipe(fileStream);

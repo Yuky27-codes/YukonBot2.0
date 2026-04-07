@@ -147,7 +147,7 @@ function isAdminUser(userId) {
     return LISTA_ADMS.includes(idLimpo) || listaSuper.includes(idLimpo);
 }
 
-global.enviarMenuComFoto = async (msg, fotoNome, texto) => {
+global.enviarMenuComFoto = async (msg, fotoNome, texto, mencoes = []) => {
     try {
         const chatId = msg.from.toString();
         const caminhoImagem = path.resolve(__dirname, 'assets', fotoNome); 
@@ -156,16 +156,24 @@ global.enviarMenuComFoto = async (msg, fotoNome, texto) => {
             const media = MessageMedia.fromFilePath(caminhoImagem);
             await client.sendMessage(chatId, media, {
                 caption: texto,
+                mentions: mencoes, // <--- O SEGREDO ESTÁ AQUI!
                 sendSeen: false
             });
         } else {
             console.error(`⚠️ Imagem não encontrada: ${caminhoImagem}`);
-            await client.sendMessage(chatId, texto, { sendSeen: false });
+            // Se a imagem falhar, envia pelo menos o texto com as menções
+            await client.sendMessage(chatId, texto, { 
+                mentions: mencoes, 
+                sendSeen: false 
+            });
         }
     } catch (err) {
         console.error("❌ ERRO enviarMenuComFoto:", err.message);
         try {
-            await client.sendMessage(msg.from.toString(), texto, { sendSeen: false });
+            await client.sendMessage(msg.from.toString(), texto, { 
+                mentions: mencoes, 
+                sendSeen: false 
+            });
         } catch {}
     }
 }
