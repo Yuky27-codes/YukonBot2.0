@@ -29,9 +29,18 @@ module.exports = {
 
                 const alvoIdFinal = String(sessao.alvoId).trim();
 
-                // Salva no banco de dados
-                await User.updateOne(
-                    { userId: autorId, groupId: chatId },
+                // --- LOGICA DE SINCRONIZAÇÃO ---
+                const autorData = await User.findOne({ userId: autorId, groupId: chatId });
+                const alvosParaAtualizar = [autorId];
+
+                // Se o autor estiver casado, o parente entra para o cônjuge também
+                if (autorData && autorData.marriedWith) {
+                    alvosParaAtualizar.push(autorData.marriedWith);
+                }
+
+                // Salva no banco para ambos
+                await User.updateMany(
+                    { userId: { $in: alvosParaAtualizar }, groupId: chatId },
                     { $push: { family: { userId: alvoIdFinal, role: grauNome } } }
                 );
 
@@ -48,9 +57,10 @@ module.exports = {
                 return await msg.reply("❓ *COMO USAR:*\n1º: `/parentesco @tripulante`\n2º: Escolha o número de 1 a 4.");
             }
 
-            // Garante que o ID seja uma String limpa
             const alvoRaw = mencoes[0]._serialized || mencoes[0];
             const alvoId = String(alvoRaw).trim();
+
+            if (alvoId === autorId) return await msg.reply("❌ Você não pode ser seu próprio parente.");
 
             // Salva na memória quem é o alvo desse autor
             aguardandoParentesco.set(autorId, { alvoId: alvoId });
