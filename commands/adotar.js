@@ -6,47 +6,44 @@ module.exports = {
             const autorId = String(senderRaw).trim();
             const autorData = await User.findOne({ userId: autorId, groupId: chatId });
 
-            if (!mencoes.length) return await msg.reply("❓ *COMO USAR:* `/adotar @tripulante`\nMencione quem o casal deseja adotar como filho(a).");
+            if (!mencoes.length) return await msg.reply("❓ *COMO USAR:* `/adotar @tripulante`.");
             
             if (!autorData || !autorData.marriedWith) {
-                return await msg.reply("❌ *ERRO:* Apenas casais oficiais da Yukon podem fundar uma linhagem e adotar filhos.");
+                return await msg.reply("❌ *ERRO:* Apenas casais oficiais podem adotar filhos.");
             }
 
             const alvoId = String(mencoes[0]._serialized || mencoes[0]).trim();
             const conjugeId = autorData.marriedWith;
 
-            // --- 🟢 TRAVA DE SEGURANÇA: BLOQUEIO DE MULTI-FAMÍLIA ---
-            // Buscamos se o alvo já tem uma família registrada
-            const alvoData = await User.findOne({ userId: alvoId, groupId: chatId });
+            // --- 🛡️ NOVA TRAVA RASTREADORA (BUSCA EM TODO O BANCO) ---
+            // Procuramos qualquer usuário que já tenha esse alvoId na lista de família
+            const familiaExistente = await User.findOne({ 
+                groupId: chatId, 
+                "family.userId": alvoId 
+            });
             
-            if (alvoData && alvoData.family && alvoData.family.length > 0) {
-                return await msg.reply("❌ *ACESSO NEGADO:* Este tripulante já possui registros de linhagem em outra família. A Yukon permite apenas um registro familiar por tripulante.");
+            if (familiaExistente) {
+                return await msg.reply("❌ *FALHA NO REGISTRO:* Este tripulante já está vinculado a uma linhagem existente. Ele precisa ser removido da família atual antes de uma nova adoção.");
             }
             // -------------------------------------------------------
 
-            // Impedir auto-adoção ou adotar o próprio cônjuge
             if (alvoId === autorId || alvoId === conjugeId) {
-                return await msg.reply("❌ *SISTEMA:* Você não pode adotar a si mesmo ou ao seu cônjuge como filho.");
+                return await msg.reply("❌ Você não pode adotar a si mesmo ou ao seu cônjuge.");
             }
 
-            // Evitar duplicata: Verifica se o filho já está na família (Segurança extra)
-            const jaEhFilho = autorData.family.find(f => f.userId === alvoId);
-            if (jaEhFilho) return await msg.reply("👶 Este tripulante já faz parte dos registros da sua família.");
-
             const novoFilho = { userId: alvoId, role: 'filho' };
+            const paisDoFilho = [
+                { userId: autorId, role: 'pai/mãe' },
+                { userId: conjugeId, role: 'pai/mãe' }
+            ];
 
-            // ATUALIZAÇÃO SINCRONIZADA: Adiciona para os dois ao mesmo tempo
+            // 1. Adiciona o filho para o casal
             await User.updateMany(
                 { userId: { $in: [autorId, conjugeId] }, groupId: chatId },
                 { $push: { family: novoFilho } }
             );
 
-            // Importante: Adicionar os pais no registro do FILHO também para o /familia dele funcionar
-            const paisDoFilho = [
-                { userId: autorId, role: 'pai/mãe' },
-                { userId: conjugeId, role: 'pai/mãe' }
-            ];
-            
+            // 2. Registra os pais no perfil do filho (Importante para o /familia dele)
             await User.updateOne(
                 { userId: alvoId, groupId: chatId },
                 { $set: { family: paisDoFilho } },
@@ -54,12 +51,9 @@ module.exports = {
             );
 
             const textoAdocao = `
-🍼 *NOVO TRIPULANTE NA FAMÍLIA!*
+🍼 *NOVA ADOÇÃO CONCLUÍDA*
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-O pequeno(a) @${alvoId.split('@')[0]} foi adotado(a) com sucesso!
-
-👨‍👩‍👦 *PAIS:* @${autorId.split('@')[0]} & @${conjugeId.split('@')[0]}
-✨ *STATUS:* Registro civil atualizado nos arquivos da Yukon.
+O tripulante @${alvoId.split('@')[0]} agora faz parte da linhagem de @${autorId.split('@')[0]} & @${conjugeId.split('@')[0]}.
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`.trim();
 
             await client.sendMessage(chatId, textoAdocao, { 
@@ -67,8 +61,8 @@ O pequeno(a) @${alvoId.split('@')[0]} foi adotado(a) com sucesso!
             });
 
         } catch (e) {
-            console.error("Erro no comando adotar:", e);
-            await msg.reply("❌ Falha ao processar o registro de adoção.");
+            console.error(e);
+            await msg.reply("❌ Erro ao processar adoção.");
         }
     }
 };
