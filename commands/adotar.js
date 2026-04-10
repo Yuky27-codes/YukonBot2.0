@@ -15,12 +15,21 @@ module.exports = {
             const alvoId = String(mencoes[0]._serialized || mencoes[0]).trim();
             const conjugeId = autorData.marriedWith;
 
+            // --- 🟢 TRAVA DE SEGURANÇA: BLOQUEIO DE MULTI-FAMÍLIA ---
+            // Buscamos se o alvo já tem uma família registrada
+            const alvoData = await User.findOne({ userId: alvoId, groupId: chatId });
+            
+            if (alvoData && alvoData.family && alvoData.family.length > 0) {
+                return await msg.reply("❌ *ACESSO NEGADO:* Este tripulante já possui registros de linhagem em outra família. A Yukon permite apenas um registro familiar por tripulante.");
+            }
+            // -------------------------------------------------------
+
             // Impedir auto-adoção ou adotar o próprio cônjuge
             if (alvoId === autorId || alvoId === conjugeId) {
                 return await msg.reply("❌ *SISTEMA:* Você não pode adotar a si mesmo ou ao seu cônjuge como filho.");
             }
 
-            // Evitar duplicata: Verifica se o filho já está na família
+            // Evitar duplicata: Verifica se o filho já está na família (Segurança extra)
             const jaEhFilho = autorData.family.find(f => f.userId === alvoId);
             if (jaEhFilho) return await msg.reply("👶 Este tripulante já faz parte dos registros da sua família.");
 
@@ -30,6 +39,18 @@ module.exports = {
             await User.updateMany(
                 { userId: { $in: [autorId, conjugeId] }, groupId: chatId },
                 { $push: { family: novoFilho } }
+            );
+
+            // Importante: Adicionar os pais no registro do FILHO também para o /familia dele funcionar
+            const paisDoFilho = [
+                { userId: autorId, role: 'pai/mãe' },
+                { userId: conjugeId, role: 'pai/mãe' }
+            ];
+            
+            await User.updateOne(
+                { userId: alvoId, groupId: chatId },
+                { $set: { family: paisDoFilho } },
+                { upsert: true }
             );
 
             const textoAdocao = `

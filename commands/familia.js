@@ -6,57 +6,66 @@ module.exports = {
             if (!user) return;
 
             const conjugeId = user.marriedWith;
-            
-            // Usamos um Set para garantir que não existam IDs repetidos no array de menções
             const mencoesSet = new Set();
             mencoesSet.add(senderRaw);
             if (conjugeId) mencoesSet.add(conjugeId);
 
             // Filtros de categoria
             const filhos = user.family.filter(p => p.role.toLowerCase() === 'filho');
-            const parentes = user.family.filter(p => p.role.toLowerCase() !== 'filho');
+            const paisOuOutros = user.family.filter(p => p.role.toLowerCase() !== 'filho');
 
-            // Construção do Texto
+            // Construção do Texto (Estilo Yukon Station)
             let texto = `👨‍👩‍👧‍👦 *RELATÓRIO DE LINHAGEM — YUKON*\n`;
             texto += `━━━━━━━━━━━━━━━━━━━━━\n`;
             
-            // Casal
+            // Seção de Casal (Para quem é casado)
             const autorLimpo = senderRaw.split('@')[0];
             const conjugeLimpo = conjugeId ? conjugeId.split('@')[0] : null;
             
-            texto += `💍 *CASAL:* @${autorLimpo} & ${conjugeId ? `@${conjugeLimpo}` : "_Solteiro_"}\n\n`;
+            texto += `💍 *VÍNCULO:* @${autorLimpo} & ${conjugeId ? `@${conjugeLimpo}` : "_Solteiro_"}\n\n`;
             
-            // Filhos
-            texto += `👶 *FILHOS [${filhos.length}]:*\n`;
+            // Seção: Meus Pais (Caso o usuário seja um filho adotado)
+            // No /adotar novo, salvamos os pais no array family do filho com a role 'pai/mãe'
+            const meusPais = user.family.filter(p => p.role === 'pai/mãe');
+            if (meusPais.length > 0) {
+                texto += `👨‍👩‍👦 *MEUS PAIS:* \n`;
+                meusPais.forEach(p => {
+                    const idLimpo = p.userId.split('@')[0];
+                    texto += `• @${idLimpo}\n`;
+                    mencoesSet.add(p.userId);
+                });
+                texto += `\n`;
+            }
+
+            // Seção: Filhos (Caso o usuário tenha adotado alguém)
+            texto += `👶 *FILHOS REGISTRADOS [${filhos.length}]:*\n`;
             if (filhos.length === 0) {
-                texto += `_Vazio_\n`;
+                texto += `_Nenhum descendente direto._\n`;
             } else {
                 filhos.forEach(f => {
                     const idLimpo = f.userId.split('@')[0];
                     texto += `• @${idLimpo}\n`;
-                    mencoesSet.add(f.userId); // Adiciona o ID completo para a menção funcionar
+                    mencoesSet.add(f.userId);
                 });
             }
 
-            // Parentes
-            texto += `\n🧬 *PARENTES REGISTRADOS:* \n`;
-            if (parentes.length === 0) {
-                texto += `_Vazio_\n`;
-            } else {
-                parentes.forEach(p => {
+            // Outros Parentes (Caso existam outras roles no futuro)
+            const outros = paisOuOutros.filter(p => p.role !== 'pai/mãe');
+            if (outros.length > 0) {
+                texto += `\n🧬 *OUTROS VÍNCULOS:* \n`;
+                outros.forEach(p => {
                     const idLimpo = p.userId.split('@')[0];
                     texto += `• @${idLimpo} (${p.role})\n`;
-                    mencoesSet.add(p.userId); // Adiciona o ID completo para a menção funcionar
+                    mencoesSet.add(p.userId);
                 });
             }
             
-            texto += `\n━━━━━━━━━━━━━━━━━━━━━`;
+            texto += `\n━━━━━━━━━━━━━━━━━━━━━\n`;
+            texto += `> 📂 *Protocolo de Linhagem Ativo.*`;
 
-            // Converte o Set de volta para Array
             const mencoesIds = Array.from(mencoesSet);
 
-            // IMPORTANTE: Verifique se sua função global 'enviarMenuComFoto' 
-            // repassa o quarto parâmetro (mencoesIds) para o client.sendMessage
+            // Chamada com foto para manter o padrão
             await global.enviarMenuComFoto({ from: chatId }, 'familia.jpg', texto, mencoesIds);
 
         } catch (e) {
