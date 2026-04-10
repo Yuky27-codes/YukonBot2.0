@@ -10,7 +10,7 @@ module.exports = {
                 '4': { nome: 'Especialista', preco: 10000 },
                 '5': { nome: 'Veterano', preco: 25000 },
                 '6': { nome: 'Comandante', preco: 50000 },
-                '7': { nome: 'Elite Galáctica', preco: 80000 },
+                '07':{nome: "Elite Galáctica", preco: 80000 },
                 '8': { nome: 'Guardião Estelar', preco: 120000 },
                 '9': { nome: 'Viajante Dimensional', preco: 180000 },
                 '10': { nome: 'Lorde das Estrelas', preco: 250000 },
@@ -21,51 +21,58 @@ module.exports = {
 
             const produto = produtos[item];
             if (!produto) {
-                return await client.sendMessage(chatId, "❗ *SETOR DE VENDAS:* Item inválido! Use um número de 1 a 13.\nExemplo: */comprar 1*", { sendSeen: false });
+                return await msg.reply("❗ *SETOR DE VENDAS:* Item inválido! Use um número de 1 a 13.\nExemplo: */comprar 1*");
             }
 
-            // Busca o comprador no banco
             const userComprador = await User.findOne({ userId: senderRaw, groupId: chatId });
             
-            if (!userComprador) {
-                return await client.sendMessage(chatId, "❌ Perfil não encontrado no banco de dados.", { sendSeen: false });
-            }
+            if (!userComprador) return await msg.reply("❌ Perfil não encontrado.");
 
-            // 1. Verifica se tem dinheiro suficiente
+            // 1. Verifica se tem saldo
             if (userComprador.coins < produto.preco) {
                 const falta = produto.preco - userComprador.coins;
-                return await client.sendMessage(chatId, `❌ *SALDO INSUFICIENTE*\n\nVocê precisa de mais *${falta.toLocaleString('pt-BR')}* YukonCoins para este cargo.`, { sendSeen: false });
+                return await msg.reply(`❌ *SALDO INSUFICIENTE*\n\nFaltam *${falta.toLocaleString('pt-BR')}* Moedas para este cargo.`);
             }
 
-            // 2. Verifica se já tem o cargo (evita compra duplicada)
-            if (userComprador.roles && userComprador.roles.includes(produto.nome)) {
-                return await client.sendMessage(chatId, "🏅 Você já possui este cargo em sua ficha de tripulante!", { sendSeen: false });
+            // 2. Verifica se já possui (olhando agora dentro do INVENTÁRIO)
+            const jaPossui = userComprador.inventory && userComprador.inventory.find(i => i.name === produto.nome);
+            if (jaPossui) {
+                return await msg.reply("🏅 Você já possui esta patente em seu inventário!");
             }
 
-            // 3. Executa a transação (Debita moedas e adiciona o cargo)
+            // 3. Executa a transação
+            // Salvamos no inventory como objeto para o comando /inventario ler
             const finalUser = await User.findOneAndUpdate(
                 { userId: senderRaw, groupId: chatId },
                 { 
                     $inc: { coins: -produto.preco },
-                    $push: { roles: produto.nome } 
+                    $push: { 
+                        inventory: { 
+                            name: produto.nome, 
+                            type: 'cargo', 
+                            date: new Date() 
+                        } 
+                    } 
                 },
                 { new: true }
             );
 
-            // 4. Mensagem de sucesso
-            const msgSucesso = `🎊 *AQUISIÇÃO DE PATENTE* 🎊
-━━━━━━━━━━━━━━━━━━
-🚀 *Nova Patente:* ${produto.nome}
-💰 *Investimento:* ${produto.preco.toLocaleString('pt-BR')} YC
-📉 *Saldo Atual:* ${finalUser.coins.toLocaleString('pt-BR')} YC
-━━━━━━━━━━━━━━━━━━
-Sua nova patente já foi registrada no seu /perfil!`;
+            // 4. Mensagem de sucesso (Estilo Yukon)
+            const msgSucesso = `
+🎊 *AQUISIÇÃO DE PATENTE* 🎊
+━━━━━━━━━━━━━━━━━━━━━━━
+🚀 *NOVA PATENTE:* ${produto.nome.toUpperCase()}
+💰 *INVESTIMENTO:* ${produto.preco.toLocaleString('pt-BR')} YC
+📉 *SALDO ATUAL:* ${finalUser.coins.toLocaleString('pt-BR')} YC
 
-            await client.sendMessage(chatId, msgSucesso, { sendSeen: false });
+✨ Parabéns! O item foi enviado para o seu */inventario*.
+━━━━━━━━━━━━━━━━━━━━━━━`.trim();
+
+            await msg.reply(msgSucesso);
 
         } catch (e) {
-            console.error("❌ Erro na compra:", e.message);
-            await client.sendMessage(chatId, "⚠️ Ocorreu um erro técnico ao processar sua compra. Tente novamente.", { sendSeen: false });
+            console.error("❌ Erro na compra:", e);
+            await msg.reply("⚠️ Ocorreu um erro ao processar sua compra.");
         }
     }
 };
