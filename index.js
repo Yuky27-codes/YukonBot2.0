@@ -290,7 +290,6 @@ client.on('message_create', async (msg) => {
                 }
             }
         }
-
         // --- 🟢 3. LÓGICA DE AFINIDADE POR RESPOSTA ---
         if (msg.hasQuotedMsg) {
             const quotedMsg = await msg.getQuotedMessage();
@@ -317,11 +316,21 @@ client.on('message_create', async (msg) => {
 
         const chat = await msg.getChat();
         let iAmAdmin = false;
+        let isGroupAdmins = false;
+
         if (chat.isGroup) {
+            // 1. Verifica se o BOT é admin
             const meuId = client.info.wid._serialized;
             const botNoGrupo = chat.participants.find(p => p.id._serialized === meuId);
             iAmAdmin = botNoGrupo ? botNoGrupo.isAdmin : false;
+
+            // 2. Verifica se QUEM MANDOU A MSG é admin do grupo
+            const autorNoGrupo = chat.participants.find(p => p.id._serialized === senderRaw);
+            isGroupAdmins = autorNoGrupo ? (autorNoGrupo.isAdmin || autorNoGrupo.isSuperAdmin) : false;
         }
+
+        // 3. Se você for o dono/dev (isAdmin), você vira isGroupAdmins automaticamente
+        if (isAdmin) isGroupAdmins = true;
 
         const commandPath = path.join(__dirname, 'commands', `${commandName}.js`);
         
@@ -332,13 +341,14 @@ client.on('message_create', async (msg) => {
                     args,
                     chatId,
                     senderRaw,
-                    isAdmin,
+                    isAdmin, // Nível Desenvolvedor
+                    isGroupAdmins, // Nível ADM de Grupo
                     groupId,
                     Modo,
                     User,
                     GroupConfig,
                     MessageMedia,
-                    iAmAdmin,
+                    iAmAdmin, // Se o BOT é admin
                     groq,
                     command: `/${commandName}`
                 });
@@ -351,7 +361,6 @@ client.on('message_create', async (msg) => {
         console.error("❌ ERRO GERAL NO INDEX:", e.message);
     }
 });
-
 /**********************************************************
  * 10. SISTEMA DE ANIVERSÁRIO (CRON JOB)
  **********************************************************/
