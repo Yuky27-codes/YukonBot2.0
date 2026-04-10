@@ -74,7 +74,7 @@ mongoose.connect(MONGO_URI, {
 });
 
 /**********************************************************
- * 4. SCHEMAS (ATUALIZADO COM MUTE EXPIRES)
+ * 4. SCHEMAS (ATUALIZADO COM MODOS DE JOGO)
  **********************************************************/
 const userSchema = new mongoose.Schema({
     userId: { type: String, required: true },
@@ -92,7 +92,6 @@ const userSchema = new mongoose.Schema({
     isBlacklisted: { type: Boolean, default: false },
     protectedUntil: { type: Number, default: null },
     lastDaily: { type: Date },
-    marriedWith: { type: String, default: null },
     loverWith: { type: String, default: null },
     birthday: { type: String, default: null },
     family: { type: Array, default: [] },
@@ -107,6 +106,16 @@ const userSchema = new mongoose.Schema({
 
 userSchema.index({ userId: 1, groupId: 1 }, { unique: true });
 const User = mongoose.model('User', userSchema);
+
+// --- NOVO SCHEMA PARA OS MODOS DE JOGO ---
+const modoSchema = new mongoose.Schema({
+    groupId: { type: String, required: true },
+    nome: { type: String, required: true },
+    descricao: { type: String, required: true },
+    criadoPor: { type: String },
+}, { timestamps: true });
+
+const Modo = mongoose.model('Modo', modoSchema);
 
 /**********************************************************
  * 5. CLIENT WHATSAPP
@@ -325,8 +334,9 @@ client.on('message_create', async (msg) => {
                     senderRaw,
                     isAdmin,
                     groupId,
+                    Modo,
                     User,
-                    GroupConfig, // <-- ADICIONADO PARA LOCK/UNLOCK FUNCIONAREM
+                    GroupConfig,
                     MessageMedia,
                     iAmAdmin,
                     groq,
