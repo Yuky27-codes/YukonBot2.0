@@ -6,7 +6,6 @@ module.exports = {
 ━━━━━━━━━━━━━━━━━━━━━━
 ▶️ */iniciar* — Iniciar Bot
 📊 */painel* — Menu Principal
-📣 */todos* — Alerta Geral
 ━━━━━━━━━━━━━━━━━━━━━━`;
 
             // Chama a função global definida no seu index

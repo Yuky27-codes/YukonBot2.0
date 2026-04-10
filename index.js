@@ -402,15 +402,17 @@ client.on('group_join', async (notification) => {
         const chatId = notification.chatId;
         const participantId = notification.recipientIds[0];
         
-        // Buscamos os dados do grupo e do usuário
+        // Buscamos os dados do grupo
         const chat = await client.getChatById(chatId);
         const nomeDoGrupo = chat.name || "Estação Desconhecida";
-        const mencao = `@${participantId.split('@')[0]}`;
+        
+        // Preparamos a menção (apenas o número para o texto)
+        const mencaoTexto = `@${participantId.split('@')[0]}`;
 
         const mensagemBoasVindas = `
 🚀 *BEM-VINDO À ${nomeDoGrupo.toUpperCase()}!* 🚀
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Olá, ${mencao}! Um novo tripulante acaba de acoplar na nossa base.
+Olá, ${mencaoTexto}! Um novo tripulante acaba de acoplar na nossa base.
 
 🛰️ *DIRETRIZES DA MISSÃO:*
 1. Explore os comandos usando */ajuda*.
@@ -423,17 +425,19 @@ Para uma melhor experiência de todos na estação, pedimos que siga as **REGRAS
 Que sua estadia em *${nomeDoGrupo}* seja de muita prosperidade e XP!
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`.trim();
 
-        await global.enviarMenuComFoto({ from: chatId }, 'welcome.jpg', mensagemBoasVindas);
+        // AGORA PASSAMOS O ID DO PARTICIPANTE COMO O QUARTO PARÂMETRO
+        await global.enviarMenuComFoto({ from: chatId }, 'welcome.jpg', mensagemBoasVindas, [participantId]);
 
         console.log(`✨ [BOAS-VINDAS] Foto e texto enviados para ${participantId} no grupo: ${nomeDoGrupo}`);
 
     } catch (err) {
         console.error("❌ Erro ao enviar boas-vindas com foto:", err.message);
         
-        // Backup: Se a foto falhar, tenta mandar apenas o texto para não deixar o membro sem saudação
         try {
             const chatId = notification.chatId;
-            await client.sendMessage(chatId, "🚀 Bem-vindo à estação!");
+            const participantId = notification.recipientIds[0];
+            // Backup com menção também no texto simples
+            await client.sendMessage(chatId, "🚀 Bem-vindo à estação!", { mentions: [participantId] });
         } catch {}
     }
 });

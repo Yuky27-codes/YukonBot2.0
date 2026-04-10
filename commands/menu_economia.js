@@ -9,6 +9,9 @@ module.exports = {
 🌎 */rankglobal* — Ricos de Yukon
 📅 */missão* — Coleta Diária
 🛒 */yukonshop* — Loja
+📤 */doar* — Doar coins para outro usuário
+🛡️ */protecao* — Proteger seus coins por um tempo
+🥷 */roubar* — Tentar roubar coins de outro usuário
 ━━━━━━━━━━━━━━━━━━━━━━`;
 
             // Chama a função global definida no seu index
