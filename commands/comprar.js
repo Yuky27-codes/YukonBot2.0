@@ -71,8 +71,9 @@ module.exports = {
             await msg.reply(msgSucesso);
 
         } catch (e) {
-            console.error("❌ Erro na compra:", e);
-            await msg.reply("⚠️ Ocorreu um erro ao processar sua compra.");
-        }
+    console.log("--- ERRO NO COMANDO COMPRAR ---");
+    console.error(e); // Isso vai mostrar o erro real no seu terminal
+    await msg.reply("⚠️ Erro técnico: " + e.message);
+}
     }
 };
