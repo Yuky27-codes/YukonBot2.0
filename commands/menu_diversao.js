@@ -8,6 +8,8 @@ module.exports = {
 💸 */apostar* — Multiplicar Coins
 🖼️ */f* — Figurinhas
 🎰 */roleta / 21 / corrida*
+🎮 */modo* — ver detalhes de um modo
+📋 */modos* — listar modos disponiveis
 ━━━━━━━━━━━━━━━━━━━━━━`;
 
             // Chama a função global definida no seu index

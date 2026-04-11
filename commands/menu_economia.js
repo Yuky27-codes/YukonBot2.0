@@ -5,6 +5,7 @@ module.exports = {
             const txtEco = `💰 *ECONOMIA E STATUS*
 ━━━━━━━━━━━━━━━━━━━━━━
 👤 */perfil* — Seus Dados
+🎒 */inventario* — ver seus itens no grupo
 🏆 */rank* — Ricos do Grupo
 🌎 */rankglobal* — Ricos de Yukon
 📅 */missão* — Coleta Diária

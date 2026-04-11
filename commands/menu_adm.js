@@ -18,6 +18,9 @@ module.exports = {
 ➖ */rmvcoins* — Remove coins de um usuário
 🔒 */lock* — Bloquear interação da bot (somente ADM)
 🔓 */unlock* — Liberar interação para todos
+🧩 */addmodo* — adicionar um novo mod
+🛠️ */editmodo* — editar um modo existente
+❌ */delmodo* — deletar um modo
 ━━━━━━━━━━━━━━━━━━━━━━`;
 
             // Chama a função global que está no seu index
