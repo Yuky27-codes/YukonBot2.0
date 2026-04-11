@@ -10,7 +10,7 @@ module.exports = {
                 '4': { nome: 'Especialista', preco: 10000 },
                 '5': { nome: 'Veterano', preco: 25000 },
                 '6': { nome: 'Comandante', preco: 50000 },
-                '07':{nome: "Elite Galáctica", preco: 80000 },
+                '7': { nome: 'Elite Galáctica', preco: 80000 },
                 '8': { nome: 'Guardião Estelar', preco: 120000 },
                 '9': { nome: 'Viajante Dimensional', preco: 180000 },
                 '10': { nome: 'Lorde das Estrelas', preco: 250000 },
@@ -21,59 +21,65 @@ module.exports = {
 
             const produto = produtos[item];
             if (!produto) {
-                return await msg.reply("❗ *SETOR DE VENDAS:* Item inválido! Use um número de 1 a 13.\nExemplo: */comprar 1*");
+                return await msg.reply("❗ *SETOR DE VENDAS:* Item inválido! Use um número de 1 a 13.");
             }
 
             const userComprador = await User.findOne({ userId: senderRaw, groupId: chatId });
             
             if (!userComprador) return await msg.reply("❌ Perfil não encontrado.");
 
-            // 1. Verifica se tem saldo
-            if (userComprador.coins < produto.preco) {
-                const falta = produto.preco - userComprador.coins;
-                return await msg.reply(`❌ *SALDO INSUFICIENTE*\n\nFaltam *${falta.toLocaleString('pt-BR')}* Moedas para este cargo.`);
+            // 1. Garante que tratamos o inventário como array, mesmo se vier errado do banco
+            const inventarioAtual = Array.isArray(userComprador.inventory) ? userComprador.inventory : [];
+            const moedasAtuais = userComprador.coins || 0;
+
+            if (moedasAtuais < produto.preco) {
+                const falta = produto.preco - moedasAtuais;
+                return await msg.reply(`❌ *SALDO INSUFICIENTE:* Faltam ${falta.toLocaleString('pt-BR')} moedas.`);
             }
 
-            // 2. Verifica se já possui (olhando agora dentro do INVENTÁRIO)
-            const jaPossui = userComprador.inventory && userComprador.inventory.find(i => i.name === produto.nome);
+            const jaPossui = inventarioAtual.some(i => i.name === produto.nome);
             if (jaPossui) {
-                return await msg.reply("🏅 Você já possui esta patente em seu inventário!");
+                return await msg.reply("🏅 Você já possui esta patente!");
             }
 
-            // 3. Executa a transação
-            // Salvamos no inventory como objeto para o comando /inventario ler
+            // 2. A SOLUÇÃO: Se o inventory não for array, o $set vai sobrescrever ele para array antes do $push
+            const updateData = {
+                $inc: { coins: -produto.preco },
+                $push: { 
+                    inventory: { 
+                        name: produto.nome, 
+                        type: 'cargo', 
+                        date: new Date() 
+                    } 
+                }
+            };
+
+            // Se detectarmos que NÃO é um array no banco, forçamos a correção
+            if (!Array.isArray(userComprador.inventory)) {
+                // Removemos o $push e usamos apenas $set para "limpar" e adicionar o primeiro item
+                delete updateData.$push;
+                updateData.$set = { inventory: [{ name: produto.nome, type: 'cargo', date: new Date() }] };
+            }
+
             const finalUser = await User.findOneAndUpdate(
                 { userId: senderRaw, groupId: chatId },
-                { 
-                    $inc: { coins: -produto.preco },
-                    $push: { 
-                        inventory: { 
-                            name: produto.nome, 
-                            type: 'cargo', 
-                            date: new Date() 
-                        } 
-                    } 
-                },
-                { new: true }
+                updateData,
+                { returnDocument: 'after', upsert: true } // Corrigido o aviso de 'new' deprecado
             );
 
-            // 4. Mensagem de sucesso (Estilo Yukon)
             const msgSucesso = `
-🎊 *AQUISIÇÃO DE PATENTE* 🎊
+🎊 *AQUISIÇÃO CONCLUÍDA* 🎊
 ━━━━━━━━━━━━━━━━━━━━━━━
-🚀 *NOVA PATENTE:* ${produto.nome.toUpperCase()}
-💰 *INVESTIMENTO:* ${produto.preco.toLocaleString('pt-BR')} YC
+🚀 *PATENTE:* ${produto.nome.toUpperCase()}
 📉 *SALDO ATUAL:* ${finalUser.coins.toLocaleString('pt-BR')} YC
-
-✨ Parabéns! O item foi enviado para o seu */inventario*.
 ━━━━━━━━━━━━━━━━━━━━━━━`.trim();
 
             await msg.reply(msgSucesso);
 
         } catch (e) {
-    console.log("--- ERRO NO COMANDO COMPRAR ---");
-    console.error(e); // Isso vai mostrar o erro real no seu terminal
-    await msg.reply("⚠️ Erro técnico: " + e.message);
-}
+            console.error("--- ERRO NO COMANDO COMPRAR ---");
+            console.error(e);
+            await msg.reply("⚠️ Erro técnico ao processar compra. O sistema de inventário foi reiniciado para sua conta.");
+        }
     }
 };
