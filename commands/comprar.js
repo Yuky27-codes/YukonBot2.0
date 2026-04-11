@@ -25,12 +25,20 @@ module.exports = {
             }
 
             const userComprador = await User.findOne({ userId: senderRaw, groupId: chatId });
-            
             if (!userComprador) return await msg.reply("❌ Perfil não encontrado.");
 
-            // 1. Garante que tratamos o inventário como array, mesmo se vier errado do banco
-            const inventarioAtual = Array.isArray(userComprador.inventory) ? userComprador.inventory : [];
+            // 1. CHECAGEM DE SEGURANÇA (LIMPEZA DE CAMPO SUJO)
+            // Se o inventário for um objeto (tipo {}), nós forçamos ele a virar um array agora mesmo.
+            if (userComprador.inventory && !Array.isArray(userComprador.inventory)) {
+                await User.updateOne(
+                    { userId: senderRaw, groupId: chatId },
+                    { $set: { inventory: [] } }
+                );
+                userComprador.inventory = []; // Atualiza na memória também
+            }
+
             const moedasAtuais = userComprador.coins || 0;
+            const inventarioAtual = Array.isArray(userComprador.inventory) ? userComprador.inventory : [];
 
             if (moedasAtuais < produto.preco) {
                 const falta = produto.preco - moedasAtuais;
@@ -42,29 +50,20 @@ module.exports = {
                 return await msg.reply("🏅 Você já possui esta patente!");
             }
 
-            // 2. A SOLUÇÃO: Se o inventory não for array, o $set vai sobrescrever ele para array antes do $push
-            const updateData = {
-                $inc: { coins: -produto.preco },
-                $push: { 
-                    inventory: { 
-                        name: produto.nome, 
-                        type: 'cargo', 
-                        date: new Date() 
-                    } 
-                }
-            };
-
-            // Se detectarmos que NÃO é um array no banco, forçamos a correção
-            if (!Array.isArray(userComprador.inventory)) {
-                // Removemos o $push e usamos apenas $set para "limpar" e adicionar o primeiro item
-                delete updateData.$push;
-                updateData.$set = { inventory: [{ name: produto.nome, type: 'cargo', date: new Date() }] };
-            }
-
+            // 2. TRANSAÇÃO COM MODO DE COMPATIBILIDADE
             const finalUser = await User.findOneAndUpdate(
                 { userId: senderRaw, groupId: chatId },
-                updateData,
-                { returnDocument: 'after', upsert: true } // Corrigido o aviso de 'new' deprecado
+                { 
+                    $inc: { coins: -produto.preco },
+                    $push: { 
+                        inventory: { 
+                            name: produto.nome, 
+                            type: 'cargo', 
+                            date: new Date() 
+                        } 
+                    } 
+                },
+                { returnDocument: 'after', upsert: true }
             );
 
             const msgSucesso = `
@@ -79,7 +78,14 @@ module.exports = {
         } catch (e) {
             console.error("--- ERRO NO COMANDO COMPRAR ---");
             console.error(e);
-            await msg.reply("⚠️ Erro técnico ao processar compra. O sistema de inventário foi reiniciado para sua conta.");
+            
+            // Se o erro de "not an array" acontecer mesmo assim, resetamos o campo na hora
+            if (e.message.includes('must be an array')) {
+                await User.updateOne({ userId: senderRaw, groupId: chatId }, { $set: { inventory: [] } });
+                return await msg.reply("⚠️ Seus arquivos de inventário estavam corrompidos e foram resetados. Por favor, tente comprar novamente.");
+            }
+
+            await msg.reply("⚠️ Erro técnico ao processar compra.");
         }
     }
 };
