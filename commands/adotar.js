@@ -15,10 +15,12 @@ module.exports = {
             const alvoId = String(mencoes[0]._serialized || mencoes[0]).trim();
             const conjugeId = autorData.marriedWith;
 
-            // --- 🛡️ NOVA TRAVA RASTREADORA (BUSCA EM TODO O BANCO) ---
-            // Procuramos qualquer usuário que já tenha esse alvoId na lista de família
+            // --- 🛡️ TRAVA RASTREADORA MELHORADA ---
+            // Procuramos se o ALVO está na lista de família de OUTRA pessoa
+            // Ignoramos o perfil do próprio alvo para não dar "falso positivo"
             const familiaExistente = await User.findOne({ 
                 groupId: chatId, 
+                userId: { $ne: alvoId }, // $ne significa "Não é igual a" (ignora o perfil do filho)
                 "family.userId": alvoId 
             });
             
@@ -29,6 +31,12 @@ module.exports = {
 
             if (alvoId === autorId || alvoId === conjugeId) {
                 return await msg.reply("❌ Você não pode adotar a si mesmo ou ao seu cônjuge.");
+            }
+
+            // Garante que o alvo tenha um perfil e limpa o campo family se estiver bugado
+            const alvoData = await User.findOne({ userId: alvoId, groupId: chatId });
+            if (alvoData && !Array.isArray(alvoData.family)) {
+                await User.updateOne({ userId: alvoId, groupId: chatId }, { $set: { family: [] } });
             }
 
             const novoFilho = { userId: alvoId, role: 'filho' };
@@ -43,7 +51,7 @@ module.exports = {
                 { $push: { family: novoFilho } }
             );
 
-            // 2. Registra os pais no perfil do filho (Importante para o /familia dele)
+            // 2. Registra os pais no perfil do filho
             await User.updateOne(
                 { userId: alvoId, groupId: chatId },
                 { $set: { family: paisDoFilho } },
