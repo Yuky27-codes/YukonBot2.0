@@ -166,12 +166,11 @@ global.enviarMenuComFoto = async (msg, fotoNome, texto, mencoes = []) => {
             const media = MessageMedia.fromFilePath(caminhoImagem);
             await client.sendMessage(chatId, media, {
                 caption: texto,
-                mentions: mencoes, // <--- O SEGREDO ESTÁ AQUI!
+                mentions: mencoes,
                 sendSeen: false
             });
         } else {
             console.error(`⚠️ Imagem não encontrada: ${caminhoImagem}`);
-            // Se a imagem falhar, envia pelo menos o texto com as menções
             await client.sendMessage(chatId, texto, { 
                 mentions: mencoes, 
                 sendSeen: false 
