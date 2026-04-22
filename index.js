@@ -79,6 +79,7 @@ mongoose.connect(MONGO_URI, {
 const userSchema = new mongoose.Schema({
     userId: { type: String, required: true },
     groupId: { type: String, required: true },
+    isBotAdmin: { type: Boolean, default: false },
     coins: { type: Number, default: 0 },
     xp: { type: Number, default: 0 },
     level: { type: Number, default: 1 },
@@ -214,13 +215,17 @@ client.on('message_create', async (msg) => {
     const chatId = msg.from._serialized || msg.from.toString();
     const senderRaw = (msg.author || msg.from)._serialized || (msg.author || msg.from).toString();
     const groupId = chatId;
-    const isAdmin = isAdminUser(senderRaw);
 
     try {
-        // --- 🟢 1. CARCEREIRA DA YUKON (SISTEMA DE PRISÃO/ROUBAR) ---
-        if (chatId.endsWith('@g.us')) {
-            const userData = await User.findOne({ userId: senderRaw, groupId: groupId });
+        // --- 🟢 AJUSTE DE ADMIN: Busca no banco para validar permissão ---
+        const userData = await User.findOne({ userId: senderRaw, groupId: groupId });
+        
+        // Alguém é isAdmin se: Está na lista fixa OU se o campo isBotAdmin no banco for true
+        const isAdmin = isAdminUser(senderRaw) || (userData ? userData.isBotAdmin : false);
 
+        // --- 🟢 1. CARCEREIRA DA YUKON ---
+        if (chatId.endsWith('@g.us')) {
+            // Reutiliza o userData buscado acima para otimizar performance
             if (userData && userData.isMuted) {
                 const agora = Date.now();
                 if (userData.muteExpires && agora > userData.muteExpires) {
@@ -228,14 +233,11 @@ client.on('message_create', async (msg) => {
                         { userId: senderRaw, groupId: groupId },
                         { $set: { isMuted: false, muteExpires: null } }
                     );
-                    console.log(`🔓 Tripulante ${senderRaw} cumpriu a pena e foi solto.`);
                 } else {
                     try {
                         await msg.delete(true);
                         return; 
-                    } catch (e) {
-                        console.error("❌ Erro ao apagar mensagem de preso.");
-                    }
+                    } catch (e) {}
                 }
             }
         }
@@ -341,14 +343,14 @@ client.on('message_create', async (msg) => {
                     args,
                     chatId,
                     senderRaw,
-                    isAdmin, // Nível Desenvolvedor
-                    isGroupAdmins, // Nível ADM de Grupo
+                    isAdmin,
+                    isGroupAdmins, 
                     groupId,
                     Modo,
                     User,
                     GroupConfig,
                     MessageMedia,
-                    iAmAdmin, // Se o BOT é admin
+                    iAmAdmin,
                     groq,
                     command: `/${commandName}`
                 });
