@@ -119,6 +119,14 @@ const modoSchema = new mongoose.Schema({
 
 const Modo = mongoose.model('Modo', modoSchema);
 
+// --- NOVO SCHEMA PARA ESTATÍSTICAS DE FLUXO ---
+const groupStatsSchema = new mongoose.Schema({
+    groupId: { type: String, required: true, unique: true },
+    entradas: { type: Number, default: 0 },
+    saidas: { type: Number, default: 0 }
+});
+const GroupStats = mongoose.model('GroupStats', groupStatsSchema);
+
 /**********************************************************
  * 5. CLIENT WHATSAPP
  **********************************************************/
@@ -422,12 +430,19 @@ client.on('group_join', async (notification) => {
     try {
         const chatId = notification.chatId;
         const participantId = notification.recipientIds[0];
+
+        // 🟢 ADIÇÃO: Incrementa o contador de entradas no banco de dados
+        const GroupStats = mongoose.model('GroupStats');
+        await GroupStats.updateOne(
+            { groupId: chatId },
+            { $inc: { entradas: 1 } },
+            { upsert: true }
+        );
         
-        // Buscamos os dados do grupo
+        // --- TODO O SEU CÓDIGO ORIGINAL COMEÇA AQUI ---
         const chat = await client.getChatById(chatId);
         const nomeDoGrupo = chat.name || "Estação Desconhecida";
         
-        // Preparamos a menção (apenas o número para o texto)
         const mencaoTexto = `@${participantId.split('@')[0]}`;
 
         const mensagemBoasVindas = `
@@ -446,7 +461,6 @@ Para uma melhor experiência de todos na estação, pedimos que siga as **REGRAS
 Que sua estadia em *${nomeDoGrupo}* seja de muita prosperidade e XP!
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`.trim();
 
-        // AGORA PASSAMOS O ID DO PARTICIPANTE COMO O QUARTO PARÂMETRO
         await global.enviarMenuComFoto({ from: chatId }, 'welcome.jpg', mensagemBoasVindas, [participantId]);
 
         console.log(`✨ [BOAS-VINDAS] Foto e texto enviados para ${participantId} no grupo: ${nomeDoGrupo}`);
@@ -457,8 +471,28 @@ Que sua estadia em *${nomeDoGrupo}* seja de muita prosperidade e XP!
         try {
             const chatId = notification.chatId;
             const participantId = notification.recipientIds[0];
-            // Backup com menção também no texto simples
             await client.sendMessage(chatId, "🚀 Bem-vindo à estação!", { mentions: [participantId] });
         } catch {}
+    }
+});
+
+// --- MONITORAMENTO DE SAÍDA DE TRIPULANTES ---
+client.on('group_leave', async (notification) => {
+    try {
+        const chatId = notification.chatId;
+        
+        // 🔴 INCREMENTA O CONTADOR DE SAÍDAS NO BANCO
+        const GroupStats = mongoose.model('GroupStats');
+        await GroupStats.updateOne(
+            { groupId: chatId },
+            { $inc: { saidas: 1 } },
+            { upsert: true }
+        );
+
+        const participantId = notification.recipientIds[0];
+        console.log(`📉 [LOG] Tripulante ${participantId} deixou a estação no grupo ${chatId}`);
+
+    } catch (err) {
+        console.error("❌ Erro ao registrar saída no banco:", err.message);
     }
 });
