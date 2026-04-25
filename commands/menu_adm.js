@@ -8,8 +8,8 @@ module.exports = {
 📋 */listaadv* — Ver Lista de Avisos
 ❌ */rmadv* — Remover Advertência
 ⛔ */ban* — Banir
-🔇 */mute / desmute* — Silenciar Chat
-🤐 */mutep / desmutep* — Mute no Banco
+🔇 */mute / Desmute* — Silenciar Chat
+🤐 */mutep / Desmutep* — Mute no Banco
 🔼 */promover* — Tornar Administrador
 🔽 */rebaixar* — Remover Administração
 📣 */todos* — Marcar Todos
@@ -18,9 +18,11 @@ module.exports = {
 ➖ */rmvcoins* — Remove coins de um usuário
 🔒 */lock* — Bloquear interação da bot (somente ADM)
 🔓 */unlock* — Liberar interação para todos
-🧩 */addmodo* — adicionar um novo mod
-🛠️ */editmodo* — editar um modo existente
-❌ */delmodo* — deletar um modo
+🧩 */addmodo* — Adicionar um novo mod
+🛠️ */editmodo* — Editar um modo existente
+❌ */delmodo* — Deletar um modo
+⚙️ */monitorar* — Ver informações do grupo 
+🔗 */checar* — Monitorar um membro
 ━━━━━━━━━━━━━━━━━━━━━━`;
 
             // Chama a função global que está no seu index
