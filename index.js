@@ -261,13 +261,22 @@ client.on('message_create', async (msg) => {
         }
 
         // --- 🟢 2. FILTRO DE LICENCIAMENTO (SISTEMA PAGO) ---
-        // Verifica licença apenas se for comando e for em grupo (@g.us)
         if (body.startsWith(prefix) && chatId.endsWith('@g.us')) {
-            const groupAuth = await AuthorizedGroup.findOne({ groupId: chatId });
+            // Buscamos o status de autorização do grupo atual
+            const groupAuth = await AuthorizedGroup.findOne({ groupId: chatId }).lean();
 
-            // Se não estiver autorizado e você não for o DONO (isAdmin)
-            if ((!groupAuth || !groupAuth.isAuthorized) && !isAdmin) {
-                return await client.sendMessage(chatId, `🚫 *ACESSO NEGADO - YUKON STATION*\n━━━━━━━━━━━━━━━━━━━━━\nEste grupo não possui uma assinatura ativa.\n\nPara autorizar a Yukon neste grupo, entre em contato com o desenvolvedor.`);
+            // LÓGICA DE BLOQUEIO:
+            // 1. Se groupAuth for nulo (grupo novo/nunca autorizado) OU
+            // 2. Se groupAuth.isAuthorized for falso (foi removido com /auth rem)
+            // E você NÃO for o administrador do bot
+            if ((!groupAuth || groupAuth.isAuthorized === false) && !isAdmin) {
+                return await client.sendMessage(chatId, `🚫 *ACESSO NEGADO - YUKON STATION*
+━━━━━━━━━━━━━━━━━━━━━
+Esta estação não possui uma assinatura ativa para operar neste setor.
+
+🆔 *ID DESTA ESTAÇÃO:* \`${chatId}\`
+
+Para ativar as funções de economia e proteção, entre em contato com o desenvolvedor.`);
             }
         }
 
