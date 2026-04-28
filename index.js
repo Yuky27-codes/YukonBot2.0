@@ -132,7 +132,8 @@ const GroupStats = mongoose.model('GroupStats', groupStatsSchema);
 const authorizedGroupSchema = new mongoose.Schema({
     groupId: { type: String, required: true, unique: true },
     isAuthorized: { type: Boolean, default: false },
-    authorizedBy: { type: String }, // ID do seu usuário (Dono)
+    authorizedBy: { type: String },
+    expiresAt: { type: Date, default: null },
     createdAt: { type: Date, default: Date.now }
 });
 const AuthorizedGroup = mongoose.model('AuthorizedGroup', authorizedGroupSchema);
@@ -260,24 +261,32 @@ client.on('message_create', async (msg) => {
             }
         }
 
-        // --- 🟢 A BARREIRA MESTRA (LICENCIAMENTO) ---
-if (body.startsWith(prefix) && chatId.endsWith('@g.us')) {
-    const groupAuth = await AuthorizedGroup.findOne({ groupId: chatId }).lean();
+        // --- 🟢 2. FILTRO DE LICENCIAMENTO COM EXPIRAÇÃO ---
+        if (body.startsWith(prefix) && chatId.endsWith('@g.us')) {
+            const groupAuth = await AuthorizedGroup.findOne({ groupId: chatId }).lean();
+            const agora = new Date();
 
-    // Aqui verificamos se o seu ID atual está na lista fixa de ADMs
-    // Use a mesma função que você já tem no bot para checar a lista
-    const ehDonoReal = isAdminUser(senderRaw); 
+            // Lógica de Bloqueio:
+            // 1. Se não existe no banco ou isAuthorized é false
+            // 2. OU se existe uma data de expiração e ela já passou (agora > expiresAt)
+            const expirou = groupAuth && groupAuth.expiresAt && agora > new Date(groupAuth.expiresAt);
 
-    if ((!groupAuth || groupAuth.isAuthorized === false) && !ehDonoReal) {
-        return await client.sendMessage(chatId, `🚫 *ACESSO NEGADO - YUKON STATION*
+            if ((!groupAuth || groupAuth.isAuthorized === false || expirou) && !isAdmin) {
+                
+                // Se expirou agora, vamos atualizar o banco para desativar de vez
+                if (expirou && groupAuth.isAuthorized !== false) {
+                    await AuthorizedGroup.updateOne({ groupId: chatId }, { $set: { isAuthorized: false } });
+                }
+
+                return await client.sendMessage(chatId, `🚫 *ESTAÇÃO BLOQUEADA / EXPIRADA*
 ━━━━━━━━━━━━━━━━━━━━━
-Esta estação não possui uma assinatura ativa para operar neste setor.
+A licença desta estação expirou ou não está ativa.
 
-🆔 *ID DESTA ESTAÇÃO:* \`${chatId}\`
+🗓️ Vencimento: ${groupAuth?.expiresAt ? new Date(groupAuth.expiresAt).toLocaleDateString('pt-BR') : 'Não cadastrado'}
 
-Para ativar as funções de economia e proteção, entre em contato com o desenvolvedor.`);
-    }
-}
+Para renovar, entre em contato com o suporte.`);
+            }
+        }
     
         // --- 🟢 3. FILTRO DE MODO LOCK (APENAS ADMS) ---
         if (chatId.endsWith('@g.us')) {

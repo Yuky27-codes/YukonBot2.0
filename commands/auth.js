@@ -23,21 +23,30 @@ module.exports = {
             const AuthorizedGroup = mongoose.model('AuthorizedGroup');
 
             if (acao === 'add') {
-                // Adiciona ou Reativa a licença
-                await AuthorizedGroup.updateOne(
-                    { groupId: idGrupo },
-                    { 
-                        $set: { 
-                            isAuthorized: true, 
-                            authorizedBy: msg.author || msg.from,
-                            createdAt: new Date() 
-                        } 
-                    },
-                    { upsert: true }
-                );
+            const dias = parseInt(args[2]) || 30; // Se não disser os dias, assume 30
+            const dataVencimento = new Date();
+            // Apenas para o teste de hoje: transforma o número em SEGUNDOS
+            dataVencimento.setSeconds(dataVencimento.getSeconds() + dias);
 
-                return msg.reply(`✅ *ESTAÇÃO AUTORIZADA*\n━━━━━━━━━━━━━━━━━━━━━\n🆔 ID: \`${idGrupo}\`\n🛰️ Status: **Online / Licenciado**`);
-            } 
+            await AuthorizedGroup.updateOne(
+                { groupId: idGrupo },
+                { 
+                    $set: { 
+                        isAuthorized: true, 
+                        authorizedBy: msg.author || msg.from,
+                        expiresAt: dataVencimento, // Salva a data calculada
+                        updatedAt: new Date()
+                    } 
+                },
+                { upsert: true }
+            );
+
+            return msg.reply(`✅ *ESTAÇÃO ATIVADA*
+━━━━━━━━━━━━━━━━━━━━━
+🆔 ID: \`${idGrupo}\`
+📅 Prazo: **${dias} dias**
+🗓️ Vence em: **${dataVencimento.toLocaleDateString('pt-BR')}**`);
+        }
             
             if (acao === 'rem') {
                 // Bloqueia o grupo
