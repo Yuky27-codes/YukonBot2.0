@@ -128,6 +128,15 @@ const groupStatsSchema = new mongoose.Schema({
 });
 const GroupStats = mongoose.model('GroupStats', groupStatsSchema);
 
+// --- NOVO SCHEMA PARA AUTORIZAÇÃO
+const authorizedGroupSchema = new mongoose.Schema({
+    groupId: { type: String, required: true, unique: true },
+    isAuthorized: { type: Boolean, default: false },
+    authorizedBy: { type: String }, // ID do seu usuário (Dono)
+    createdAt: { type: Date, default: Date.now }
+});
+const AuthorizedGroup = mongoose.model('AuthorizedGroup', authorizedGroupSchema);
+
 /**********************************************************
  * 5. CLIENT WHATSAPP
  **********************************************************/
@@ -318,6 +327,16 @@ client.on('message_create', async (msg) => {
                 );
             }
         }
+
+        // --- 🟢 FILTRO DE LICENCIAMENTO (SISTEMA PAGO) ---
+const groupAuth = await mongoose.model('AuthorizedGroup').findOne({ groupId: chatId });
+
+if (body.startsWith(prefix)) {
+    // Se não estiver autorizado e você não for o DONO (isAdmin)
+    if ((!groupAuth || !groupAuth.isAuthorized) && !isAdmin) {
+        return await client.sendMessage(chatId, `🚫 *ACESSO NEGADO - YUKON STATION*\n━━━━━━━━━━━━━━━━━━━━━\nEste grupo não possui uma assinatura ativa.\n\nPara autorizar a Yukon neste grupo, entre em contato com o desenvolvedor.`);
+    }
+}
 
         // --- 🟢 4. PARSER DE COMANDO ---
         const prefix = '/';
