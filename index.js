@@ -79,6 +79,7 @@ mongoose.connect(MONGO_URI, {
 const userSchema = new mongoose.Schema({
     userId: { type: String, required: true },
     groupId: { type: String, required: true },
+    lastMessageAt: { type: Date, default: Date.now },
     isBotAdmin: { type: Boolean, default: false },
     coins: { type: Number, default: 0 },
     xp: { type: Number, default: 0 },
@@ -277,6 +278,8 @@ client.on('message_create', async (msg) => {
                         { userId: senderRaw, groupId: groupId },
                         { 
                             $inc: { xp: xpGanho },
+                            // 🟢 ATUALIZAÇÃO PARA O /CHECAR: Salva a data exata da última mensagem
+                            $set: { lastMessageAt: new Date() },
                             $setOnInsert: { level: 1, coins: 0, roles: ["Tripulante"] } 
                         },
                         { upsert: true, returnDocument: 'after' }
@@ -371,6 +374,7 @@ client.on('message_create', async (msg) => {
         console.error("❌ ERRO GERAL NO INDEX:", e.message);
     }
 });
+
 /**********************************************************
  * 10. SISTEMA DE ANIVERSÁRIO (CRON JOB)
  **********************************************************/
