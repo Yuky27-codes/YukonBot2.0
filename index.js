@@ -230,20 +230,20 @@ client.initialize();
 client.on('message_create', async (msg) => {
     if (!msg || !msg.from) return;
 
+    // --- 🟢 0. DEFINIÇÕES INICIAIS (MOVIDAS PARA O TOPO PARA EVITAR ERROS) ---
     const chatId = msg.from._serialized || msg.from.toString();
     const senderRaw = (msg.author || msg.from)._serialized || (msg.author || msg.from).toString();
     const groupId = chatId;
+    const prefix = '/';
+    const body = msg.body ? msg.body.trim() : "";
 
     try {
-        // --- 🟢 AJUSTE DE ADMIN: Busca no banco para validar permissão ---
+        // --- 🟢 BUSCA DE DADOS INICIAIS ---
         const userData = await User.findOne({ userId: senderRaw, groupId: groupId });
-        
-        // Alguém é isAdmin se: Está na lista fixa OU se o campo isBotAdmin no banco for true
         const isAdmin = isAdminUser(senderRaw) || (userData ? userData.isBotAdmin : false);
 
         // --- 🟢 1. CARCEREIRA DA YUKON ---
         if (chatId.endsWith('@g.us')) {
-            // Reutiliza o userData buscado acima para otimizar performance
             if (userData && userData.isMuted) {
                 const agora = Date.now();
                 if (userData.muteExpires && agora > userData.muteExpires) {
@@ -260,20 +260,30 @@ client.on('message_create', async (msg) => {
             }
         }
 
-        // --- 🟢 ADIÇÃO: FILTRO DE MODO LOCK (APENAS ADMS) ---
-        if (chatId.endsWith('@g.us')) {
-            const config = await GroupConfig.findOne({ groupId: chatId }).lean();
-            if (config && config.onlyAdms && !isAdmin) {
-                const body = msg.body ? msg.body.trim() : "";
-                if (body.startsWith('/')) return; // Bloqueia o comando se não for ADM
+        // --- 🟢 2. FILTRO DE LICENCIAMENTO (SISTEMA PAGO) ---
+        // Verifica licença apenas se for comando e for em grupo (@g.us)
+        if (body.startsWith(prefix) && chatId.endsWith('@g.us')) {
+            const groupAuth = await AuthorizedGroup.findOne({ groupId: chatId });
+
+            // Se não estiver autorizado e você não for o DONO (isAdmin)
+            if ((!groupAuth || !groupAuth.isAuthorized) && !isAdmin) {
+                return await client.sendMessage(chatId, `🚫 *ACESSO NEGADO - YUKON STATION*\n━━━━━━━━━━━━━━━━━━━━━\nEste grupo não possui uma assinatura ativa.\n\nPara autorizar a Yukon neste grupo, entre em contato com o desenvolvedor.`);
             }
         }
 
-        // --- 🟢 2. GRAVADOR DE MEMÓRIA E SISTEMA DE XP ---
+        // --- 🟢 3. FILTRO DE MODO LOCK (APENAS ADMS) ---
         if (chatId.endsWith('@g.us')) {
-            const mensagemTexto = msg.body || msg._data?.body || "";
+            const config = await GroupConfig.findOne({ groupId: chatId }).lean();
+            if (config && config.onlyAdms && !isAdmin) {
+                if (body.startsWith(prefix)) return; 
+            }
+        }
+
+        // --- 🟢 4. GRAVADOR DE MEMÓRIA E SISTEMA DE XP ---
+        if (chatId.endsWith('@g.us')) {
+            const mensagemTexto = body;
             
-            if (mensagemTexto && !mensagemTexto.startsWith('/')) {
+            if (mensagemTexto && !mensagemTexto.startsWith(prefix)) {
                 try {
                     await GroupMessage.create({
                         groupId: chatId,
@@ -287,7 +297,6 @@ client.on('message_create', async (msg) => {
                         { userId: senderRaw, groupId: groupId },
                         { 
                             $inc: { xp: xpGanho },
-                            // 🟢 ATUALIZAÇÃO PARA O /CHECAR: Salva a data exata da última mensagem
                             $set: { lastMessageAt: new Date() },
                             $setOnInsert: { level: 1, coins: 0, roles: ["Tripulante"] } 
                         },
@@ -312,7 +321,8 @@ client.on('message_create', async (msg) => {
                 }
             }
         }
-        // --- 🟢 3. LÓGICA DE AFINIDADE POR RESPOSTA ---
+
+        // --- 🟢 5. LÓGICA DE AFINIDADE POR RESPOSTA ---
         if (msg.hasQuotedMsg) {
             const quotedMsg = await msg.getQuotedMessage();
             const autorOriginal = (quotedMsg.author || quotedMsg.from).split('@')[0] + '@lid';
@@ -328,19 +338,7 @@ client.on('message_create', async (msg) => {
             }
         }
 
-        // --- 🟢 FILTRO DE LICENCIAMENTO (SISTEMA PAGO) ---
-const groupAuth = await mongoose.model('AuthorizedGroup').findOne({ groupId: chatId });
-
-if (body.startsWith(prefix)) {
-    // Se não estiver autorizado e você não for o DONO (isAdmin)
-    if ((!groupAuth || !groupAuth.isAuthorized) && !isAdmin) {
-        return await client.sendMessage(chatId, `🚫 *ACESSO NEGADO - YUKON STATION*\n━━━━━━━━━━━━━━━━━━━━━\nEste grupo não possui uma assinatura ativa.\n\nPara autorizar a Yukon neste grupo, entre em contato com o desenvolvedor.`);
-    }
-}
-
-        // --- 🟢 4. PARSER DE COMANDO ---
-        const prefix = '/';
-        const body = msg.body ? msg.body.trim() : "";
+        // --- 🟢 6. PARSER DE COMANDO (EXECUÇÃO FINAL) ---
         if (!body.startsWith(prefix)) return;
 
         const args = body.slice(prefix.length).trim().split(/\s+/);
@@ -351,17 +349,14 @@ if (body.startsWith(prefix)) {
         let isGroupAdmins = false;
 
         if (chat.isGroup) {
-            // 1. Verifica se o BOT é admin
             const meuId = client.info.wid._serialized;
             const botNoGrupo = chat.participants.find(p => p.id._serialized === meuId);
             iAmAdmin = botNoGrupo ? botNoGrupo.isAdmin : false;
 
-            // 2. Verifica se QUEM MANDOU A MSG é admin do grupo
             const autorNoGrupo = chat.participants.find(p => p.id._serialized === senderRaw);
             isGroupAdmins = autorNoGrupo ? (autorNoGrupo.isAdmin || autorNoGrupo.isSuperAdmin) : false;
         }
 
-        // 3. Se você for o dono/dev (isAdmin), você vira isGroupAdmins automaticamente
         if (isAdmin) isGroupAdmins = true;
 
         const commandPath = path.join(__dirname, 'commands', `${commandName}.js`);
