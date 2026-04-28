@@ -33,7 +33,7 @@ const GroupConfig = mongoose.model('GroupConfig', groupConfigSchema);
 global.codigosPorGrupo = {};
 
 const LISTA_ADMS = [
-    '143130204626959@lid', '19975926460579@lid', '53111632707782@lid', '270978714218641@lid', '22385906442270@lid', '94386822062195@lid', '172606179270807@lid', '31443908599826@lid', '185165066305729@lid', '12060503109759@lid', '150152274780276@lid'
+    '143130204626959@lid'
 ]; 
 
 /**********************************************************
@@ -260,26 +260,25 @@ client.on('message_create', async (msg) => {
             }
         }
 
-        // --- 🟢 2. FILTRO DE LICENCIAMENTO (SISTEMA PAGO) ---
-        if (body.startsWith(prefix) && chatId.endsWith('@g.us')) {
-            // Buscamos o status de autorização do grupo atual
-            const groupAuth = await AuthorizedGroup.findOne({ groupId: chatId }).lean();
+        // --- 🟢 A BARREIRA MESTRA (LICENCIAMENTO) ---
+if (body.startsWith(prefix) && chatId.endsWith('@g.us')) {
+    const groupAuth = await AuthorizedGroup.findOne({ groupId: chatId }).lean();
 
-            // LÓGICA DE BLOQUEIO:
-            // 1. Se groupAuth for nulo (grupo novo/nunca autorizado) OU
-            // 2. Se groupAuth.isAuthorized for falso (foi removido com /auth rem)
-            // E você NÃO for o administrador do bot
-            if ((!groupAuth || groupAuth.isAuthorized === false) && !isAdmin) {
-                return await client.sendMessage(chatId, `🚫 *ACESSO NEGADO - YUKON STATION*
+    // Aqui verificamos se o seu ID atual está na lista fixa de ADMs
+    // Use a mesma função que você já tem no bot para checar a lista
+    const ehDonoReal = isAdminUser(senderRaw); 
+
+    if ((!groupAuth || groupAuth.isAuthorized === false) && !ehDonoReal) {
+        return await client.sendMessage(chatId, `🚫 *ACESSO NEGADO - YUKON STATION*
 ━━━━━━━━━━━━━━━━━━━━━
 Esta estação não possui uma assinatura ativa para operar neste setor.
 
 🆔 *ID DESTA ESTAÇÃO:* \`${chatId}\`
 
 Para ativar as funções de economia e proteção, entre em contato com o desenvolvedor.`);
-            }
-        }
-
+    }
+}
+    
         // --- 🟢 3. FILTRO DE MODO LOCK (APENAS ADMS) ---
         if (chatId.endsWith('@g.us')) {
             const config = await GroupConfig.findOne({ groupId: chatId }).lean();
