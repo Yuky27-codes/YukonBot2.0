@@ -259,30 +259,36 @@ client.on('message_create', async (msg) => {
             }
         }
 
-        // --- 🟢 2. FILTRO DE LICENCIAMENTO COM EXPIRAÇÃO REAL ---
+       // --- 🟢 2. FILTRO DE LICENCIAMENTO COM EXPIRAÇÃO REAL ---
         if (body.startsWith(prefix) && chatId.endsWith('@g.us')) {
             const groupAuth = await mongoose.model('AuthorizedGroup').findOne({ groupId: chatId }).lean();
             
-            if (!isAdmin) { // Se não for VOCÊ, o bot aplica a trava
+            // Se NÃO for você (o dono real), o bot aplica as travas e PARA a execução
+            if (!isAdmin) { 
                 const agora = Date.now();
                 
-                // BLOQUEIO 1: Sem registro
+                // 1. Verificamos se o grupo existe na lista
                 if (!groupAuth) {
-                    return await client.sendMessage(chatId, `🚫 *ESTAÇÃO NÃO CADASTRADA*\n\nEste setor não possui registro no sistema Yukon. Fale com o suporte.`);
+                    await client.sendMessage(chatId, `🚫 *ESTAÇÃO NÃO CADASTRADA*\n\nEste grupo não possui registro no sistema Yukon.`);
+                    return; // ❌ PARA AQUI! Não lê mais nada abaixo.
                 }
 
-                // BLOQUEIO 2: Desativado manualmente
+                // 2. Verificamos se está marcado como inativo manualmente
                 if (groupAuth.isAuthorized === false) {
-                    return await client.sendMessage(chatId, `🚫 *ESTAÇÃO INATIVA*\n\nA licença deste setor foi desativada.`);
+                    await client.sendMessage(chatId, `🚫 *ESTAÇÃO INATIVA*\n\nA licença deste grupo foi desativada manualmente.`);
+                    return; // ❌ PARA AQUI!
                 }
 
-                // BLOQUEIO 3: Expiração de tempo
+                // 3. Verificamos a expiração
                 if (groupAuth.expiresAt) {
                     const dataVencimento = new Date(groupAuth.expiresAt).getTime();
                     
                     if (agora > dataVencimento) {
+                        // Atualiza o banco para economizar processamento na próxima
                         await mongoose.model('AuthorizedGroup').updateOne({ groupId: chatId }, { $set: { isAuthorized: false } });
-                        return await client.sendMessage(chatId, `🚫 *LICENÇA EXPIRADA*\n━━━━━━━━━━━━━━━━━━━━━\nO tempo de uso desta estação acabou.\n\n🗓️ Venceu em: ${new Date(groupAuth.expiresAt).toLocaleString('pt-BR')}`);
+                        
+                        await client.sendMessage(chatId, `🚫 *LICENÇA EXPIRADA*\n━━━━━━━━━━━━━━━━━━━━━\nO tempo de uso desta estação acabou.\n\n🗓️ Venceu em: ${new Date(groupAuth.expiresAt).toLocaleString('pt-BR')}`);
+                        return; // ❌ PARA AQUI! Impede ADMs de usarem comandos.
                     }
                 }
             }
