@@ -259,20 +259,34 @@ client.on('message_create', async (msg) => {
             }
         }
 
-       // --- 🟢 A BARREIRA MESTRA (LICENCIAMENTO) ---
+       // --- 🟢 A BARREIRA MESTRA (LICENCIAMENTO AUTOMATIZADO) ---
 if (body.startsWith(prefix) && chatId.endsWith('@g.us')) {
     const groupAuth = await AuthorizedGroup.findOne({ groupId: chatId }).lean();
-
-    // Aqui verificamos se o seu ID atual está na lista fixa de ADMs
-    // Use a mesma função que você já tem no bot para checar a lista
     const ehDonoReal = isAdminUser(senderRaw); 
 
-    if ((!groupAuth || groupAuth.isAuthorized === false) && !ehDonoReal) {
-        return await client.sendMessage(chatId, `🚫 *ESTAÇÃO BLOQUEADA*
+    if (!ehDonoReal) {
+        const agora = Date.now();
+        const expiraMs = groupAuth?.expiresAt ? new Date(groupAuth.expiresAt).getTime() : 0;
+        
+        // Se não tem cadastro, ou foi desativado manual, ou a data de expiração já passou
+        const bloqueadoManual = !groupAuth || groupAuth.isAuthorized === false;
+        const expirado = expiraMs > 0 && agora > expiraMs;
+
+        if (bloqueadoManual || expirado) {
+            // Se expirou agora, aproveitamos para atualizar o banco e economizar processamento depois
+            if (expirado && groupAuth.isAuthorized !== false) {
+                await AuthorizedGroup.updateOne({ groupId: chatId }, { $set: { isAuthorized: false } });
+            }
+
+            return await client.sendMessage(chatId, `🚫 *ESTAÇÃO BLOQUEADA*
 ━━━━━━━━━━━━━━━━━━━━━
-O acesso aos comandos da Yukon foi desativado para este grupo.
+O acesso aos comandos da Yukon foi interrompido.
+
+⚠️ Motivo: **Licença Inativa ou Expirada.**
+🗓️ Vencimento: ${expiraMs > 0 ? new Date(expiraMs).toLocaleString('pt-BR') : 'Sem registro'}
 
 Para reativar a licença, fale com o suporte.`);
+        }
     }
 }
 
