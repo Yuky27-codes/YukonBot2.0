@@ -28,22 +28,18 @@ module.exports = {
             const agoraMs = Date.now();
             const restanteMs = expiraMs - agoraMs;
 
-            let statusEmoji = groupAuth.isAuthorized ? "✅" : "❌";
-            let statusTexto = groupAuth.isAuthorized ? "ATIVO" : "BLOQUEADO";
-
-            if (groupAuth.isAuthorized && expiraMs > 0 && agoraMs > expiraMs) {
-                statusEmoji = "⏰";
-                statusTexto = "EXPIRADO";
-            }
-
-            // Cálculo de tempo legível
-            let tempoRestante = "N/A";
-            if (restanteMs > 0) {
+            // --- CORREÇÃO DO CÁLCULO DE TEMPO ---
+            let tempoRestante = "Sem validade definida.";
+            
+            if (expiraMs > 0 && restanteMs > 0) {
                 const dias = Math.floor(restanteMs / (1000 * 60 * 60 * 24));
                 const horas = Math.floor((restanteMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                tempoRestante = `${dias}d ${horas}h`;
+                const minutos = Math.floor((restanteMs % (1000 * 60 * 60)) / (1000 * 60)); // <-- Estava faltando esta linha!
+                
+                tempoRestante = `${dias}d ${horas}h ${minutos}m`;
+            } else if (expiraMs > 0 && restanteMs <= 0) {
+                tempoRestante = "🔴 Tempo esgotado.";
             }
-
             return msg.reply(`🖥️ *PAINEL YUKON*
 ━━━━━━━━━━━━━━━━━━━━━
 🆔 **Grupo:** \`${idGrupo}\`
