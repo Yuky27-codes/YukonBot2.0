@@ -231,7 +231,6 @@ client.initialize();
 client.on('message_create', async (msg) => {
     if (!msg || !msg.from) return;
 
-    // --- 🟢 0. DEFINIÇÕES INICIAIS (MOVIDAS PARA O TOPO PARA EVITAR ERROS) ---
     const chatId = msg.from._serialized || msg.from.toString();
     const senderRaw = (msg.author || msg.from)._serialized || (msg.author || msg.from).toString();
     const groupId = chatId;
@@ -239,7 +238,6 @@ client.on('message_create', async (msg) => {
     const body = msg.body ? msg.body.trim() : "";
 
     try {
-        // --- 🟢 BUSCA DE DADOS INICIAIS ---
         const userData = await User.findOne({ userId: senderRaw, groupId: groupId });
         const isAdmin = isAdminUser(senderRaw) || (userData ? userData.isBotAdmin : false);
 
@@ -265,37 +263,32 @@ client.on('message_create', async (msg) => {
         if (body.startsWith(prefix) && chatId.endsWith('@g.us')) {
             const groupAuth = await mongoose.model('AuthorizedGroup').findOne({ groupId: chatId }).lean();
             
-            // Se for VOCÊ (Dono), ignora tudo e passa direto
-            if (isAdmin) {
-                // Deixa passar
-            } else {
-                const agora = Date.now(); // Pega o tempo atual em milissegundos
+            if (!isAdmin) { // Se não for VOCÊ, o bot aplica a trava
+                const agora = Date.now();
                 
-                // 1. Verificamos se o grupo existe na lista
+                // BLOQUEIO 1: Sem registro
                 if (!groupAuth) {
-                    return await client.sendMessage(chatId, `🚫 *ESTAÇÃO NÃO CADASTRADA*\n\nEste grupo não possui registro no sistema Yukon.`);
+                    return await client.sendMessage(chatId, `🚫 *ESTAÇÃO NÃO CADASTRADA*\n\nEste setor não possui registro no sistema Yukon. Fale com o suporte.`);
                 }
 
-                // 2. Verificamos se está marcado como inativo manualmente
+                // BLOQUEIO 2: Desativado manualmente
                 if (groupAuth.isAuthorized === false) {
-                    return await client.sendMessage(chatId, `🚫 *ESTAÇÃO INATIVA*\n\nA licença deste grupo foi desativada manualmente.`);
+                    return await client.sendMessage(chatId, `🚫 *ESTAÇÃO INATIVA*\n\nA licença deste setor foi desativada.`);
                 }
 
-                // 3. Verificamos a expiração (A mágica acontece aqui)
+                // BLOQUEIO 3: Expiração de tempo
                 if (groupAuth.expiresAt) {
-                    const dataVencimento = new Date(groupAuth.expiresAt).getTime(); // Converte a data do banco para milissegundos
+                    const dataVencimento = new Date(groupAuth.expiresAt).getTime();
                     
                     if (agora > dataVencimento) {
-                        // Se expirou, já atualizamos o banco para 'false' para economizar processamento na próxima
                         await mongoose.model('AuthorizedGroup').updateOne({ groupId: chatId }, { $set: { isAuthorized: false } });
-                        
-                        return await client.sendMessage(chatId, `🚫 *LICENÇA EXPIRADA*\n━━━━━━━━━━━━━━━━━━━━━\nO tempo de uso desta estação acabou.\n\n🗓️ Venceu em: ${new Date(groupAuth.expiresAt).toLocaleString('pt-BR')}\n\nPara renovar, fale com o suporte.`);
+                        return await client.sendMessage(chatId, `🚫 *LICENÇA EXPIRADA*\n━━━━━━━━━━━━━━━━━━━━━\nO tempo de uso desta estação acabou.\n\n🗓️ Venceu em: ${new Date(groupAuth.expiresAt).toLocaleString('pt-BR')}`);
                     }
                 }
             }
         }
     
-        // --- 🟢 3. FILTRO DE MODO LOCK (APENAS ADMS) ---
+        // --- 🟢 3. FILTRO DE MODO LOCK (APENAS ADMS DO GRUPO) ---
         if (chatId.endsWith('@g.us')) {
             const config = await GroupConfig.findOne({ groupId: chatId }).lean();
             if (config && config.onlyAdms && !isAdmin) {
