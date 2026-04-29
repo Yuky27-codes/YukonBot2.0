@@ -23,9 +23,8 @@ module.exports = {
             const AuthorizedGroup = mongoose.model('AuthorizedGroup');
 
             if (acao === 'add') {
-            const dias = parseInt(args[2]) || 30; // Se não disser os dias, assume 30
-            const dataVencimento = new Date();
-            // Apenas para o teste de hoje: transforma o número em SEGUNDOS
+            const dias = parseInt(args[2]) || 10;
+            const dataVencimento = new Date(Date.now() + dias * 1000); // Adiciona os segundos direto no carimbo de data
             dataVencimento.setSeconds(dataVencimento.getSeconds() + dias);
 
             await AuthorizedGroup.updateOne(

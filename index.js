@@ -261,30 +261,37 @@ client.on('message_create', async (msg) => {
             }
         }
 
-        // --- 🟢 2. FILTRO DE LICENCIAMENTO COM EXPIRAÇÃO ---
+        // --- 🟢 2. FILTRO DE LICENCIAMENTO COM EXPIRAÇÃO REAL ---
         if (body.startsWith(prefix) && chatId.endsWith('@g.us')) {
-            const groupAuth = await AuthorizedGroup.findOne({ groupId: chatId }).lean();
-            const agora = new Date();
-
-            // Lógica de Bloqueio:
-            // 1. Se não existe no banco ou isAuthorized é false
-            // 2. OU se existe uma data de expiração e ela já passou (agora > expiresAt)
-            const expirou = groupAuth && groupAuth.expiresAt && agora > new Date(groupAuth.expiresAt);
-
-            if ((!groupAuth || groupAuth.isAuthorized === false || expirou) && !isAdmin) {
+            const groupAuth = await mongoose.model('AuthorizedGroup').findOne({ groupId: chatId }).lean();
+            
+            // Se for VOCÊ (Dono), ignora tudo e passa direto
+            if (isAdmin) {
+                // Deixa passar
+            } else {
+                const agora = Date.now(); // Pega o tempo atual em milissegundos
                 
-                // Se expirou agora, vamos atualizar o banco para desativar de vez
-                if (expirou && groupAuth.isAuthorized !== false) {
-                    await AuthorizedGroup.updateOne({ groupId: chatId }, { $set: { isAuthorized: false } });
+                // 1. Verificamos se o grupo existe na lista
+                if (!groupAuth) {
+                    return await client.sendMessage(chatId, `🚫 *ESTAÇÃO NÃO CADASTRADA*\n\nEste grupo não possui registro no sistema Yukon.`);
                 }
 
-                return await client.sendMessage(chatId, `🚫 *ESTAÇÃO BLOQUEADA / EXPIRADA*
-━━━━━━━━━━━━━━━━━━━━━
-A licença desta estação expirou ou não está ativa.
+                // 2. Verificamos se está marcado como inativo manualmente
+                if (groupAuth.isAuthorized === false) {
+                    return await client.sendMessage(chatId, `🚫 *ESTAÇÃO INATIVA*\n\nA licença deste grupo foi desativada manualmente.`);
+                }
 
-🗓️ Vencimento: ${groupAuth?.expiresAt ? new Date(groupAuth.expiresAt).toLocaleDateString('pt-BR') : 'Não cadastrado'}
-
-Para renovar, entre em contato com o suporte.`);
+                // 3. Verificamos a expiração (A mágica acontece aqui)
+                if (groupAuth.expiresAt) {
+                    const dataVencimento = new Date(groupAuth.expiresAt).getTime(); // Converte a data do banco para milissegundos
+                    
+                    if (agora > dataVencimento) {
+                        // Se expirou, já atualizamos o banco para 'false' para economizar processamento na próxima
+                        await mongoose.model('AuthorizedGroup').updateOne({ groupId: chatId }, { $set: { isAuthorized: false } });
+                        
+                        return await client.sendMessage(chatId, `🚫 *LICENÇA EXPIRADA*\n━━━━━━━━━━━━━━━━━━━━━\nO tempo de uso desta estação acabou.\n\n🗓️ Venceu em: ${new Date(groupAuth.expiresAt).toLocaleString('pt-BR')}\n\nPara renovar, fale com o suporte.`);
+                    }
+                }
             }
         }
     
