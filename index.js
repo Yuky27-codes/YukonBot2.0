@@ -259,40 +259,39 @@ client.on('message_create', async (msg) => {
             }
         }
 
-       // --- 🟢 2. FILTRO DE LICENCIAMENTO COM EXPIRAÇÃO REAL ---
-        if (body.startsWith(prefix) && chatId.endsWith('@g.us')) {
-            const groupAuth = await mongoose.model('AuthorizedGroup').findOne({ groupId: chatId }).lean();
-            
-            // Se NÃO for você (o dono real), o bot aplica as travas e PARA a execução
-            if (!isAdmin) { 
-                const agora = Date.now();
-                
-                // 1. Verificamos se o grupo existe na lista
-                if (!groupAuth) {
-                    await client.sendMessage(chatId, `🚫 *ESTAÇÃO NÃO CADASTRADA*\n\nEste grupo não possui registro no sistema Yukon.`);
-                    return; // ❌ PARA AQUI! Não lê mais nada abaixo.
-                }
+       // --- 🟢 A MURALHA YUKON ---
+if (body.startsWith(prefix) && chatId.endsWith('@g.us')) {
+    const groupAuth = await AuthorizedGroup.findOne({ groupId: chatId }).lean();
+    const agora = Date.now();
 
-                // 2. Verificamos se está marcado como inativo manualmente
-                if (groupAuth.isAuthorized === false) {
-                    await client.sendMessage(chatId, `🚫 *ESTAÇÃO INATIVA*\n\nA licença deste grupo foi desativada manualmente.`);
-                    return; // ❌ PARA AQUI!
-                }
+    // Se NÃO for você (Dono), o bot verifica a licença
+    if (!isAdmin) {
+        // 1. Verificamos se o grupo existe e se está ativo
+        const estaAtivo = groupAuth && groupAuth.isAuthorized === true;
+        
+        // 2. Verificamos se a data de expiração passou
+        const expirou = groupAuth && groupAuth.expiresAt && agora > new Date(groupAuth.expiresAt).getTime();
 
-                // 3. Verificamos a expiração
-                if (groupAuth.expiresAt) {
-                    const dataVencimento = new Date(groupAuth.expiresAt).getTime();
-                    
-                    if (agora > dataVencimento) {
-                        // Atualiza o banco para economizar processamento na próxima
-                        await mongoose.model('AuthorizedGroup').updateOne({ groupId: chatId }, { $set: { isAuthorized: false } });
-                        
-                        await client.sendMessage(chatId, `🚫 *LICENÇA EXPIRADA*\n━━━━━━━━━━━━━━━━━━━━━\nO tempo de uso desta estação acabou.\n\n🗓️ Venceu em: ${new Date(groupAuth.expiresAt).toLocaleString('pt-BR')}`);
-                        return; // ❌ PARA AQUI! Impede ADMs de usarem comandos.
-                    }
-                }
+        if (!estaAtivo || expirou) {
+            // Se expirou agora, desativamos no banco para segurança
+            if (expirou && groupAuth.isAuthorized) {
+                await AuthorizedGroup.updateOne({ groupId: chatId }, { $set: { isAuthorized: false } });
             }
+
+            // MANDA A MENSAGEM E O "RETURN" MATA O PROCESSO AQUI
+            await client.sendMessage(chatId, `🚫 *ESTAÇÃO BLOQUEADA*
+━━━━━━━━━━━━━━━━━━━━━
+O acesso aos comandos da Yukon foi interrompido neste setor.
+
+⚠️ Motivo: **Licença Inativa ou Expirada.**
+🗓️ Vencimento: ${groupAuth?.expiresAt ? new Date(groupAuth.expiresAt).toLocaleDateString('pt-BR') : 'Sem registro'}
+
+Para reativar a tripulação, fale com o suporte.`);
+            
+            return; // ⛔️ FIM. O ADM do grupo não consegue passar daqui.
         }
+    }
+}
     
         // --- 🟢 3. FILTRO DE MODO LOCK (APENAS ADMS DO GRUPO) ---
         if (chatId.endsWith('@g.us')) {
