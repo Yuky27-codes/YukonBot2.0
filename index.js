@@ -259,46 +259,41 @@ client.on('message_create', async (msg) => {
             }
         }
 
-       // --- 🟢 A MURALHA YUKON (VERSÃO BLINDADA) ---
+       // --- 🟢 2. FILTRO DE LICENCIAMENTO (VERSÃO FINAL E CORRIGIDA) ---
         if (body.startsWith(prefix) && chatId.endsWith('@g.us')) {
-            const groupAuth = await AuthorizedGroup.findOne({ groupId: chatId }).lean();
+            const groupAuth = await mongoose.model('AuthorizedGroup').findOne({ groupId: chatId }).lean();
             
-            // Se NÃO for você (Dono), o bot verifica a licença
-            if (!isAdmin) {
+            if (!isAdmin) { 
                 const agoraMs = Date.now();
                 const expiraMs = groupAuth?.expiresAt ? new Date(groupAuth.expiresAt).getTime() : 0;
                 
-                // CONDIÇÕES DE BLOQUEIO:
-                // 1. Não existe cadastro
-                // 2. Está desativado manualmente (isAuthorized === false)
-                // 3. Existe data de expiração E o tempo atual já passou dela
-                const semCadastro = !groupAuth;
                 const desativado = groupAuth?.isAuthorized === false;
                 const tempoAcabou = expiraMs > 0 && agoraMs > expiraMs;
+                const semCadastro = !groupAuth;
+
+                // LOG DE DEBUG (Olhe o terminal quando testar!)
+                console.log(`🛰️ [CHECK] Grupo: ${chatId} | Cadastrado: ${!semCadastro} | Ativo: ${!desativado} | Expirou: ${tempoAcabou}`);
 
                 if (semCadastro || desativado || tempoAcabou) {
-                    
-                    // Se o tempo acabou agora, desativamos no banco para a próxima ser mais rápida
                     if (tempoAcabou && groupAuth.isAuthorized) {
-                        await AuthorizedGroup.updateOne({ groupId: chatId }, { $set: { isAuthorized: false } });
+                        await mongoose.model('AuthorizedGroup').updateOne({ groupId: chatId }, { $set: { isAuthorized: false } });
                     }
 
-                    const dataFormatada = expiraMs > 0 ? new Date(expiraMs).toLocaleString('pt-BR') : 'Sem registro';
-
+                    // A MENSAGEM DE BLOQUEIO
                     await client.sendMessage(chatId, `🚫 *ESTAÇÃO BLOQUEADA*
 ━━━━━━━━━━━━━━━━━━━━━
-O acesso aos comandos da Yukon foi interrompido neste setor.
+O acesso aos comandos da Yukon foi interrompido.
 
 ⚠️ Motivo: **Licença Inativa ou Expirada.**
-🗓️ Vencimento: ${dataFormatada}
+🗓️ Vencimento: ${expiraMs > 0 ? new Date(expiraMs).toLocaleString('pt-BR') : 'Sem registro'}
 
-Para reativar a tripulação, fale com o suporte.`);
+Para reativar, fale com o suporte.`);
                     
-                    return; // ⛔️ O FREIO DE MÃO: Impede ADMs de chegarem no Parser
+                    return; // ⛔️ ISOLA O RESTO DO CÓDIGO
                 }
             }
         }
-    
+        
         // --- 🟢 3. FILTRO DE MODO LOCK (APENAS ADMS DO GRUPO) ---
         if (chatId.endsWith('@g.us')) {
             const config = await GroupConfig.findOne({ groupId: chatId }).lean();
