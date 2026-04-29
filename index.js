@@ -259,41 +259,23 @@ client.on('message_create', async (msg) => {
             }
         }
 
-       // --- 🟢 2. FILTRO DE LICENCIAMENTO (VERSÃO FINAL E CORRIGIDA) ---
-        if (body.startsWith(prefix) && chatId.endsWith('@g.us')) {
-            const groupAuth = await mongoose.model('AuthorizedGroup').findOne({ groupId: chatId }).lean();
-            
-            if (!isAdmin) { 
-                const agoraMs = Date.now();
-                const expiraMs = groupAuth?.expiresAt ? new Date(groupAuth.expiresAt).getTime() : 0;
-                
-                const desativado = groupAuth?.isAuthorized === false;
-                const tempoAcabou = expiraMs > 0 && agoraMs > expiraMs;
-                const semCadastro = !groupAuth;
+       // --- 🟢 A BARREIRA MESTRA (LICENCIAMENTO) ---
+if (body.startsWith(prefix) && chatId.endsWith('@g.us')) {
+    const groupAuth = await AuthorizedGroup.findOne({ groupId: chatId }).lean();
 
-                // LOG DE DEBUG (Olhe o terminal quando testar!)
-                console.log(`🛰️ [CHECK] Grupo: ${chatId} | Cadastrado: ${!semCadastro} | Ativo: ${!desativado} | Expirou: ${tempoAcabou}`);
+    // Aqui verificamos se o seu ID atual está na lista fixa de ADMs
+    // Use a mesma função que você já tem no bot para checar a lista
+    const ehDonoReal = isAdminUser(senderRaw); 
 
-                if (semCadastro || desativado || tempoAcabou) {
-                    if (tempoAcabou && groupAuth.isAuthorized) {
-                        await mongoose.model('AuthorizedGroup').updateOne({ groupId: chatId }, { $set: { isAuthorized: false } });
-                    }
-
-                    // A MENSAGEM DE BLOQUEIO
-                    await client.sendMessage(chatId, `🚫 *ESTAÇÃO BLOQUEADA*
+    if ((!groupAuth || groupAuth.isAuthorized === false) && !ehDonoReal) {
+        return await client.sendMessage(chatId, `🚫 *ESTAÇÃO BLOQUEADA*
 ━━━━━━━━━━━━━━━━━━━━━
-O acesso aos comandos da Yukon foi interrompido.
+O acesso aos comandos da Yukon foi desativado para este grupo.
 
-⚠️ Motivo: **Licença Inativa ou Expirada.**
-🗓️ Vencimento: ${expiraMs > 0 ? new Date(expiraMs).toLocaleString('pt-BR') : 'Sem registro'}
+Para reativar a licença, fale com o suporte.`);
+    }
+}
 
-Para reativar, fale com o suporte.`);
-                    
-                    return; // ⛔️ ISOLA O RESTO DO CÓDIGO
-                }
-            }
-        }
-        
         // --- 🟢 3. FILTRO DE MODO LOCK (APENAS ADMS DO GRUPO) ---
         if (chatId.endsWith('@g.us')) {
             const config = await GroupConfig.findOne({ groupId: chatId }).lean();

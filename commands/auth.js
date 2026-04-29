@@ -1,60 +1,63 @@
 module.exports = {
     name: 'auth',
     async execute(client, msg, { args, isAdmin }) {
+        // 1. Bloqueio de segurança: Apenas VOCÊ (Dono) pode rodar
         if (!isAdmin) return; 
 
-        const acao = args[0]; 
+        // 2. Trava de Privacidade: Força o uso apenas no Privado do Bot
+        const chat = await msg.getChat();
+        if (chat.isGroup) {
+            return msg.reply("❌ *AÇÃO PRIVADA*\nPor segurança, gerencie as licenças apenas no meu chat privado para não expor dados.");
+        }
+
+        const acao = args[0]; // 'add' ou 'rem'
         const idGrupo = args[1];
 
-        if (!idGrupo || !idGrupo.includes('@g.us')) {
-            return msg.reply("⚠️ *FORMATO INCORRETO*\n\nUse: `/auth [add|ativar|block|teste] [ID]@g.us`\n\n_Dica: Use /grupos para pegar o ID._");
+        // 3. Validação de formato (ID de grupo deve terminar em @g.us)
+        if (!acao || !idGrupo || !idGrupo.includes('@g.us')) {
+            return msg.reply("⚠️ *FORMATO INVÁLIDO*\n\nUse: `/auth add ID@g.us`\nOu: `/auth rem ID@g.us`\n\n_Dica: Pegue o ID correto usando o comando /grupos._");
         }
 
-        const AuthorizedGroup = require('mongoose').model('AuthorizedGroup');
+        try {
+            const mongoose = require('mongoose');
+            const AuthorizedGroup = mongoose.model('AuthorizedGroup');
 
-        // 🟢 ADD - Registro inicial
-        if (acao === 'add') {
-            await AuthorizedGroup.updateOne(
-                { groupId: idGrupo },
-                { $set: { groupId: idGrupo, isAuthorized: false } },
-                { upsert: true }
-            );
-            return msg.reply(`🛰️ *YUKON REGISTRY*\n\nGrupo \`${idGrupo}\` foi adicionado ao banco de dados com sucesso.`);
-        }
+            if (acao === 'add') {
+                // Adiciona ou Reativa a licença
+                await AuthorizedGroup.updateOne(
+                    { groupId: idGrupo },
+                    { 
+                        $set: { 
+                            isAuthorized: true, 
+                            authorizedBy: msg.author || msg.from,
+                            createdAt: new Date() 
+                        } 
+                    },
+                    { upsert: true }
+                );
 
-        // 🟢 ATIVAR - 30 Dias
-        if (acao === 'ativar') {
-            const dataVencimento = new Date();
-            dataVencimento.setDate(dataVencimento.getDate() + 30); 
+                return msg.reply(`✅ *ESTAÇÃO AUTORIZADA*\n━━━━━━━━━━━━━━━━━━━━━\n🆔 ID: \`${idGrupo}\`\n🛰️ Status: **Online / Licenciado**`);
+            } 
+            
+            if (acao === 'rem') {
+                // Bloqueia o grupo
+                const result = await AuthorizedGroup.updateOne(
+                    { groupId: idGrupo },
+                    { $set: { isAuthorized: false } }
+                );
 
-            await AuthorizedGroup.updateOne(
-                { groupId: idGrupo },
-                { $set: { isAuthorized: true, expiresAt: dataVencimento } },
-                { upsert: true }
-            );
-            return msg.reply(`🔓 *ESTAÇÃO LIBERADA*\n━━━━━━━━━━━━━━━━━━━━━\n🛰️ Status: **Assinatura Ativa**\n🗓️ Vencimento: **${dataVencimento.toLocaleDateString('pt-BR')}**`);
-        }
+                if (result.matchedCount === 0) {
+                    return msg.reply("⚠️ Este grupo não estava cadastrado no banco de dados.");
+                }
 
-        // 🟢 TESTE - 10 Segundos (Foco no milissegundo para o banco não arredondar)
-        if (acao === 'teste') {
-            const tempoTeste = new Date(Date.now() + 10000); 
+                return msg.reply(`🔴 *ESTAÇÃO BLOQUEADA*\n━━━━━━━━━━━━━━━━━━━━━\n🆔 ID: \`${idGrupo}\`\n🛰️ Status: **Offline / Acesso Negado**`);
+            }
 
-            await AuthorizedGroup.updateOne(
-                { groupId: idGrupo },
-                { $set: { isAuthorized: true, expiresAt: tempoTeste } },
-                { upsert: true }
-            );
-            return msg.reply(`⏳ *MODO DE TESTE RÁPIDO*\n━━━━━━━━━━━━━━━━━━━━━\nAcesso liberado por **10 segundos**.\n\n_Prepare o cronômetro!_`);
-        }
+            return msg.reply("❓ Ação desconhecida. Use `add` ou `rem`.");
 
-        // 🟢 BLOCK - Corte imediato
-        if (acao === 'block') {
-            await AuthorizedGroup.updateOne(
-                { groupId: idGrupo },
-                { $set: { isAuthorized: false, expiresAt: new Date(0) } }, // Define a data para o ano 1970 (garante que expirou)
-                { upsert: true }
-            );
-            return msg.reply(`🛑 *CONEXÃO ENCERRADA*\n\nO grupo foi bloqueado e a licença revogada.`);
+        } catch (err) {
+            console.error("❌ Erro no comando AUTH:", err);
+            return msg.reply("⚠️ Erro ao acessar o banco de dados. Verifique o console.");
         }
     }
 };
