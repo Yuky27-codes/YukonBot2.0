@@ -7,51 +7,54 @@ module.exports = {
         const idGrupo = args[1];
 
         if (!idGrupo || !idGrupo.includes('@g.us')) {
-            return msg.reply("⚠️ Use: /auth [add|ativar|block|teste] [ID_DO_GRUPO]@g.us");
+            return msg.reply("⚠️ *FORMATO INCORRETO*\n\nUse: `/auth [add|ativar|block|teste] [ID]@g.us`\n\n_Dica: Use /grupos para pegar o ID._");
         }
 
         const AuthorizedGroup = require('mongoose').model('AuthorizedGroup');
 
-        // 🟢 ADD - Apenas cadastra (inativo)
+        // 🟢 ADD - Registro inicial
         if (acao === 'add') {
             await AuthorizedGroup.updateOne(
                 { groupId: idGrupo },
                 { $set: { groupId: idGrupo, isAuthorized: false } },
                 { upsert: true }
             );
-            return msg.reply(`✅ Grupo \`${idGrupo}\` registrado no sistema.`);
+            return msg.reply(`🛰️ *YUKON REGISTRY*\n\nGrupo \`${idGrupo}\` foi adicionado ao banco de dados com sucesso.`);
         }
 
-        // 🟢 ATIVAR - Libera por 30 dias
+        // 🟢 ATIVAR - 30 Dias
         if (acao === 'ativar') {
             const dataVencimento = new Date();
             dataVencimento.setDate(dataVencimento.getDate() + 30); 
 
             await AuthorizedGroup.updateOne(
                 { groupId: idGrupo },
-                { $set: { isAuthorized: true, expiresAt: dataVencimento } }
+                { $set: { isAuthorized: true, expiresAt: dataVencimento } },
+                { upsert: true }
             );
-            return msg.reply(`🔓 *ASSINATURA ATIVADA*\n🗓️ Vence em: ${dataVencimento.toLocaleDateString('pt-BR')}`);
+            return msg.reply(`🔓 *ESTAÇÃO LIBERADA*\n━━━━━━━━━━━━━━━━━━━━━\n🛰️ Status: **Assinatura Ativa**\n🗓️ Vencimento: **${dataVencimento.toLocaleDateString('pt-BR')}**`);
         }
 
-        // 🟢 TESTE - Libera por apenas 10 SEGUNDOS
+        // 🟢 TESTE - 10 Segundos (Foco no milissegundo para o banco não arredondar)
         if (acao === 'teste') {
-            const tempoTeste = new Date(Date.now() + 10 * 1000); // 10 segundos à frente
+            const tempoTeste = new Date(Date.now() + 10000); 
 
             await AuthorizedGroup.updateOne(
                 { groupId: idGrupo },
-                { $set: { isAuthorized: true, expiresAt: tempoTeste } }
+                { $set: { isAuthorized: true, expiresAt: tempoTeste } },
+                { upsert: true }
             );
-            return msg.reply(`⏳ *MODO TESTE ATIVADO*\nO grupo tem **10 segundos** de acesso liberado!`);
+            return msg.reply(`⏳ *MODO DE TESTE RÁPIDO*\n━━━━━━━━━━━━━━━━━━━━━\nAcesso liberado por **10 segundos**.\n\n_Prepare o cronômetro!_`);
         }
 
-        // 🟢 BLOCK - Bloqueia agora
+        // 🟢 BLOCK - Corte imediato
         if (acao === 'block') {
             await AuthorizedGroup.updateOne(
                 { groupId: idGrupo },
-                { $set: { isAuthorized: false, expiresAt: new Date() } }
+                { $set: { isAuthorized: false, expiresAt: new Date(0) } }, // Define a data para o ano 1970 (garante que expirou)
+                { upsert: true }
             );
-            return msg.reply(`🛑 Grupo bloqueado imediatamente.`);
+            return msg.reply(`🛑 *CONEXÃO ENCERRADA*\n\nO grupo foi bloqueado e a licença revogada.`);
         }
     }
 };
