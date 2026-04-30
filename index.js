@@ -259,6 +259,30 @@ client.on('message_create', async (msg) => {
             }
         }
 
+        // --- 🟢 RECEPTOR DE COMPROVANTES ---
+if (msg.hasMedia && msg.type === 'image' && !chatId.endsWith('@c.us')) {
+    // Se a legenda da foto for "comprovante" ou algo do tipo (opcional)
+    const caption = msg.body ? msg.body.toLowerCase() : "";
+    
+    if (caption.includes("comprovante") || caption.includes("/pagar")) {
+        const meuNumero = "5524988268426@c.us"; // Seu WhatsApp (Dono)
+        
+        // Encaminha o comprovante para você
+        await msg.forward(meuNumero);
+        
+        // Manda os dados do grupo para você saber de onde veio
+        await client.sendMessage(meuNumero, `💳 *NOVO PAGAMENTO RECEBIDO*
+━━━━━━━━━━━━━━━━━━━━━
+📍 Grupo: \`${chatId}\`
+👤 Enviado por: @${senderRaw.split('@')[0]}
+
+Para aprovar 30 dias, use: 
+\`/auth add ${chatId} 30\``, { mentions: [senderRaw] });
+
+        return msg.reply("✅ *RECEBIDO!* Seu comprovante foi enviado para análise do Comandante Yukon. Aguarde a ativação.");
+    }
+}
+
        // --- 🟢 A BARREIRA MESTRA (LICENCIAMENTO AUTOMATIZADO) ---
 if (body.startsWith(prefix) && chatId.endsWith('@g.us')) {
     const groupAuth = await AuthorizedGroup.findOne({ groupId: chatId }).lean();
