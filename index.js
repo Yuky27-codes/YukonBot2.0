@@ -138,6 +138,16 @@ const authorizedGroupSchema = new mongoose.Schema({
 });
 const AuthorizedGroup = mongoose.model('AuthorizedGroup', authorizedGroupSchema);
 
+// --- SISTEMA DE PAGAMENTO
+const couponSchema = new mongoose.Schema({
+    code: { type: String, unique: true },
+    discountPercent: { type: Number, default: 0 },
+    expiresAt: { type: Date },
+    isUsed: { type: Boolean, default: false },
+    usedByGroup: { type: String }
+});
+const Coupon = mongoose.models.Coupon || mongoose.model('Coupon', couponSchema);
+
 /**********************************************************
  * 5. CLIENT WHATSAPP
  **********************************************************/
