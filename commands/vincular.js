@@ -12,7 +12,7 @@ module.exports = {
 
             let perfil = await UserProfile.findOne({ userId: msg.from });
 
-            if (!perfil) return msg.reply("⚠️ Você precisa escolher um plano primeiro! Use **/assinatura**.");
+            if (!perfil) return msg.reply("⚠️ Você precisa escolher um plano primeiro! Use **/assinar**.");
 
             // Definição de limites baseada nos seus planos
             let limite = 1; // Plano de 10 reais
