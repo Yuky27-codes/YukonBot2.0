@@ -18,11 +18,44 @@ module.exports = {
         try {
             const mongoose = require('mongoose');
             const AuthorizedGroup = mongoose.model('AuthorizedGroup');
+            const Coupon = mongoose.model('Coupon');
 
             if (acao === 'add') {
-                const dias = parseInt(args[2]) || 30; // Se não disser os dias, assume 30
+                let diasParaAdicionar = parseInt(args[2]) || 30;
+                let mensagemBonus = "";
+
+                // --- 🟢 LOGICA DE INDICAÇÃO ---
+                // Verifica se este grupo usou um cupom de indicação
+                const cupomReferencia = await Coupon.findOne({ usedByGroup: idGrupo, isUsed: true });
+
+                if (cupomReferencia && cupomReferencia.referrerGroupId) {
+                    // 1. Benefício do Indicado: +5 dias
+                    diasParaAdicionar += 5;
+                    mensagemBonus += `\n🎁 *BÔNUS:* +5 dias (Indicação)`;
+
+                    // 2. Benefício do Indicador: +10 dias
+                    const dador = await AuthorizedGroup.findOne({ groupId: cupomReferencia.referrerGroupId });
+                    if (dador) {
+                        let novaExpDador = new Date(dador.expiresAt || Date.now());
+                        if (novaExpDador < new Date()) novaExpDador = new Date(); // Se vencido, começa de hoje
+                        
+                        novaExpDador.setDate(novaExpDador.getDate() + 10);
+
+                        await AuthorizedGroup.updateOne(
+                            { groupId: cupomReferencia.referrerGroupId },
+                            { $set: { expiresAt: novaExpDador, isAuthorized: true } }
+                        );
+
+                        // Notifica o grupo que indicou
+                        await client.sendMessage(cupomReferencia.referrerGroupId, "🎁 *RECOMPENSA DE INDICAÇÃO!*\nO grupo que você indicou acaba de assinar. Você ganhou **+10 dias grátis** na Yukon!");
+                    }
+                    
+                    // Remove o referrerGroupId para não dar bônus repetido na próxima renovação
+                    await Coupon.updateOne({ _id: cupomReferencia._id }, { $unset: { referrerGroupId: "" } });
+                }
+
                 const dataVencimento = new Date();
-                dataVencimento.setDate(dataVencimento.getDate() + dias);
+                dataVencimento.setDate(dataVencimento.getDate() + diasParaAdicionar);
 
                 await AuthorizedGroup.updateOne(
                     { groupId: idGrupo },
@@ -37,7 +70,11 @@ module.exports = {
                     { upsert: true }
                 );
 
-                return msg.reply(`✅ *ESTAÇÃO AUTORIZADA*\n━━━━━━━━━━━━━━━━━━━━━\n🛰️ Status: **Online**\n🗓️ Expira em: **${dias} dias** (${dataVencimento.toLocaleDateString('pt-BR')})`);
+                return msg.reply(`✅ *ESTAÇÃO AUTORIZADA*
+━━━━━━━━━━━━━━━━━━━━━
+🛰️ Status: **Online**
+🗓️ Prazo Total: **${diasParaAdicionar} dias**
+📅 Expira: ${dataVencimento.toLocaleDateString('pt-BR')}${mensagemBonus}`);
             } 
             
             if (acao === 'teste') {

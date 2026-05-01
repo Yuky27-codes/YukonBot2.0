@@ -148,6 +148,16 @@ const couponSchema = new mongoose.Schema({
 });
 const Coupon = mongoose.models.Coupon || mongoose.model('Coupon', couponSchema);
 
+// --- SISTEMA DE CUPOM
+
+const inviteSchema = new mongoose.Schema({
+    referrerGroupId: { type: String, required: true }, // Grupo que indicou
+    invitedGroupId: { type: String, unique: true },    // Grupo que foi indicado
+    status: { type: String, default: 'pending' },      // pending, completed
+    createdAt: { type: Date, default: Date.now }
+});
+const Invite = mongoose.models.Invite || mongoose.model('Invite', inviteSchema);
+
 /**********************************************************
  * 5. CLIENT WHATSAPP
  **********************************************************/
@@ -268,6 +278,23 @@ client.on('message_create', async (msg) => {
                 }
             }
         }
+
+        // No seu arquivo principal, onde você lê as mensagens:
+if (msg.body.startsWith('/start_')) {
+    const partes = msg.body.split('_');
+    const codigo = partes[1];
+    
+    return msg.reply(`🛰️ *BEM-VINDO À CENTRAL YUKON*
+━━━━━━━━━━━━━━━━━━━━━
+Você recebeu um convite especial!
+
+🎟️ Cupom: \`${codigo}\`
+🎁 Vantagem: **10% OFF + 5 Dias Grátis** na 1ª compra.
+
+*Passo a passo:*
+1. Copie o ID do grupo que você quer ativar.
+2. Digite aqui no PV: \`/cupomp ${codigo} [ID_DO_GRUPO]\``);
+}
 
         // --- 🟢 RECEPTOR DE COMPROVANTES ---
 if (msg.hasMedia && msg.type === 'image' && !chatId.endsWith('@c.us')) {
