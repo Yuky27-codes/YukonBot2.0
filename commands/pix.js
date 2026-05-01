@@ -11,42 +11,33 @@ module.exports = {
             const UserProfile = mongoose.model('UserProfile');
             const Coupon = mongoose.model('Coupon');
 
-            // Busca o perfil e o cupom para calcular o valor real
+            // Busca o perfil do usuário e o cupom mais recente vinculado ao WhatsApp dele
             const perfil = await UserProfile.findOne({ userId: msg.from });
             const cupomAtivo = await Coupon.findOne({ usedByGroup: msg.from, isUsed: true }).sort({ _id: -1 }).lean();
             
             const desc = cupomAtivo ? cupomAtivo.discountPercent : 0;
-            const qtdGrupos = perfil ? perfil.gruposVinculados.length : 0;
-
-            // Lógica de definição de plano baseada na quantidade de grupos vinculados
-            let planoNome = "NENHUM GRUPO VINCULADO";
-            let valorBase = 0;
-
-            if (qtdGrupos === 1) {
-                planoNome = "PLANO RECRUTA";
-                valorBase = 10;
-            } else if (qtdGrupos === 2) {
-                planoNome = "PLANO ASTRONAUTA";
-                valorBase = 30;
-            } else if (qtdGrupos === 3) {
-                planoNome = "PLANO INTERGALÁCTICO";
-                valorBase = 75;
+            
+            // Se o cliente não escolheu um plano no /assinar ainda, não temos valor para cobrar
+            if (!perfil || !perfil.planoPreco) {
+                return msg.reply("⚠️ *PLANO NÃO SELECIONADO*\nVocê ainda não escolheu um plano. Use **/assinar [1, 2 ou 3]** antes de gerar o PIX.");
             }
 
-            const valorFinal = valorBase * (1 - desc / 100);
+            // Define o nome do plano baseado no preço salvo no perfil
+            let planoNome = "";
+            if (perfil.planoPreco === 10) planoNome = "RECRUTA";
+            else if (perfil.planoPreco === 30) planoNome = "ASTRONAUTA";
+            else if (perfil.planoPreco === 75) planoNome = "INTERGALÁCTICO";
+
+            // Cálculo dinâmico do valor com desconto
+            const valorFinal = perfil.planoPreco * (1 - desc / 100);
             const valorFormatado = valorFinal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-            // Mensagem personalizada baseada no estado do cliente
-            let headerPagamento = "";
-            if (qtdGrupos === 0) {
-                headerPagamento = "⚠️ *ATENÇÃO:* Você ainda não vinculou nenhum grupo! Use **/vincular [ID]** antes de pagar.";
-            } else {
-                headerPagamento = `✅ *PLANO DETECTADO:* ${planoNome}\n📍 *GRUPOS:* ${qtdGrupos}\n💰 *VALOR A PAGAR:* ${valorFormatado}${desc > 0 ? ` (-${desc}%)` : ""}`;
-            }
-
-            return msg.reply(`${headerPagamento}
-
+            return msg.reply(`🛰️ *DADOS PARA PAGAMENTO*
 ━━━━━━━━━━━━━━━━━━━━━
+✅ *PLANO SELECIONADO:* ${planoNome}
+💰 *VALOR TOTAL:* ${valorFormatado} ${desc > 0 ? `(-${desc}% de desconto)` : ""}
+📍 *GRUPOS VINCULADOS:* ${perfil.gruposVinculados.length}
+
 🔑 *CHAVE PIX (E-MAIL):* 
 \`devyuky7@gmail.com\`
 
