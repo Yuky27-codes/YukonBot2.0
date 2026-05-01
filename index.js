@@ -159,6 +159,16 @@ const inviteSchema = new mongoose.Schema({
 });
 const Invite = mongoose.models.Invite || mongoose.model('Invite', inviteSchema);
 
+// --- SISTEMA DE PERFIL 
+const userProfileSchema = new mongoose.Schema({
+    userId: { type: String, unique: true }, // WhatsApp do Dono
+    planoPreco: { type: Number }, // 10, 30 ou 75
+    gruposVinculados: [{ type: String }], // Array com os IDs (@g.us)
+    createdAt: { type: Date, default: Date.now }
+});
+
+mongoose.model('UserProfile', userProfileSchema);
+
 /**********************************************************
  * 5. CLIENT WHATSAPP
  **********************************************************/
@@ -279,6 +289,21 @@ client.on('message_create', async (msg) => {
                 }
             }
         }
+        // No seu index.js, dentro do evento de mensagem
+if (!msg.from.endsWith('@g.us')) { // Se for PV
+    const corpo = msg.body.toLowerCase();
+    
+    if (corpo.includes('start') || corpo === 'oi' || corpo === 'olá') {
+        return msg.reply(`🛰️ *BEM-VINDO À CENTRAL YUKON*
+━━━━━━━━━━━━━━━━━━━━━
+Olá! Eu sou a inteligência da YukonBot. Aqui você gerencia suas assinaturas e grupos de forma automática.
+
+🚀 *Para começar:*
+Digite **/menu_cliente** para ver todos os meus comandos e como funcionam as assinaturas.
+
+🔧 *Dica:* Se você quer vincular um grupo, use **/id_grupo** dentro do seu grupo e depois venha aqui no PV.`);
+    }
+}
 
         // No seu arquivo principal, onde você lê as mensagens:
 if (msg.body.startsWith('/start_')) {
