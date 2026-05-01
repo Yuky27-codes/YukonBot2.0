@@ -144,7 +144,8 @@ const couponSchema = new mongoose.Schema({
     discountPercent: { type: Number, default: 0 },
     expiresAt: { type: Date },
     isUsed: { type: Boolean, default: false },
-    usedByGroup: { type: String }
+    usedByGroup: { type: String },
+    referrerGroupId: { type: String }
 });
 const Coupon = mongoose.models.Coupon || mongoose.model('Coupon', couponSchema);
 
