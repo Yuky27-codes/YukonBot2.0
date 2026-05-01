@@ -24,12 +24,17 @@ module.exports = {
                 let diasParaAdicionar = parseInt(args[2]) || 30;
                 let mensagemBonus = "";
 
-                // --- 🟢 LOGICA DE INDICAÇÃO COM DEBUG ---
+                // --- 🟢 LÓGICA DE INDICAÇÃO ATUALIZADA ---
                 console.log(`🔍 [AUTH] Verificando indicação para: ${idGrupo}`);
-                const cupomReferencia = await Coupon.findOne({ usedByGroup: idGrupo, isUsed: true });
+                
+                // .sort({ _id: -1 }) garante que pegamos o cupom mais RECENTE usado pelo grupo
+                const cupomReferencia = await Coupon.findOne({ 
+                    usedByGroup: idGrupo, 
+                    isUsed: true 
+                }).sort({ _id: -1 });
 
                 if (cupomReferencia) {
-                    console.log(`✅ [AUTH] Cupom encontrado: ${cupomReferencia.code}`);
+                    console.log(`✅ [AUTH] Cupom mais recente encontrado: ${cupomReferencia.code}`);
                     
                     if (cupomReferencia.referrerGroupId) {
                         console.log(`🎁 [AUTH] Indicação detectada! Indicador: ${cupomReferencia.referrerGroupId}`);
@@ -54,17 +59,15 @@ module.exports = {
                             // Notifica o grupo que indicou
                             await client.sendMessage(cupomReferencia.referrerGroupId, "🎁 *RECOMPENSA DE INDICAÇÃO!*\nO grupo que você indicou acaba de assinar. Você ganhou **+10 dias grátis** na Yukon!");
                             console.log(`✅ [AUTH] 10 dias creditados ao indicador.`);
-                        } else {
-                            console.log(`⚠️ [AUTH] Indicador não encontrado no banco de AuthorizedGroups.`);
                         }
                         
-                        // Remove o vínculo para evitar bônus repetido
+                        // Remove o vínculo para bônus único
                         await Coupon.updateOne({ _id: cupomReferencia._id }, { $unset: { referrerGroupId: "" } });
                     } else {
-                        console.log(`ℹ️ [AUTH] O cupom ${cupomReferencia.code} não é de indicação (promocional).`);
+                        console.log(`ℹ️ [AUTH] O último cupom usado (${cupomReferencia.code}) não é de indicação.`);
                     }
                 } else {
-                    console.log(`❌ [AUTH] Nenhum cupom vinculado a este grupo.`);
+                    console.log(`❌ [AUTH] Nenhum cupom encontrado para este grupo.`);
                 }
 
                 const dataVencimento = new Date();
@@ -90,22 +93,14 @@ module.exports = {
 📅 Expira: ${dataVencimento.toLocaleDateString('pt-BR')}${mensagemBonus}`);
             } 
             
+            // ... resto do código (teste, rem) permanece igual
             if (acao === 'teste') {
                 const tempoTeste = new Date(Date.now() + 10 * 1000); 
-
-                await AuthorizedGroup.updateOne(
-                    { groupId: idGrupo },
-                    { $set: { isAuthorized: true, expiresAt: tempoTeste } },
-                    { upsert: true }
-                );
+                await AuthorizedGroup.updateOne({ groupId: idGrupo }, { $set: { isAuthorized: true, expiresAt: tempoTeste } }, { upsert: true });
                 return msg.reply(`⏳ *MODO TESTE*\nGrupo liberado por **10 segundos**!`);
             }
-
             if (acao === 'rem') {
-                await AuthorizedGroup.updateOne(
-                    { groupId: idGrupo },
-                    { $set: { isAuthorized: false, expiresAt: new Date(0) } }
-                );
+                await AuthorizedGroup.updateOne({ groupId: idGrupo }, { $set: { isAuthorized: false, expiresAt: new Date(0) } });
                 return msg.reply(`🔴 *ESTAÇÃO BLOQUEADA*`);
             }
 
