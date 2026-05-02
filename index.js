@@ -322,27 +322,45 @@ Você recebeu um convite especial!
 2. Digite aqui no PV: \`/cupomp ${codigo} [ID_DO_GRUPO]\``);
 }
 
-        // --- 🟢 RECEPTOR DE COMPROVANTES ---
-if (msg.hasMedia && msg.type === 'image' && !chatId.endsWith('@c.us')) {
-    // Se a legenda da foto for "comprovante" ou algo do tipo (opcional)
+        // --- 🟢 RECEPTOR DE COMPROVANTES (VERSÃO PERFIL) ---
+if (msg.hasMedia && msg.type === 'image' && !msg.from.endsWith('@g.us')) {
     const caption = msg.body ? msg.body.toLowerCase() : "";
     
-    if (caption.includes("comprovante") || caption.includes("/pagar")) {
-        const meuNumero = "5524988268426@c.us"; // Seu WhatsApp (Dono)
-        
-        // Encaminha o comprovante para você
-        await msg.forward(meuNumero);
-        
-        // Manda os dados do grupo para você saber de onde veio
-        await client.sendMessage(meuNumero, `💳 *NOVO PAGAMENTO RECEBIDO*
+    if (caption.includes("comprovante")) {
+        try {
+            const mongoose = require('mongoose');
+            const UserProfile = mongoose.model('UserProfile');
+            const meuNumero = "5524988268426@c.us"; 
+
+            // Busca os dados do cliente que enviou a foto
+            const perfil = await UserProfile.findOne({ userId: msg.from });
+            
+            if (!perfil || perfil.gruposVinculados.length === 0) {
+                return msg.reply("⚠️ *ERRO:* Você não vinculou nenhum grupo ao seu perfil antes de enviar o comprovante. Use /vincular [ID].");
+            }
+
+            // Encaminha a foto para você
+            await msg.forward(meuNumero);
+            
+            // Formata a lista de IDs para você apenas copiar e colar
+            let listaIds = perfil.gruposVinculados.map(id => `\`/confirmar ${id}\``).join('\n');
+
+            await client.sendMessage(meuNumero, `💳 *PAGAMENTO DE CLIENTE*
 ━━━━━━━━━━━━━━━━━━━━━
-📍 Grupo: \`${chatId}\`
-👤 Enviado por: @${senderRaw.split('@')[0]}
+👤 Dono: @${msg.from.split('@')[0]}
+📦 Plano: ${perfil.planoPreco === 10 ? 'Recruta' : perfil.planoPreco === 30 ? 'Astronauta' : 'Intergaláctico'}
+📍 Grupos Vinculados (${perfil.gruposVinculados.length}):
 
-Para aprovar 30 dias, use: 
-\`/auth add ${chatId} 30\``, { mentions: [senderRaw] });
+${listaIds}
 
-        return msg.reply("✅ *RECEBIDO!* Seu comprovante foi enviado para análise do Comandante Yukon. Aguarde a ativação.");
+_Clique em um comando acima para ativar o grupo correspondente._`, { mentions: [msg.from] });
+
+            return msg.reply("✅ *RECEBIDO!* Seu comprovante e os grupos vinculados foram enviados para análise. Aguarde a ativação.");
+
+        } catch (err) {
+            console.error(err);
+            return msg.reply("⚠️ Erro ao processar comprovante.");
+        }
     }
 }
 
