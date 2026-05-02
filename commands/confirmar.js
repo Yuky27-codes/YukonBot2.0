@@ -43,7 +43,6 @@ module.exports = {
 ━━━━━━━━━━━━━━━━━━━━━━
 O grupo foi atualizado com sucesso para o novo sistema de assinatura por perfil!
 
-📍 **Grupo:** \`${idGrupo}\`
 📅 **Vencimento:** ${novaData.toLocaleDateString('pt-BR')}
 🚀 **Status:** Licença Ativa e Atualizada`;
 
