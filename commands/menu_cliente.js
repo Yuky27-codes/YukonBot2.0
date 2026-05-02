@@ -4,12 +4,12 @@ module.exports = {
         try {
             const txtCliente = `🛰️ *CENTRAL DO CLIENTE YUKON*
 ━━━━━━━━━━━━━━━━━━━━━━
-🛠️ **CONFIGURAÇÃO**
+🛠️ *CONFIGURAÇÃO*
 ▶️ */id_grupo* — Pegar ID do grupo
 ▶️ */vincular* — Vincular grupo ao perfil
 ▶️ */meu_plano* — Ver status e grupos
 
-💳 **ASSINATURA**
+💳 *ASSINATURA*
 ▶️ */assinar* — Escolher plano (1, 2 ou 3)
 ▶️ */upgrade* — Aumentar limite de grupos
 ▶️ */pix* — Gerar pagamento dinâmico
