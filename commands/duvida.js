@@ -4,20 +4,20 @@ module.exports = {
         const num = parseInt(args[0]);
         
         const respostas = {
-            1: "🔄 *TROCA DE GRUPO:* A troca manual pelo bot não é permitida para evitar abusos. Chame o suporte técnico para realizar a alteração.",
-            2: "🛰️ *BOT SAIU:* Se o bot foi removido por erro, basta adicioná-lo novamente. Se a licença expirou, ele sairá automaticamente.",
-            3: "🎁 *INDICAÇÃO:* Cada amigo que assinar usando seu cupom (gerado no /indicar) te dá 10 dias extras grátis!",
-            4: "🌌 *INTERGALÁCTICO:* É o nosso plano VIP. Você tem suporte direto com o dono, prioridade em novos jogos e limite de 3 grupos.",
-            5: "⏳ *TEMPO DE ATIVAÇÃO:* O prazo médio é de 5 a 15 minutos em horário comercial (09h às 22h).",
-            6: "🛠️ *COMANDOS NO GRUPO:* Verifique se o bot é ADM do grupo. Sem permissão de administrador, ele não consegue ler as mensagens.",
-            7: "📅 *RENOVAÇÃO:* Basta usar o comando /pix e enviar o novo comprovante. O sistema somará os dias na sua conta atual.",
-            8: "🚫 *LIMITE DE GRUPOS:* Não. Para adicionar mais grupos, você deve fazer o /upgrade para um plano superior.",
-            9: "🔥 *DESCONTO:* Você ganha cupons participando de eventos no grupo oficial ou através do sistema de indicações.",
-            10: "⚠️ *SEM LEGENDA:* Se esqueceu a legenda 'comprovante', envie a foto novamente com a legenda correta para o bot processar."
+            1: "🔄 *TROCA DE GRUPO:* Para manter a segurança e evitar abusos, a troca de grupos vinculados é feita apenas pelo suporte técnico. Chame o /admin para solicitar.",
+            2: "🛰️ *BOT SAIU DO GRUPO:* Verifique se a assinatura expirou. Se ainda tiver dias, basta adicionar o bot de novo; ele reconhecerá o ID automaticamente.",
+            3: "🎁 *INDICAÇÃO:* Use o comando /indicar para gerar seu link. Cada amigo que assinar através de você garante +10 dias extras na sua conta!",
+            4: "🌌 *PLANO INTERGALÁCTICO:* É o nosso nível máximo. Permite até 3 grupos, suporte prioritário e acesso antecipado a novos jogos e funções.",
+            5: "⏳ *PRAZO DE ATIVAÇÃO:* O Comandante Yukon analisa os comprovantes em até 15 minutos dentro do horário comercial (09h às 22h).",
+            6: "🛠️ *BOT NÃO RESPONDE:* Verifique se o bot tem permissão de ADMINISTRADOR no grupo. Sem isso, ele não consegue ler as mensagens e executar comandos.",
+            7: "📅 *RENOVAÇÃO:* Você pode renovar a qualquer momento. Basta gerar um novo /pix. Os 30 dias serão SOMADOS ao tempo que você já tem.",
+            8: "🔄 *MIGRAÇÃO DE DIAS:* Se você tinha dias no sistema antigo, use o comando /vincular no PV. O bot detectará seus dias e solicitará a migração para o Comandante sem custo!",
+            9: "🔥 *CUPOM DE DESCONTO:* Fique atento ao nosso grupo oficial e aos sorteios. Você também ganha cupons ao bater metas de indicação.",
+            10: "⚠️ *ESQUECI A LEGENDA:* Não se preocupe. Reenvie a imagem do comprovante agora mesmo escrevendo apenas 'comprovante' na legenda da foto."
         };
 
         if (!respostas[num]) {
-            return msg.reply("❌ Número inválido! Use de 1 a 10. Exemplo: `/duvida 5`.");
+            return msg.reply("❌ *NÚMERO INVÁLIDO*\nEscolha uma dúvida de 1 a 10. Exemplo: `/duvida 8`.");
         }
 
         return msg.reply(`📖 *RESPOSTA DA DÚVIDA #${num}* \n\n${respostas[num]}`);
