@@ -1,65 +1,52 @@
 module.exports = {
-    name: 'confirmar',
-    async execute(client, msg, { args, isAdmin }) {
-        if (!isAdmin) return; // Acesso restrito ao Comandante Yukon
+    name: 'confirmar',
+    async execute(client, msg, { args, isAdmin }) {
+        if (!isAdmin) return; // Só você pode rodar
 
-        const idGrupo = args[0];
-        const modo = args[1]; // Detecta se foi passado "migrar"
+        const idGrupo = args[0];
+        if (!idGrupo || !idGrupo.includes('@g.us')) {
+            return msg.reply("⚠️ Use: `/confirmar ID@g.us`");
+        }
 
-        if (!idGrupo || !idGrupo.includes('@g.us')) {
-            return msg.reply("⚠️ Use: `/confirmar ID@g.us [migrar]`");
-        }
+        try {
+            // 1. Executa a lógica de autorização (30 dias padrão ou conforme o plano)
+            const mongoose = require('mongoose');
+            const AuthorizedGroup = mongoose.model('AuthorizedGroup');
+            const UserProfile = mongoose.model('UserProfile');
 
-        try {
-            const mongoose = require('mongoose');
-            const AuthorizedGroup = mongoose.model('AuthorizedGroup');
-            const UserProfile = mongoose.model('UserProfile');
+            const dataVencimento = new Date();
+            dataVencimento.setDate(dataVencimento.getDate() + 30);
 
-            // 1. Busca informações prévias para o caso de migração
-            const infoGrupo = await AuthorizedGroup.findOne({ groupId: idGrupo });
-            const dono = await UserProfile.findOne({ gruposVinculados: idGrupo });
+            await AuthorizedGroup.updateOne(
+                { groupId: idGrupo },
+                { $set: { isAuthorized: true, expiresAt: dataVencimento } },
+                { upsert: true }
+            );
 
-            let novaData;
-            let tituloMsg = "";
+            // 2. Localiza quem é o dono desse grupo para avisar no PV
+            const dono = await UserProfile.findOne({ gruposVinculados: idGrupo });
 
-            // 2. Lógica de Data: Migração ou Nova Ativação
-            if (modo === 'migrar' && infoGrupo) {
-                novaData = infoGrupo.expiresAt;
-                tituloMsg = "🔄 *MIGRAÇÃO DE SISTEMA CONCLUÍDA*";
-            } else {
-                novaData = new Date();
-                novaData.setDate(novaData.getDate() + 30);
-                tituloMsg = "✅ *ASSINATURA ATIVADA COM SUCESSO*";
-            }
+            // 3. Mensagem de Confirmação para VOCÊ
+            await msg.reply(`✅ Grupo \`${idGrupo}\` ativado com sucesso!`);
 
-            // 3. Atualiza ou cria a autorização no banco de dados
-            await AuthorizedGroup.updateOne(
-                { groupId: idGrupo },
-                { $set: { isAuthorized: true, expiresAt: novaData } },
-                { upsert: true }
-            );
+            // 4. Mensagem para o GRUPO
+            await client.sendMessage(idGrupo, `🚀 *SISTEMA ATUALIZADO*
+━━━━━━━━━━━━━━━━━━━━━
+🛰️ Status: **Assinatura Ativada**
+📅 Expira em: ${dataVencimento.toLocaleDateString('pt-BR')}
+🎮 Comandos liberados! Divirtam-se.`);
 
-            const textoNotificacao = `${tituloMsg}
-━━━━━━━━━━━━━━━━━━━━━━
-O grupo foi atualizado com sucesso para o novo sistema de assinatura por perfil!
+            // 5. Mensagem para o DONO (Cliente)
+            if (dono) {
+                await client.sendMessage(dono.userId, `✅ *PAGAMENTO APROVADO*
+━━━━━━━━━━━━━━━━━━━━━
+Seu grupo \`${idGrupo}\` foi ativado com sucesso!
+Obrigado por assinar a Yukon Station. 🚀`);
+            }
 
-📅 **Vencimento:** ${novaData.toLocaleDateString('pt-BR')}
-🚀 **Status:** Licença Ativa e Atualizada`;
-
-            // 4. Mensagem de Confirmação para VOCÊ (Dono do Bot)
-            await msg.reply(`✅ Operação finalizada para o grupo \`${idGrupo}\` (${modo === 'migrar' ? 'Migração' : 'Nova Ativação'}).`);
-
-            // 5. Mensagem para o GRUPO (Notificação Tripla - Parte 1)
-            await client.sendMessage(idGrupo, textoNotificacao);
-
-            // 6. Mensagem para o DONO/CLIENTE (Notificação Tripla - Parte 2)
-            if (dono) {
-                await client.sendMessage(dono.userId, textoNotificacao + "\n\n_A Yukon Station agradece sua preferência!_");
-            }
-
-        } catch (err) {
-            console.error("ERRO NO CONFIRMAR:", err);
-            return msg.reply("⚠️ Erro ao processar a confirmação de assinatura.");
-        }
-    }
+        } catch (err) {
+            console.error(err);
+            return msg.reply("⚠️ Erro ao confirmar ativação.");
+        }
+    }
 };
