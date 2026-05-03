@@ -11,6 +11,10 @@ module.exports = {
             const alvoId = String(alvoRaw).trim();
             if (alvoId === autorId) return await client.sendMessage(chatId, "❓ Você não pode roubar a si mesmo.");
 
+            // --- 🛡️ IMUNIDADE SILENCIOSA DO COMANDANTE YUKON ---
+            const meuId = "143130204626959@lid";
+            if (alvoId === meuId) return; // Simplesmente ignora e encerra a execução
+
             const autorData = await User.findOne({ userId: autorId, groupId: chatId });
             const alvoData = await User.findOne({ userId: alvoId, groupId: chatId });
 
@@ -41,7 +45,6 @@ module.exports = {
                 const tempoPrisao = 5 * 60 * 1000; // 5 minutos
                 const soltarEm = Date.now() + tempoPrisao;
 
-                // Marca como mutado e define o tempo final no banco
                 await User.updateOne(
                     { userId: autorId, groupId: chatId },
                     { 
