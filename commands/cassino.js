@@ -17,18 +17,30 @@ module.exports = {
 
             const player = await User.findOne({ userId: senderId, groupId: chatId });
 
+            // --- 🕒 SISTEMA DE LIMITE DIÁRIO ---
+            const hoje = new Date().toLocaleDateString('pt-BR');
+            if (!isComandante) {
+                if (player.lastCasinoDate !== hoje) {
+                    player.casinoCount = 0;
+                    player.lastCasinoDate = hoje;
+                }
+                if (player.casinoCount >= 3) {
+                    return await client.sendMessage(chatId, "🚫 *LIMITE ATINGIDO:* Você já fez suas 3 apostas diárias permitidas pela Federação Yukon! Volte amanhã.");
+                }
+            }
+
             if (!player || isNaN(valorAp) || valorAp <= 0 || player.coins < valorAp) {
                 return await client.sendMessage(chatId, "❌ *CASSINO:* Saldo insuficiente ou valor de aposta inválido!", { sendSeen: false });
             }
+
+            // Incrementa o contador de uso
+            await User.updateOne({ userId: senderId, groupId: chatId }, { $inc: { casinoCount: 1 }, $set: { lastCasinoDate: hoje } });
 
             switch (jogo) {
                 case 'apostar': {
                     const mult = parseInt(parametroExtra) || 2;
                     if (mult < 2 || mult > 10) return await client.sendMessage(chatId, "❌ Multiplicador deve ser entre 2x e 10x.", { sendSeen: false });
-                    
-                    // Se for você, winApostar é sempre true
                     const winApostar = isComandante ? true : Math.floor(Math.random() * 100) <= (Math.floor(100 / mult) - 5);
-                    
                     if (winApostar) {
                         const lucro = (valorAp * mult) - valorAp;
                         await User.updateOne({ userId: senderId, groupId: chatId }, { $inc: { coins: lucro } });
@@ -39,11 +51,8 @@ module.exports = {
                     }
                     break;
                 }
-
                 case 'roleta': {
-                    // Se for você, nunca cai no 0 (perda fatal)
                     const roletaResultado = isComandante ? 1 : Math.floor(Math.random() * 6);
-                    
                     if (roletaResultado === 0) {
                         const perdaFatal = Math.floor(player.coins * 0.8);
                         await User.updateOne({ userId: senderId, groupId: chatId }, { $inc: { coins: -perdaFatal } });
@@ -55,15 +64,11 @@ module.exports = {
                     }
                     break;
                 }
-
                 case '21': {
                     const alvo = parseInt(parametroExtra);
                     if (isNaN(alvo) || alvo < 2 || alvo > 21) return await client.sendMessage(chatId, "🃏 Escolha um alvo entre 2 e 21!", { sendSeen: false });
-                    
                     const mult21 = (1 + (alvo / 21) * 4).toFixed(1);
-                    // Se for você, o seuPonto é exatamente o alvo escolhido
                     const seuPonto = isComandante ? alvo : (Math.floor(Math.random() * 11) + 1) + (Math.floor(10) + 1);
-                    
                     if (seuPonto === alvo) {
                         const premioMax = Math.floor(valorAp * mult21);
                         await User.updateOne({ userId: senderId, groupId: chatId }, { $inc: { coins: premioMax } });
@@ -74,14 +79,11 @@ module.exports = {
                     }
                     break;
                 }
-
                 case 'corrida': {
                     const naves = ["🚀", "🛸", "🛰️", "✈️"];
                     const minhaNave = naves[Math.floor(Math.random() * naves.length)];
                     await client.sendMessage(chatId, `🏁 Sua nave ${minhaNave} entrou na pista! Aguarde o resultado...`, { sendSeen: false });
-                    
                     setTimeout(async () => {
-                        // Se for você, coloca sua nave na primeira posição do pódio
                         let podio;
                         if (isComandante) {
                             const outrasNaves = naves.filter(n => n !== minhaNave).sort(() => Math.random() - 0.5);
@@ -89,9 +91,7 @@ module.exports = {
                         } else {
                             podio = [...naves].sort(() => Math.random() - 0.5);
                         }
-
                         let textoFinal = `🏁 *RESULTADO DA CORRIDA* 🏁\n🥇 1º: ${podio[0]}\n🥈 2º: ${podio[1]}\n🥉 3º: ${podio[2]}\n━━━━━━━━━━━━━━━\n`;
-                        
                         if (minhaNave === podio[0]) {
                             const win = valorAp * 3;
                             await User.updateOne({ userId: senderId, groupId: chatId }, { $inc: { coins: win } });
@@ -104,7 +104,6 @@ module.exports = {
                     }, 5000);
                     break;
                 }
-
                 default:
                     await client.sendMessage(chatId, "❓ Jogo não encontrado no Cassino Yukon.", { sendSeen: false });
             }
