@@ -15,19 +15,23 @@ module.exports = {
             // --- 🛡️ IMUNIDADE SILENCIOSA DO COMANDANTE YUKON ---
             if (alvoId === meuId) return; 
 
-            const autorData = await User.findOne({ userId: autorId, groupId: chatId });
+            let autorData = await User.findOne({ userId: autorId, groupId: chatId });
             const alvoData = await User.findOne({ userId: alvoId, groupId: chatId });
 
             if (!autorData) return;
 
-            // --- 🕒 SISTEMA DE LIMITE DIÁRIO (3 VEZES) ---
+            // --- 🕒 SISTEMA DE LIMITE DIÁRIO (CORRIGIDO) ---
             const hoje = new Date().toLocaleDateString('pt-BR');
             const isComandante = autorId === meuId;
 
             if (!isComandante) {
+                // Força o reset no banco de dados se o dia mudou
                 if (autorData.lastRobberyDate !== hoje) {
-                    await User.updateOne({ userId: autorId, groupId: chatId }, { $set: { robberyCount: 0, lastRobberyDate: hoje } });
-                    autorData.robberyCount = 0;
+                    await User.updateOne(
+                        { userId: autorId, groupId: chatId }, 
+                        { $set: { robberyCount: 0, lastRobberyDate: hoje } }
+                    );
+                    autorData.robberyCount = 0; // Atualiza localmente
                 }
 
                 if (autorData.robberyCount >= 3) {
@@ -57,8 +61,8 @@ module.exports = {
 
             if (autorData.coins < 50) return await client.sendMessage(chatId, "⚠️ Você precisa de 50 coins para arriscar um roubo.");
 
-            // Incrementa o contador de roubos do dia
-            await User.updateOne({ userId: autorId, groupId: chatId }, { $inc: { robberyCount: 1 }, $set: { lastRobberyDate: hoje } });
+            // Se chegou aqui, o roubo vai acontecer. Incrementamos o contador agora.
+            await User.updateOne({ userId: autorId, groupId: chatId }, { $inc: { robberyCount: 1 } });
 
             const sucesso = Math.random() < 0.40; // 40% de chance
 
@@ -83,6 +87,6 @@ module.exports = {
 
                 await client.sendMessage(chatId, `🚨 *POLÍCIA DA YUKON!*\n\n@${autorId.split('@')[0]} foi pego! \n💰 Perdeu: *${multa}* coins\n⛓️ Prisão: *5 minutos*`, { mentions: [autorId] });
             }
-        } catch (e) { console.error(e); }
+        } catch (e) { console.error("❌ ERRO NO ROUBAR:", e); }
     }
 };
