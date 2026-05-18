@@ -15,22 +15,25 @@ module.exports = {
                 return await client.sendMessage(chatId, menuCassino, { sendSeen: false });
             }
 
+            // 1. Pega os dados atuais
             let player = await User.findOne({ userId: senderId, groupId: chatId });
             if (!player) return;
 
-            // --- 🕒 SISTEMA DE LIMITE DIÁRIO (CORRIGIDO) ---
             const hoje = new Date().toLocaleDateString('pt-BR');
             
+            // --- 🕒 SISTEMA DE LIMITE DIÁRIO BLINDADO ---
             if (!isComandante) {
-                // Se a data gravada for diferente de hoje, reseta no banco e no objeto local
+                // Se o dia mudou, limpa o contador e força o salvamento
                 if (player.lastCasinoDate !== hoje) {
-                    await User.updateOne(
+                    await User.findOneAndUpdate(
                         { userId: senderId, groupId: chatId }, 
-                        { $set: { casinoCount: 0, lastCasinoDate: hoje } }
+                        { $set: { casinoCount: 0, lastCasinoDate: hoje } },
+                        { new: true } // Isso força o retorno do documento atualizado
                     );
-                    player.casinoCount = 0; // Atualiza localmente para passar no IF abaixo
+                    player.casinoCount = 0; 
                 }
 
+                // Verificação final antes de processar
                 if (player.casinoCount >= 3) {
                     return await client.sendMessage(chatId, "🚫 *LIMITE ATINGIDO:* Você já fez suas 3 apostas diárias permitidas pela Federação Yukon! Volte amanhã.");
                 }
@@ -40,10 +43,10 @@ module.exports = {
                 return await client.sendMessage(chatId, "❌ *CASSINO:* Saldo insuficiente ou valor de aposta inválido!", { sendSeen: false });
             }
 
-            // Movemos o incremento para acontecer junto com o resultado do jogo para evitar bugs
-            const registrarUso = async () => {
+            // 2. INCREMENTA ANTES DE JOGAR (Para evitar que o usuário burle fechando o bot)
+            if (!isComandante) {
                 await User.updateOne({ userId: senderId, groupId: chatId }, { $inc: { casinoCount: 1 } });
-            };
+            }
 
             switch (jogo) {
                 case 'apostar': {
