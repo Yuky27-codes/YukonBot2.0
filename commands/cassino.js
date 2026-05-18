@@ -11,38 +11,36 @@ module.exports = {
             const parametroExtra = args[2];
 
             if (!jogo) {
-                const menuCassino = `🎰 *CENTRAL DE APOSTAS YUKON* 🎰\n\n🚀 */cassino apostar [valor] [mult]*\n💀 */cassino roleta [valor]*\n🃏 */cassino 21 [valor] [alvo]*\n🛸 */cassino corrida [valor]*\n\n_Ex: /cassino apostar 500 2_`;
-                return await client.sendMessage(chatId, menuCassino, { sendSeen: false });
+                const menu = `🎰 *CENTRAL DE APOSTAS YUKON*\n\n🚀 */cassino apostar [valor] [mult]*\n💀 */cassino roleta [valor]*\n🃏 */cassino 21 [valor] [alvo]*\n🛸 */cassino corrida [valor]*`;
+                return await client.sendMessage(chatId, menu);
             }
 
             const hoje = new Date().toLocaleDateString('pt-BR');
 
-            // --- 🕒 SISTEMA DE LIMITE INDIVIDUAL ---
-            if (!isComandante) {
-                // 1. Reset Individual: Zera o contador APENAS para este usuário se o dia mudou
-                await User.updateOne(
-                    { userId: senderId, groupId: chatId, lastCasinoDate: { $ne: hoje } },
-                    { $set: { casinoCount: 0, lastCasinoDate: hoje } }
-                );
+            // 1. GARANTE QUE O USUÁRIO EXISTE E ESTÁ COM A DATA DE HOJE (INDIVIDUAL)
+            // Se a data dele for diferente de hoje, o contador dele zera agora.
+            await User.updateOne(
+                { userId: senderId, groupId: chatId, lastCasinoDate: { $ne: hoje } },
+                { $set: { casinoCount: 0, lastCasinoDate: hoje } }
+            );
 
-                // 2. Incremento Individual: Tenta somar +1 APENAS se o contador DESTE usuário for < 3
-                const updateResult = await User.updateOne(
-                    { userId: senderId, groupId: chatId, casinoCount: { $lt: 3 } },
-                    { $inc: { casinoCount: 1 } }
-                );
+            // 2. BUSCA OS DADOS ATUALIZADOS DO USUÁRIO
+            const player = await User.findOne({ userId: senderId, groupId: chatId });
+            if (!player) return;
 
-                // Se ninguém foi modificado, significa que ESTE usuário específico já gastou os 3 dele
-                if (updateResult.modifiedCount === 0) {
-                    return await client.sendMessage(chatId, "🚫 *LIMITE ATINGIDO:* Você já realizou suas 3 apostas diárias individuais!");
-                }
+            // 3. VERIFICA O LIMITE (SOMENTE PARA ESTE USUÁRIO)
+            if (!isComandante && player.casinoCount >= 3) {
+                return await client.sendMessage(chatId, `🚫 @${senderId.split('@')[0]}, você já atingiu seu limite individual de 3 apostas hoje!`, { mentions: [senderId] });
             }
 
-            // 3. BUSCA DADOS DO JOGADOR
-            const player = await User.findOne({ userId: senderId, groupId: chatId });
-            if (!player || isNaN(valorAp) || valorAp <= 0 || player.coins < valorAp) {
-                // Estorno individual se houver erro de saldo
-                if (!isComandante) await User.updateOne({ userId: senderId, groupId: chatId }, { $inc: { casinoCount: -1 } });
-                return await client.sendMessage(chatId, "❌ *CASSINO:* Saldo insuficiente ou valor inválido!", { sendSeen: false });
+            // 4. VERIFICA SALDO
+            if (isNaN(valorAp) || valorAp <= 0 || player.coins < valorAp) {
+                return await client.sendMessage(chatId, "❌ Saldo insuficiente ou valor inválido.");
+            }
+
+            // 5. INCREMENTA O USO (SOMENTE PARA ESTE USUÁRIO)
+            if (!isComandante) {
+                await User.updateOne({ userId: senderId, groupId: chatId }, { $inc: { casinoCount: 1 } });
             }
 
             // --- PROCESSAMENTO DOS JOGOS ---
