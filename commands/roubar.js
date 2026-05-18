@@ -15,55 +15,73 @@ module.exports = {
             // --- 🛡️ IMUNIDADE SILENCIOSA DO COMANDANTE YUKON ---
             if (alvoId === meuId) return; 
 
-            let autorData = await User.findOne({ userId: autorId, groupId: chatId });
+            const hoje = new Date().toLocaleDateString('pt-BR');
+            const isComandante = autorId === meuId;
+
+            // --- 🕒 SISTEMA DE LIMITE INDIVIDUAL ATÔMICO ---
+            if (!isComandante) {
+                // 1. Reset Individual: Zera o contador apenas para este usuário se o dia mudou
+                await User.updateOne(
+                    { userId: autorId, groupId: chatId, lastRobberyDate: { $ne: hoje } },
+                    { $set: { robberyCount: 0, lastRobberyDate: hoje } }
+                );
+
+                // 2. Incremento Individual: Tenta somar +1 apenas se for < 3
+                const updateResult = await User.updateOne(
+                    { userId: autorId, groupId: chatId, robberyCount: { $lt: 3 } },
+                    { $inc: { robberyCount: 1 } }
+                );
+
+                // Se ninguém foi modificado, o limite individual já era 3
+                if (updateResult.modifiedCount === 0) {
+                    return await client.sendMessage(chatId, "🚫 *LIMITE ATINGIDO:* Você já realizou seus 3 assaltos diários. A polícia está na sua cola!");
+                }
+            }
+
+            // 3. BUSCA DADOS APÓS VALIDAR LIMITE
+            const autorData = await User.findOne({ userId: autorId, groupId: chatId });
             const alvoData = await User.findOne({ userId: alvoId, groupId: chatId });
 
             if (!autorData) return;
 
-            // --- 🕒 SISTEMA DE LIMITE DIÁRIO (CORRIGIDO) ---
-            const hoje = new Date().toLocaleDateString('pt-BR');
-            const isComandante = autorId === meuId;
-
-            if (!isComandante) {
-                // Força o reset no banco de dados se o dia mudou
-                if (autorData.lastRobberyDate !== hoje) {
-                    await User.updateOne(
-                        { userId: autorId, groupId: chatId }, 
-                        { $set: { robberyCount: 0, lastRobberyDate: hoje } }
-                    );
-                    autorData.robberyCount = 0; // Atualiza localmente
+            // Função auxiliar para devolver a tentativa caso o roubo seja inválido
+            const estornarTentativa = async () => {
+                if (!isComandante) {
+                    await User.updateOne({ userId: autorId, groupId: chatId }, { $inc: { robberyCount: -1 } });
                 }
+            };
 
-                if (autorData.robberyCount >= 3) {
-                    return await client.sendMessage(chatId, "🚫 *LIMITE ATINGIDO:* Você já realizou seus 3 assaltos diários. A polícia da Yukon está de olho em você!");
-                }
-            }
-
-            // --- 🛡️ VERIFICAÇÃO DE MODO PASSIVO (IMUNE) ---
+            // --- VERIFICAÇÕES DE SEGURANÇA ---
             if (autorData.isPassive) {
+                await estornarTentativa();
                 return await client.sendMessage(chatId, "⚠️ *AVISO:* Você está no **Modo Passivo**. Desative seu escudo para poder realizar assaltos!");
             }
 
             if (alvoData && alvoData.isPassive) {
+                await estornarTentativa();
                 return await client.sendMessage(chatId, `🛡️ *ESCUDO ATIVO:* @${alvoId.split('@')[0]} está no Modo Passivo e não pode ser roubado.`, { mentions: [alvoId] });
             }
 
-            if (!alvoData || alvoData.coins <= 0) return await client.sendMessage(chatId, "⚠️ O alvo não tem moedas.");
+            if (!alvoData || alvoData.coins <= 0) {
+                await estornarTentativa();
+                return await client.sendMessage(chatId, "⚠️ O alvo não tem moedas.");
+            }
             
-            // --- 🛡️ VERIFICAÇÃO DE PROTEÇÃO (ESCUDO DE PLASMA COMPRADO) ---
             const agora = Date.now();
             if (alvoData.protectedUntil && alvoData.protectedUntil > agora) {
+                await estornarTentativa();
                 const tempoRestanteMs = alvoData.protectedUntil - agora;
                 const horas = Math.floor(tempoRestanteMs / (1000 * 60 * 60));
                 const minutos = Math.floor((tempoRestanteMs % (1000 * 60 * 60)) / (1000 * 60));
                 return await client.sendMessage(chatId, `🛡️ *ACESSO NEGADO:* O alvo está protegido por um Escudo de Plasma!\n⏳ Expira em: *${horas}h ${minutos}min*`, { mentions: [alvoId] });
             }
 
-            if (autorData.coins < 50) return await client.sendMessage(chatId, "⚠️ Você precisa de 50 coins para arriscar um roubo.");
+            if (autorData.coins < 50) {
+                await estornarTentativa();
+                return await client.sendMessage(chatId, "⚠️ Você precisa de 50 coins para arriscar um roubo.");
+            }
 
-            // Se chegou aqui, o roubo vai acontecer. Incrementamos o contador agora.
-            await User.updateOne({ userId: autorId, groupId: chatId }, { $inc: { robberyCount: 1 } });
-
+            // --- EXECUÇÃO DO ROUBO ---
             const sucesso = Math.random() < 0.40; // 40% de chance
 
             if (sucesso) {
