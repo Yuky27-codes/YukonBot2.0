@@ -9,15 +9,14 @@ module.exports = {
             const isComandante = autorId === meuId;
 
             if (!alvoRaw) return await client.sendMessage(chatId, "👤 *SISTEMA:* Mencione o alvo do assalto!");
-            
+
             const alvoId = String(alvoRaw).trim();
             if (alvoId === autorId) return await client.sendMessage(chatId, "❓ Você não pode roubar a si mesmo.");
             if (alvoId === meuId) return; // Imunidade silenciada
 
             const hoje = new Date().toLocaleDateString('pt-BR');
 
-            // 1. GARANTE QUE O AUTOR ESTÁ COM A DATA DE HOJE (INDIVIDUAL)
-            // Filtramos obrigatoriamente pelo userId para não afetar o grupo todo
+            // 1. SE A DATA DO AUTOR FOR DIFERENTE DE HOJE, ZERA O CONTADOR DELE
             await User.updateOne(
                 { userId: autorId, groupId: chatId, lastRobberyDate: { $ne: hoje } },
                 { $set: { robberyCount: 0, lastRobberyDate: hoje } }
@@ -29,9 +28,13 @@ module.exports = {
 
             if (!autorData) return;
 
-            // 3. VERIFICA O LIMITE INDIVIDUAL (SOMENTE PARA ESTE AUTOR)
+            // 3. VERIFICA O LIMITE INDIVIDUAL ANTES DE QUALQUER OUTRA COISA
             if (!isComandante && autorData.robberyCount >= 3) {
-                return await client.sendMessage(chatId, `🚫 @${autorId.split('@')[0]}, você já atingiu seu limite de 3 assaltos hoje!`, { mentions: [autorId] });
+                return await client.sendMessage(
+                    chatId,
+                    `🚫 @${autorId.split('@')[0]}, você já atingiu seu limite de 3 assaltos hoje! Volte amanhã.`,
+                    { mentions: [autorId] }
+                );
             }
 
             // --- VERIFICAÇÕES DE REGRAS ---
@@ -56,27 +59,38 @@ module.exports = {
                 return await client.sendMessage(chatId, "⚠️ Você precisa de pelo menos 50 coins para arriscar um roubo.");
             }
 
-            // 4. INCREMENTA O USO INDIVIDUAL (SÓ AGORA QUE TUDO FOI VALIDADO)
+            // 4. INCREMENTA O CONTADOR SÓ DEPOIS DE TODAS AS VALIDAÇÕES PASSAREM
             if (!isComandante) {
-                await User.updateOne({ userId: autorId, groupId: chatId }, { $inc: { robberyCount: 1 } });
+                await User.updateOne(
+                    { userId: autorId, groupId: chatId },
+                    { $inc: { robberyCount: 1 } }
+                );
             }
 
             // --- EXECUÇÃO DO ROUBO ---
             const sucesso = Math.random() < 0.40;
 
             if (sucesso) {
-                const valorRoubado = Math.floor(alvoData.coins * 0.20); 
+                const valorRoubado = Math.floor(alvoData.coins * 0.20);
                 await User.updateOne({ userId: autorId, groupId: chatId }, { $inc: { coins: valorRoubado } });
                 await User.updateOne({ userId: alvoId, groupId: chatId }, { $inc: { coins: -valorRoubado } });
-                await client.sendMessage(chatId, `🥷 @${autorId.split('@')[0]} roubou ${valorRoubado.toLocaleString()} YC de @${alvoId.split('@')[0]}!`, { mentions: [autorId, alvoId] });
+                await client.sendMessage(
+                    chatId,
+                    `🥷 @${autorId.split('@')[0]} roubou ${valorRoubado.toLocaleString()} YC de @${alvoId.split('@')[0]}!`,
+                    { mentions: [autorId, alvoId] }
+                );
             } else {
                 const multa = Math.floor(autorData.coins * 0.30);
-                const soltarEm = Date.now() + (5 * 60 * 1000); 
+                const soltarEm = Date.now() + (5 * 60 * 1000);
                 await User.updateOne(
-                    { userId: autorId, groupId: chatId }, 
+                    { userId: autorId, groupId: chatId },
                     { $inc: { coins: -multa }, $set: { isMuted: true, muteExpires: soltarEm } }
                 );
-                await client.sendMessage(chatId, `🚨 @${autorId.split('@')[0]} foi preso por 5 min e multado em ${multa.toLocaleString()} YC!`, { mentions: [autorId] });
+                await client.sendMessage(
+                    chatId,
+                    `🚨 @${autorId.split('@')[0]} foi preso por 5 min e multado em ${multa.toLocaleString()} YC!`,
+                    { mentions: [autorId] }
+                );
             }
 
         } catch (e) {

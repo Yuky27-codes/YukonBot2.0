@@ -5,7 +5,7 @@ module.exports = {
             const senderId = senderRaw.toString();
             const meuId = "143130204626959@lid";
             const isComandante = senderId === meuId;
-            
+
             const jogo = args[0] ? args[0].toLowerCase() : null;
             const valorAp = parseInt(args[1]);
             const parametroExtra = args[2];
@@ -17,8 +17,7 @@ module.exports = {
 
             const hoje = new Date().toLocaleDateString('pt-BR');
 
-            // 1. GARANTE QUE O USUÁRIO EXISTE E ESTÁ COM A DATA DE HOJE (INDIVIDUAL)
-            // Se a data dele for diferente de hoje, o contador dele zera agora.
+            // 1. SE A DATA DO USUÁRIO FOR DIFERENTE DE HOJE, ZERA O CONTADOR DELE
             await User.updateOne(
                 { userId: senderId, groupId: chatId, lastCasinoDate: { $ne: hoje } },
                 { $set: { casinoCount: 0, lastCasinoDate: hoje } }
@@ -28,29 +27,55 @@ module.exports = {
             const player = await User.findOne({ userId: senderId, groupId: chatId });
             if (!player) return;
 
-            // 3. VERIFICA O LIMITE (SOMENTE PARA ESTE USUÁRIO)
+            // 3. VERIFICA O LIMITE ANTES DE QUALQUER COISA
             if (!isComandante && player.casinoCount >= 3) {
-                return await client.sendMessage(chatId, `🚫 @${senderId.split('@')[0]}, você já atingiu seu limite individual de 3 apostas hoje!`, { mentions: [senderId] });
+                return await client.sendMessage(
+                    chatId,
+                    `🚫 @${senderId.split('@')[0]}, você já atingiu seu limite de 3 apostas hoje! Volte amanhã.`,
+                    { mentions: [senderId] }
+                );
             }
 
-            // 4. VERIFICA SALDO
-            if (isNaN(valorAp) || valorAp <= 0 || player.coins < valorAp) {
-                return await client.sendMessage(chatId, "❌ Saldo insuficiente ou valor inválido.");
+            // 4. VERIFICA SALDO E VALOR
+            if (isNaN(valorAp) || valorAp <= 0) {
+                return await client.sendMessage(chatId, "❌ Valor inválido. Digite um número maior que zero.");
+            }
+            if (player.coins < valorAp) {
+                return await client.sendMessage(chatId, `❌ Saldo insuficiente! Você tem ${player.coins.toLocaleString()} YC.`);
             }
 
-            // 5. INCREMENTA O USO (SOMENTE PARA ESTE USUÁRIO)
+            // 5. VALIDA PARÂMETROS ESPECÍFICOS DE CADA JOGO ANTES DE INCREMENTAR O CONTADOR
+            if (jogo === 'apostar') {
+                const mult = parseInt(parametroExtra) || 2;
+                if (mult < 2 || mult > 10) {
+                    return await client.sendMessage(chatId, "❌ Multiplicador inválido. Use entre 2x e 10x.");
+                }
+            }
+
+            if (jogo === '21') {
+                const alvo = parseInt(parametroExtra);
+                if (isNaN(alvo) || alvo < 2 || alvo > 21) {
+                    return await client.sendMessage(chatId, "🃏 Escolha um alvo entre 2 e 21!");
+                }
+            }
+
+            const jogosValidos = ['apostar', 'roleta', '21', 'corrida'];
+            if (!jogosValidos.includes(jogo)) {
+                return await client.sendMessage(chatId, "❓ Jogo não encontrado. Use: apostar, roleta, 21 ou corrida.");
+            }
+
+            // 6. SÓ INCREMENTA O CONTADOR DEPOIS DE TODAS AS VALIDAÇÕES PASSAREM
             if (!isComandante) {
-                await User.updateOne({ userId: senderId, groupId: chatId }, { $inc: { casinoCount: 1 } });
+                await User.updateOne(
+                    { userId: senderId, groupId: chatId },
+                    { $inc: { casinoCount: 1 } }
+                );
             }
 
             // --- PROCESSAMENTO DOS JOGOS ---
             switch (jogo) {
                 case 'apostar': {
                     const mult = parseInt(parametroExtra) || 2;
-                    if (mult < 2 || mult > 10) {
-                        if (!isComandante) await User.updateOne({ userId: senderId, groupId: chatId }, { $inc: { casinoCount: -1 } });
-                        return await client.sendMessage(chatId, "❌ Multiplicador inválido (2x-10x).");
-                    }
                     const win = isComandante ? true : Math.random() < (1 / mult - 0.05);
                     if (win) {
                         const lucro = (valorAp * mult) - valorAp;
@@ -77,10 +102,6 @@ module.exports = {
                 }
                 case '21': {
                     const alvo = parseInt(parametroExtra);
-                    if (isNaN(alvo) || alvo < 2 || alvo > 21) {
-                        if (!isComandante) await User.updateOne({ userId: senderId, groupId: chatId }, { $inc: { casinoCount: -1 } });
-                        return await client.sendMessage(chatId, "🃏 Escolha um alvo entre 2 e 21!");
-                    }
                     const seuPonto = isComandante ? alvo : (Math.floor(Math.random() * 11) + 1) + (Math.floor(Math.random() * 11) + 1);
                     if (seuPonto === alvo) {
                         const premio = valorAp * 5;
@@ -99,7 +120,7 @@ module.exports = {
                     setTimeout(async () => {
                         const podio = [...naves].sort(() => Math.random() - 0.5);
                         let msgF = `🏁 1º: ${podio[0]} | 2º: ${podio[1]} | 3º: ${podio[2]}\n`;
-                        if ((isComandante) || minhaNave === podio[0]) {
+                        if (isComandante || minhaNave === podio[0]) {
                             const winC = valorAp * 3;
                             await User.updateOne({ userId: senderId, groupId: chatId }, { $inc: { coins: winC } });
                             msgF += `🏆 Ganhou +${winC.toLocaleString()} YC!`;
@@ -111,9 +132,6 @@ module.exports = {
                     }, 4000);
                     break;
                 }
-                default:
-                    if (!isComandante) await User.updateOne({ userId: senderId, groupId: chatId }, { $inc: { casinoCount: -1 } });
-                    await client.sendMessage(chatId, "❓ Jogo não encontrado.");
             }
         } catch (e) { console.error(e); }
     }
