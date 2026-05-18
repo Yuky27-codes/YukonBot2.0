@@ -15,37 +15,35 @@ module.exports = {
                 return await client.sendMessage(chatId, menuCassino, { sendSeen: false });
             }
 
-            // 1. Pega os dados atuais
-            let player = await User.findOne({ userId: senderId, groupId: chatId });
-            if (!player) return;
-
             const hoje = new Date().toLocaleDateString('pt-BR');
-            
-            // --- 🕒 SISTEMA DE LIMITE DIÁRIO BLINDADO ---
-            if (!isComandante) {
-                // Se o dia mudou, limpa o contador e força o salvamento
-                if (player.lastCasinoDate !== hoje) {
-                    await User.findOneAndUpdate(
-                        { userId: senderId, groupId: chatId }, 
-                        { $set: { casinoCount: 0, lastCasinoDate: hoje } },
-                        { new: true } // Isso força o retorno do documento atualizado
-                    );
-                    player.casinoCount = 0; 
-                }
 
-                // Verificação final antes de processar
-                if (player.casinoCount >= 3) {
-                    return await client.sendMessage(chatId, "🚫 *LIMITE ATINGIDO:* Você já fez suas 3 apostas diárias permitidas pela Federação Yukon! Volte amanhã.");
+            // 1. TENTA INCREMENTAR O CONTADOR COM CONDIÇÃO DE LIMITE
+            // Se for o Comandante, ignoramos essa trava
+            if (!isComandante) {
+                // Primeiro, garantimos que o dia está atualizado
+                await User.updateOne(
+                    { userId: senderId, groupId: chatId, lastCasinoDate: { $ne: hoje } },
+                    { $set: { casinoCount: 0, lastCasinoDate: hoje } }
+                );
+
+                // Agora tentamos incrementar, mas APENAS SE for menor que 3
+                const updateResult = await User.updateOne(
+                    { userId: senderId, groupId: chatId, casinoCount: { $lt: 3 } },
+                    { $inc: { casinoCount: 1 } }
+                );
+
+                // Se niguém foi modificado (modifiedCount === 0), significa que o limite já era 3 ou mais
+                if (updateResult.modifiedCount === 0) {
+                    return await client.sendMessage(chatId, "🚫 *LIMITE ATINGIDO:* A Federação Yukon detectou excesso de apostas! Volte amanhã.");
                 }
             }
 
-            if (isNaN(valorAp) || valorAp <= 0 || player.coins < valorAp) {
-                return await client.sendMessage(chatId, "❌ *CASSINO:* Saldo insuficiente ou valor de aposta inválido!", { sendSeen: false });
-            }
-
-            // 2. INCREMENTA ANTES DE JOGAR (Para evitar que o usuário burle fechando o bot)
-            if (!isComandante) {
-                await User.updateOne({ userId: senderId, groupId: chatId }, { $inc: { casinoCount: 1 } });
+            // 2. BUSCA OS DADOS PARA O JOGO (Após garantir que o uso foi computado)
+            const player = await User.findOne({ userId: senderId, groupId: chatId });
+            if (!player || isNaN(valorAp) || valorAp <= 0 || player.coins < valorAp) {
+                // Se der erro de saldo, devolvemos o "uso" que descontamos acima
+                if (!isComandante) await User.updateOne({ userId: senderId, groupId: chatId }, { $inc: { casinoCount: -1 } });
+                return await client.sendMessage(chatId, "❌ *CASSINO:* Saldo insuficiente ou valor inválido!", { sendSeen: false });
             }
 
             switch (jogo) {
