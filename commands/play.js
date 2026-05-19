@@ -42,32 +42,37 @@ module.exports = {
 
             const { title, timestamp, url } = video;
 
-            // Lê o cookies.txt exportado pelo navegador (formato Netscape)
-            // Coloque o arquivo 'cookies.txt' na pasta raiz do projeto (junto do index.js)
+            // Lê cookies.txt no novo formato aceito pelo @distube/ytdl-core
+            // O arquivo deve estar na raiz do projeto (junto do index.js)
             const cookiePath = path.resolve(__dirname, '..', 'cookies.txt');
             const ytdlOptions = {
                 filter: 'audioonly',
                 quality: 'lowestaudio',
                 highWaterMark: 1 << 25,
-                requestOptions: {
-                    headers: {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-                    }
-                }
+                agent: undefined
             };
 
+            // Novo formato de cookies exigido pelo @distube/ytdl-core
             if (fs.existsSync(cookiePath)) {
-                const linhas = fs.readFileSync(cookiePath, 'utf8').split('\n');
-                const cookieStr = linhas
-                    .filter(l => !l.startsWith('#') && l.trim().length > 0)
-                    .map(l => {
-                        const partes = l.split('\t');
-                        if (partes.length >= 7) return `${partes[5]}=${partes[6]}`;
-                        return null;
-                    })
-                    .filter(Boolean)
-                    .join('; ');
-                if (cookieStr) ytdlOptions.requestOptions.headers.cookie = cookieStr;
+                try {
+                    const linhas = fs.readFileSync(cookiePath, 'utf8').split('\n');
+                    const cookies = linhas
+                        .filter(l => !l.startsWith('#') && l.trim().length > 0)
+                        .map(l => {
+                            const p = l.split('\t');
+                            if (p.length >= 7) {
+                                return { name: p[5].trim(), value: p[6].trim() };
+                            }
+                            return null;
+                        })
+                        .filter(Boolean);
+
+                    if (cookies.length > 0) {
+                        ytdlOptions.agent = ytdl.createAgent(cookies);
+                    }
+                } catch (e) {
+                    console.error("Erro ao ler cookies.txt:", e.message);
+                }
             }
 
             const stream = ytdl(url, ytdlOptions);

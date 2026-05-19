@@ -93,7 +93,6 @@ const userSchema = new mongoose.Schema({
     lastCasinoDate: { type: String, default: null },
     robberyCount: { type: Number, default: 0 },
     lastRobberyDate: { type: String, default: null },
-    coins: { type: Number, default: 0 },
     isMuted: { type: Boolean, default: false },
     isPassive: { type: Boolean, default: false },
     muteExpires: { type: Number, default: null }, 
@@ -506,10 +505,11 @@ Para reativar a licença, fale com o suporte.`);
                     MessageMedia,
                     iAmAdmin,
                     groq,
+                    chat,
                     command: `/${commandName}`
                 });
             } catch (error) {
-                console.error(`❌ Erro no comando ${commandName}:`, error.message);
+                console.error(`❌ Erro no comando ${commandName}:`, error.message, error.stack);
             }
         }
 

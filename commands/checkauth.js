@@ -1,19 +1,21 @@
 module.exports = {
     name: 'checkauth',
     async execute(client, msg, { args, isAdmin }) {
-        if (!isAdmin) return;
-
-        const chat = await msg.getChat();
-        if (chat.isGroup) {
-            return msg.reply("❌ *COMANDO RESTRITO*\nConsulte os dados da frota apenas no privado.");
-        }
-
-        const idGrupo = args[0];
-        if (!idGrupo || !idGrupo.includes('@g.us')) {
-            return msg.reply("⚠️ *ID INVÁLIDO*\nUse: `/checkauth [ID]@g.us`.");
-        }
-
+        // Tudo dentro de um único try/catch para capturar qualquer erro
         try {
+            if (!isAdmin) return;
+
+            // Verifica se é grupo sem usar getChat() (evita erro no PV)
+            const ehGrupo = msg.from.endsWith('@g.us');
+            if (ehGrupo) {
+                return msg.reply("❌ *COMANDO RESTRITO*\nConsulte os dados da frota apenas no privado.");
+            }
+
+            const idGrupo = args[0];
+            if (!idGrupo || !idGrupo.includes('@g.us')) {
+                return msg.reply("⚠️ *ID INVÁLIDO*\nUse: `/checkauth [ID]@g.us`.");
+            }
+
             const mongoose = require('mongoose');
             const AuthorizedGroup = mongoose.models.AuthorizedGroup || mongoose.model('AuthorizedGroup');
 
@@ -27,26 +29,20 @@ module.exports = {
             const agoraMs = Date.now();
             const restanteMs = expiraMs - agoraMs;
 
-            // ✅ CORRIGIDO: statusEmoji e statusTexto agora declaradas antes do uso
             let statusEmoji = "⚪";
             let statusTexto = "Desconhecido";
 
             if (!groupAuth.isAuthorized) {
-                statusEmoji = "🔴";
-                statusTexto = "Bloqueado";
+                statusEmoji = "🔴"; statusTexto = "Bloqueado";
             } else if (expiraMs > 0 && restanteMs <= 0) {
-                statusEmoji = "🔴";
-                statusTexto = "Expirado";
+                statusEmoji = "🔴"; statusTexto = "Expirado";
             } else if (expiraMs > 0 && restanteMs < 3 * 24 * 60 * 60 * 1000) {
-                statusEmoji = "🟡";
-                statusTexto = "Expirando em breve";
+                statusEmoji = "🟡"; statusTexto = "Expirando em breve";
             } else {
-                statusEmoji = "🟢";
-                statusTexto = "Ativo";
+                statusEmoji = "🟢"; statusTexto = "Ativo";
             }
 
             let tempoRestante = "Sem validade definida.";
-
             if (expiraMs > 0 && restanteMs > 0) {
                 const dias = Math.floor(restanteMs / (1000 * 60 * 60 * 24));
                 const horas = Math.floor((restanteMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -67,9 +63,8 @@ module.exports = {
             });
 
         } catch (err) {
-            // ✅ Loga o erro completo (não só a mensagem) para diagnóstico real
-            console.error("❌ ERRO NO CHECKAUTH:", JSON.stringify(err), err);
-            return msg.reply(`⚠️ Erro interno: ${err.message || JSON.stringify(err)}`);
+            console.error("❌ ERRO CHECKAUTH COMPLETO:", err);
+            return msg.reply(`⚠️ Erro: ${err.message}`);
         }
     }
 };
