@@ -1,19 +1,17 @@
 module.exports = {
     name: 'checkauth',
     async execute(client, msg, { args, isAdmin }) {
-        // Tudo dentro de um único try/catch para capturar qualquer erro
         try {
             if (!isAdmin) return;
 
-            // Verifica se é grupo sem usar getChat() (evita erro no PV)
             const ehGrupo = msg.from.endsWith('@g.us');
             if (ehGrupo) {
-                return msg.reply("❌ *COMANDO RESTRITO*\nConsulte os dados da frota apenas no privado.");
+                return client.sendMessage(msg.from, "❌ *COMANDO RESTRITO*\nConsulte os dados da frota apenas no privado.");
             }
 
             const idGrupo = args[0];
             if (!idGrupo || !idGrupo.includes('@g.us')) {
-                return msg.reply("⚠️ *ID INVÁLIDO*\nUse: `/checkauth [ID]@g.us`.");
+                return client.sendMessage(msg.from, "⚠️ *ID INVÁLIDO*\nUse: `/checkauth [ID]@g.us`.");
             }
 
             const mongoose = require('mongoose');
@@ -22,7 +20,7 @@ module.exports = {
             const groupAuth = await AuthorizedGroup.findOne({ groupId: idGrupo }).lean();
 
             if (!groupAuth) {
-                return msg.reply(`⚠️ *NÃO ENCONTRADO*\nO grupo \`${idGrupo}\` não existe no banco.`);
+                return client.sendMessage(msg.from, `⚠️ *NÃO ENCONTRADO*\nO grupo \`${idGrupo}\` não existe no banco.`);
             }
 
             const expiraMs = groupAuth.expiresAt ? new Date(groupAuth.expiresAt).getTime() : 0;
@@ -52,19 +50,19 @@ module.exports = {
                 tempoRestante = "🔴 Tempo esgotado.";
             }
 
-            return msg.reply(`🖥️ *PAINEL YUKON*
+            return client.sendMessage(msg.from, `🖥️ *PAINEL YUKON*
 ━━━━━━━━━━━━━━━━━━━━━
 🆔 *Grupo:* \`${idGrupo}\`
 📡 *Status:* ${statusEmoji} ${statusTexto}
 🗓️ *Vencimento:* ${expiraMs > 0 ? new Date(expiraMs).toLocaleString('pt-BR') : 'Sem data'}
 ⏳ *Restante:* ${tempoRestante}
-👤 *Dono da Licença:* @${(groupAuth.authorizedBy || "Sistema").split('@')[0]}`, {
-                mentions: groupAuth.authorizedBy ? [groupAuth.authorizedBy] : []
-            });
+👤 *Dono da Licença:* @${(groupAuth.authorizedBy || "Sistema").split('@')[0]}`);
 
         } catch (err) {
-            console.error("❌ ERRO CHECKAUTH COMPLETO:", err);
-            return msg.reply(`⚠️ Erro: ${err.message}`);
+            console.error("❌ ERRO CHECKAUTH:", err.message, err.stack);
+            try {
+                await client.sendMessage(msg.from, `⚠️ Erro: ${err.message}`);
+            } catch {}
         }
     }
 };
