@@ -19,16 +19,13 @@ module.exports = {
             return await msg.reply(`⚠️ *SALDO INSUFICIENTE:* Sintonizar a rádio custa *${custoMusica} YC*.`);
         }
 
-        // ✅ CORRIGIDO: removida variável 'avisando' que nunca era usada
         await msg.reply(`🔍 *YUKON RÁDIO:* Buscando "${query}" nos arquivos estelares...`);
 
         const tempDir = path.resolve(__dirname, '..', 'temp');
         const tempFile = path.resolve(tempDir, `${Date.now()}.mp3`);
 
-        // Garante pasta temp
         if (!fs.existsSync(tempDir)) fs.mkdirSync(tempDir, { recursive: true });
 
-        // Função auxiliar para limpar o arquivo temp com segurança
         const limparTemp = () => {
             try { if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile); } catch {}
         };
@@ -45,16 +42,38 @@ module.exports = {
 
             const { title, timestamp, url } = video;
 
-            const stream = ytdl(url, {
+            // Lê o cookies.txt exportado pelo navegador (formato Netscape)
+            // Coloque o arquivo 'cookies.txt' na pasta raiz do projeto (junto do index.js)
+            const cookiePath = path.resolve(__dirname, '..', 'cookies.txt');
+            const ytdlOptions = {
                 filter: 'audioonly',
                 quality: 'lowestaudio',
-                highWaterMark: 1 << 25
-            });
+                highWaterMark: 1 << 25,
+                requestOptions: {
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+                    }
+                }
+            };
 
+            if (fs.existsSync(cookiePath)) {
+                const linhas = fs.readFileSync(cookiePath, 'utf8').split('\n');
+                const cookieStr = linhas
+                    .filter(l => !l.startsWith('#') && l.trim().length > 0)
+                    .map(l => {
+                        const partes = l.split('\t');
+                        if (partes.length >= 7) return `${partes[5]}=${partes[6]}`;
+                        return null;
+                    })
+                    .filter(Boolean)
+                    .join('; ');
+                if (cookieStr) ytdlOptions.requestOptions.headers.cookie = cookieStr;
+            }
+
+            const stream = ytdl(url, ytdlOptions);
             const fileStream = fs.createWriteStream(tempFile);
             stream.pipe(fileStream);
 
-            // ✅ CORRIGIDO: limparTemp() chamado em TODOS os caminhos de erro
             stream.on('error', async (err) => {
                 console.error("Erro no Stream:", err);
                 limparTemp();
@@ -64,9 +83,7 @@ module.exports = {
             fileStream.on('finish', async () => {
                 try {
                     const media = MessageMedia.fromFilePath(tempFile);
-
                     await User.updateOne({ userId: autorId, groupId: chatId }, { $inc: { coins: -custoMusica } });
-
                     await client.sendMessage(chatId, media, {
                         sendAudioAsVoice: true,
                         caption: `🎵 *TOCANDO AGORA:* ${title}\n⏱️ *DURAÇÃO:* ${timestamp}\n💰 *CUSTO:* ${custoMusica} YC\n\n📡 *SINTONIA YUKON STATION*`
@@ -75,7 +92,6 @@ module.exports = {
                     console.error("Erro ao enviar:", err);
                     await msg.reply("❌ Erro ao converter a transmissão.");
                 } finally {
-                    // ✅ CORRIGIDO: limpa o temp mesmo se o envio falhar
                     limparTemp();
                 }
             });

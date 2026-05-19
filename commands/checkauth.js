@@ -67,8 +67,9 @@ module.exports = {
             });
 
         } catch (err) {
-            console.error("❌ ERRO NO CHECKAUTH:", err);
-            return msg.reply("⚠️ Erro interno. Verifique se o banco de dados está conectado.");
+            // ✅ Loga o erro completo (não só a mensagem) para diagnóstico real
+            console.error("❌ ERRO NO CHECKAUTH:", JSON.stringify(err), err);
+            return msg.reply(`⚠️ Erro interno: ${err.message || JSON.stringify(err)}`);
         }
     }
 };
