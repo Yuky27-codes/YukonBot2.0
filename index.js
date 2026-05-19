@@ -95,6 +95,7 @@ const userSchema = new mongoose.Schema({
     lastRobberyDate: { type: String, default: null },
     coins: { type: Number, default: 0 },
     isMuted: { type: Boolean, default: false },
+    isPassive: { type: Boolean, default: false },
     muteExpires: { type: Number, default: null }, 
     isBlacklisted: { type: Boolean, default: false },
     protectedUntil: { type: Number, default: null },

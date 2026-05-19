@@ -1,7 +1,7 @@
 module.exports = {
     name: 'checkauth',
     async execute(client, msg, { args, isAdmin }) {
-        if (!isAdmin) return; 
+        if (!isAdmin) return;
 
         const chat = await msg.getChat();
         if (chat.isGroup) {
@@ -14,7 +14,6 @@ module.exports = {
         }
 
         try {
-            // Forma mais segura de acessar o modelo já registrado no index.js
             const mongoose = require('mongoose');
             const AuthorizedGroup = mongoose.models.AuthorizedGroup || mongoose.model('AuthorizedGroup');
 
@@ -28,25 +27,42 @@ module.exports = {
             const agoraMs = Date.now();
             const restanteMs = expiraMs - agoraMs;
 
-            // --- CORREÇÃO DO CÁLCULO DE TEMPO ---
+            // ✅ CORRIGIDO: statusEmoji e statusTexto agora declaradas antes do uso
+            let statusEmoji = "⚪";
+            let statusTexto = "Desconhecido";
+
+            if (!groupAuth.isAuthorized) {
+                statusEmoji = "🔴";
+                statusTexto = "Bloqueado";
+            } else if (expiraMs > 0 && restanteMs <= 0) {
+                statusEmoji = "🔴";
+                statusTexto = "Expirado";
+            } else if (expiraMs > 0 && restanteMs < 3 * 24 * 60 * 60 * 1000) {
+                statusEmoji = "🟡";
+                statusTexto = "Expirando em breve";
+            } else {
+                statusEmoji = "🟢";
+                statusTexto = "Ativo";
+            }
+
             let tempoRestante = "Sem validade definida.";
-            
+
             if (expiraMs > 0 && restanteMs > 0) {
                 const dias = Math.floor(restanteMs / (1000 * 60 * 60 * 24));
                 const horas = Math.floor((restanteMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-                const minutos = Math.floor((restanteMs % (1000 * 60 * 60)) / (1000 * 60)); // <-- Estava faltando esta linha!
-                
+                const minutos = Math.floor((restanteMs % (1000 * 60 * 60)) / (1000 * 60));
                 tempoRestante = `${dias}d ${horas}h ${minutos}m`;
             } else if (expiraMs > 0 && restanteMs <= 0) {
                 tempoRestante = "🔴 Tempo esgotado.";
             }
+
             return msg.reply(`🖥️ *PAINEL YUKON*
 ━━━━━━━━━━━━━━━━━━━━━
-🆔 **Grupo:** \`${idGrupo}\`
-📡 **Status:** ${statusEmoji} ${statusTexto}
-🗓️ **Vencimento:** ${expiraMs > 0 ? new Date(expiraMs).toLocaleString('pt-BR') : 'Sem data'}
-⏳ **Restante:** ${tempoRestante}
-👤 **Dono da Licença:** @${(groupAuth.authorizedBy || "Sistema").split('@')[0]}`, {
+🆔 *Grupo:* \`${idGrupo}\`
+📡 *Status:* ${statusEmoji} ${statusTexto}
+🗓️ *Vencimento:* ${expiraMs > 0 ? new Date(expiraMs).toLocaleString('pt-BR') : 'Sem data'}
+⏳ *Restante:* ${tempoRestante}
+👤 *Dono da Licença:* @${(groupAuth.authorizedBy || "Sistema").split('@')[0]}`, {
                 mentions: groupAuth.authorizedBy ? [groupAuth.authorizedBy] : []
             });
 

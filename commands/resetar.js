@@ -1,31 +1,28 @@
 module.exports = {
     name: 'resetar',
     async execute(client, msg, { args, chatId, isAdmin, User }) {
-        // 1. Bloqueio de Segurança: Apenas Administradores
         if (!isAdmin) return;
 
         try {
             let alvoIdLimpo = null;
             const escolhaReset = args[args.length - 1]?.toLowerCase();
 
-            // 2. Extração Identitária (Só necessária se não for reset de grupo)
             if (escolhaReset !== 'advs') {
                 if (msg.hasQuotedMsg) {
                     const quoted = await msg.getQuotedMessage();
                     alvoIdLimpo = (quoted.author || quoted.from).toString();
-                } 
+                }
                 else if (msg.mentionedIds && msg.mentionedIds.length > 0) {
                     alvoIdLimpo = (msg.mentionedIds[0]._serialized || msg.mentionedIds[0]).toString();
                 }
                 else if (args.length >= 2) {
-                    const possivelNumero = args[0].replace(/\D/g, ''); 
+                    const possivelNumero = args[0].replace(/\D/g, '');
                     if (possivelNumero.length >= 10) {
                         alvoIdLimpo = `${possivelNumero}@c.us`;
                     }
                 }
             }
 
-            // 3. Menu de Ajuda
             if ((!alvoIdLimpo && escolhaReset !== 'advs') || !escolhaReset) {
                 const menuAjuda = `⚙️ *CENTRAL DE RESET YUKON*
 ━━━━━━━━━━━━━━━━━━━━━
@@ -48,10 +45,8 @@ Ou: */resetar advs* (Para o grupo todo)
 
             let textoSucesso = "";
 
-            // 4. Lógica de Reset
             switch (escolhaReset) {
                 case 'advs':
-                    // RESET GLOBAL DE ADVERTÊNCIAS
                     await User.updateMany(
                         { groupId: chatId },
                         { $set: { advs: 0 } }
@@ -65,7 +60,7 @@ Ou: */resetar advs* (Para o grupo todo)
                     textoSucesso = "🧬 Linhagem e parentescos resetados globalmente.";
                     break;
 
-                case 'civil':
+                case 'civil': {
                     const userCiv = await User.findOne({ userId: alvoIdLimpo, groupId: chatId });
                     if (userCiv && userCiv.marriedWith) {
                         await User.updateOne({ userId: userCiv.marriedWith, groupId: chatId }, { $set: { marriedWith: null } });
@@ -73,10 +68,20 @@ Ou: */resetar advs* (Para o grupo todo)
                     await User.updateOne({ userId: alvoIdLimpo, groupId: chatId }, { $set: { marriedWith: null } });
                     textoSucesso = "💔 Status Civil resetado.";
                     break;
+                }
 
                 case 'moedas':
                     await User.updateOne({ userId: alvoIdLimpo, groupId: chatId }, { $set: { coins: 0 } });
                     textoSucesso = "💰 Carteira de moedas zerada.";
+                    break;
+
+                // ✅ CORRIGIDO: case 'nivel' estava no menu mas nunca implementado
+                case 'nivel':
+                    await User.updateOne(
+                        { userId: alvoIdLimpo, groupId: chatId },
+                        { $set: { level: 1, xp: 0 } }
+                    );
+                    textoSucesso = "🆙 Nível e XP resetados para o início.";
                     break;
 
                 case 'cargos':
@@ -84,27 +89,26 @@ Ou: */resetar advs* (Para o grupo todo)
                     textoSucesso = "📜 Patentes e Inventário limpos.";
                     break;
 
-                case 'tudo':
-                    // Limpeza completa do alvo
+                case 'tudo': {
                     await User.updateMany({ groupId: chatId }, { $pull: { family: { userId: alvoIdLimpo } } });
                     const uTudo = await User.findOne({ userId: alvoIdLimpo, groupId: chatId });
                     if (uTudo && uTudo.marriedWith) {
                         await User.updateOne({ userId: uTudo.marriedWith, groupId: chatId }, { $set: { marriedWith: null } });
                     }
-                    await User.updateOne({ userId: alvoIdLimpo, groupId: chatId }, { 
-                        $set: { coins: 0, xp: 0, level: 1, roles: ["Tripulante"], inventory: [], marriedWith: null, family: [], advs: 0 } 
+                    await User.updateOne({ userId: alvoIdLimpo, groupId: chatId }, {
+                        $set: { coins: 0, xp: 0, level: 1, roles: ["Tripulante"], inventory: [], marriedWith: null, family: [], advs: 0 }
                     });
                     textoSucesso = "🧹 Protocolo de limpeza TOTAL aplicado.";
                     break;
+                }
 
                 default:
                     return await msg.reply("⚠️ Opção inválida.");
             }
 
-            // 5. Mensagem de Confirmação
             const mencaoMesa = alvoIdLimpo ? `@${alvoIdLimpo.split('@')[0]}` : "Tripulação";
-            await client.sendMessage(chatId, `✅ *SUCESSO:* ${mencaoMesa} teve seus dados alterados.\n${textoSucesso}`, { 
-                mentions: alvoIdLimpo ? [alvoIdLimpo] : [] 
+            await client.sendMessage(chatId, `✅ *SUCESSO:* ${mencaoMesa} teve seus dados alterados.\n${textoSucesso}`, {
+                mentions: alvoIdLimpo ? [alvoIdLimpo] : []
             });
 
         } catch (err) {
