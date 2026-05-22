@@ -527,6 +527,7 @@ Para reativar a licença, fale com o suporte.`);
                     iAmAdmin,
                     groq,
                     chat,
+                    Pet,
                     command: `/${commandName}`
                 });
             } catch (error) {
