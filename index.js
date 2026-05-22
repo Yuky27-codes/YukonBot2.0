@@ -173,6 +173,27 @@ const userProfileSchema = new mongoose.Schema({
 
 mongoose.model('UserProfile', userProfileSchema);
 
+// --- SISTEMA DOS PETS
+
+const petSchema = new mongoose.Schema({
+    ownerId:       { type: String, required: true },
+    groupId:       { type: String, required: true },
+    nome:          { type: String, required: true },
+    tipo:          { type: String, required: true },
+    exp:           { type: Number, default: 0 },
+    estagio:       { type: Number, default: 1 },
+    status:        { type: String, default: 'vivo' }, 
+    ultimaRefeicao: { type: Date, default: Date.now },
+    diedAt:        { type: Date, default: null },
+    cooldowns: {
+        alimentar: { type: Date, default: null },
+        carinho:   { type: Date, default: null },
+        brincar:   { type: Date, default: null }
+    }
+}, { timestamps: true });
+ 
+const Pet = mongoose.model('Pet', petSchema);
+
 /**********************************************************
  * 5. CLIENT WHATSAPP
  **********************************************************/
@@ -641,5 +662,41 @@ client.on('group_leave', async (notification) => {
 
     } catch (err) {
         console.error("❌ Erro ao registrar saída no banco:", err.message);
+    }
+});
+
+// ============================================================
+// CRON JOB DE MORTE POR FOME — adicione no index.js
+// Verifica a cada hora se algum pet ficou 48h sem comer
+// ============================================================
+ 
+cron.schedule('0 * * * *', async () => {
+    try {
+        const limite48h = new Date(Date.now() - 48 * 60 * 60 * 1000);
+        const petsMorrendo = await Pet.find({
+            status: 'vivo',
+            ultimaRefeicao: { $lte: limite48h }
+        });
+ 
+        for (const pet of petsMorrendo) {
+            await Pet.updateOne(
+                { _id: pet._id },
+                { $set: { status: 'morto', diedAt: new Date() } }
+            );
+ 
+            try {
+                await client.sendMessage(
+                    pet.groupId,
+                    `😢 *PET FALECEU*\n\n*${pet.nome}* (${pet.tipo}) de @${pet.ownerId.split('@')[0]} morreu de fome após 48h sem se alimentar.\n\n_Você poderá adotar um novo pet em 14 dias._`,
+                    { mentions: [pet.ownerId] }
+                );
+            } catch {}
+        }
+ 
+        if (petsMorrendo.length > 0) {
+            console.log(`🐾 [CRON] ${petsMorrendo.length} pet(s) morreram de fome.`);
+        }
+    } catch (e) {
+        console.error("❌ Erro no cron de pets:", e);
     }
 });
