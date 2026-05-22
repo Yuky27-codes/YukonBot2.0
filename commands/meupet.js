@@ -57,7 +57,7 @@ ${pet.estagio < 4 ? `🎯 *Próximo estágio:* ${expProxima} EXP` : '👑 *Está
 ━━━━━━━━━━━━━━━━━━━━━`;
 
                 const tipoSemAcento = pet.tipo.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-                const imgPath = path.resolve(__dirname, '..', 'assets', 'pets', `${tipoSemAcento}_${pet.estagio}.jpg`);
+                const imgPath = path.resolve(__dirname, '..', 'assets', `${tipoSemAcento}_${pet.estagio}.jpg`);
 
                 if (fs.existsSync(imgPath)) {
                     const media = MessageMedia.fromFilePath(imgPath);

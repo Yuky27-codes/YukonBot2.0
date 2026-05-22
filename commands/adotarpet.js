@@ -66,7 +66,7 @@ module.exports = {
             const path = require('path');
             const fs = require('fs');
             const tipoSemAcento = tipo.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-            const imgPath = path.resolve(__dirname, '..', 'assets', 'pets', `${tipoSemAcento}_1.jpg`);
+            const imgPath = path.resolve(__dirname, '..', 'assets', `${tipoSemAcento}_1.jpg`);
 
             const texto = `🐾 *ADOÇÃO CONCLUÍDA — YUKON*\n━━━━━━━━━━━━━━━━━━━━━\n👤 Dono: @${autorId.split('@')[0]}\n🐾 Pet: *${nome}*\n🦊 Tipo: ${tipo}\n⭐ Estágio: Criança\n📊 EXP: 0\n━━━━━━━━━━━━━━━━━━━━━\n_Use /meupet para ver seu pet e /alimentar, /carinho e /brincar para interagir!_`;
 
