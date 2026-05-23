@@ -8,7 +8,7 @@ const cron = require('node-cron');
 const { Groq } = require('groq-sdk');
 const partidasAtivas = {};
 const groq = new Groq({
-    apiKey: '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' 
+    apiKey: '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' 
 });
 
 const GroupMessageSchema = new mongoose.Schema({
