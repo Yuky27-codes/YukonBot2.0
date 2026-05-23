@@ -96,6 +96,11 @@ const userSchema = new mongoose.Schema({
     isMuted: { type: Boolean, default: false },
     isPassive: { type: Boolean, default: false },
     muteExpires: { type: Number, default: null }, 
+    bankCoins: { type: Number, default: 0 },
+    bankDepositedToday: { type: Number, default: 0 },
+    lastBankDepositDate: { type: String, default: null },
+    lastBankRendimento: { type: Number, default: 0 },
+    lastBankRendimentoDate: { type: String, default: null },
     isBlacklisted: { type: Boolean, default: false },
     protectedUntil: { type: Number, default: null },
     lastDaily: { type: Date },
@@ -667,8 +672,7 @@ client.on('group_leave', async (notification) => {
 });
 
 // ============================================================
-// CRON JOB DE MORTE POR FOME — adicione no index.js
-// Verifica a cada hora se algum pet ficou 48h sem comer
+// SISTEMA DOS PETS
 // ============================================================
  
 cron.schedule('0 * * * *', async () => {
@@ -699,5 +703,45 @@ cron.schedule('0 * * * *', async () => {
         }
     } catch (e) {
         console.error("❌ Erro no cron de pets:", e);
+    }
+});
+
+// ============================================================
+// SISTEMA DO BANCO
+// ============================================================
+ 
+cron.schedule('0 0 * * *', async () => {
+    console.log("🏦 Processando rendimentos bancários...");
+    try {
+        // Busca todos usuários com saldo no banco
+        const usuariosComSaldo = await User.find({ bankCoins: { $gt: 0 } });
+ 
+        const hoje = new Date().toLocaleDateString('pt-BR');
+        let totalProcessados = 0;
+ 
+        for (const user of usuariosComSaldo) {
+            // Rendimento aleatório entre 1% e 3%
+            const percentual = (Math.random() * 2 + 1).toFixed(2); // 1.00 a 3.00
+            const rendimento = Math.floor(user.bankCoins * (percentual / 100));
+ 
+            if (rendimento <= 0) continue;
+ 
+            await User.updateOne(
+                { _id: user._id },
+                {
+                    $inc: { bankCoins: rendimento },
+                    $set: {
+                        lastBankRendimento: rendimento,
+                        lastBankRendimentoDate: hoje
+                    }
+                }
+            );
+ 
+            totalProcessados++;
+        }
+ 
+        console.log(`🏦 Rendimentos aplicados: ${totalProcessados} usuários processados.`);
+    } catch (e) {
+        console.error("❌ Erro no cron do banco:", e);
     }
 });

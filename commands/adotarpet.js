@@ -68,7 +68,7 @@ module.exports = {
             const tipoSemAcento = tipo.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
             const imgPath = path.resolve(__dirname, '..', 'assets', `${tipoSemAcento}_1.jpg`);
 
-            const texto = `🐾 *ADOÇÃO CONCLUÍDA — YUKON*\n━━━━━━━━━━━━━━━━━━━━━\n👤 Dono: @${autorId.split('@')[0]}\n🐾 Pet: *${nome}*\n🦊 Tipo: ${tipo}\n⭐ Estágio: Criança\n📊 EXP: 0\n━━━━━━━━━━━━━━━━━━━━━\n_Use /meupet para ver seu pet e /alimentar, /carinho e /brincar para interagir!_`;
+            const texto = `🐾 *ADOÇÃO CONCLUÍDA — YUKON*\n━━━━━━━━━━━━━━━━━━━━━\n👤 Dono: @${autorId.split('@')[0]}\n🐾 Pet: *${nome}*\n🦊 Tipo: ${tipo}\n⭐ Estágio: Criança\n📊 EXP: 0\n━━━━━━━━━━━━━━━━━━━━━\n_Use /pet status para ver seu pet e /pet alimentar, /pet carinho e /pet brincar para interagir!_`;
 
             if (fs.existsSync(imgPath)) {
                 const media = MessageMedia.fromFilePath(imgPath);
