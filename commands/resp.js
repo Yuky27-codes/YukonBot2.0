@@ -1,4 +1,4 @@
-const sessoesQuiz = require('./quiz_sessoes');
+const { sessoesQuiz, sessoesQuemsoueu } = require('./quiz_sessoes_v2');
 
 module.exports = {
     name: 'resp',
@@ -11,58 +11,53 @@ module.exports = {
                 return await client.sendMessage(chatId, "❓ Digite sua resposta!\n_Exemplo: /resp Brasil_");
             }
 
-            if (!sessoesQuiz.has(chatId)) {
-                return await client.sendMessage(chatId, "⚠️ Não há quiz ativo!\nUse */quiz* para iniciar um.");
-            }
+            // --- QUIZ ATIVO ---
+            if (sessoesQuiz.has(chatId)) {
+                const sessao = sessoesQuiz.get(chatId);
+                const respostaCorreta = sessao.resposta;
 
-            const sessao = sessoesQuiz.get(chatId);
-            const respostaCorreta = sessao.resposta;
+                const acertouDireto =
+                    resposta === respostaCorreta ||
+                    resposta.includes(respostaCorreta) ||
+                    respostaCorreta.includes(resposta);
 
-            // 1. Comparação direta (mais rápido e sem custo de API)
-            const acertouDireto = resposta === respostaCorreta ||
-                resposta.includes(respostaCorreta) ||
-                respostaCorreta.includes(resposta);
+                if (acertouDireto) return await acertarQuiz(client, chatId, autorId, sessao, User);
 
-            if (acertouDireto) {
-                return await acertar(client, chatId, autorId, sessao, User);
-            }
+                // Validação IA
+                try {
+                    const validacao = await groq.chat.completions.create({
+                        messages: [
+                            {
+                                role: "system",
+                                content: `Valide respostas de quiz. Responda APENAS com JSON: {"correto": true} ou {"correto": false}
+Aceite sinônimos, variações e pequenos erros de digitação.`
+                            },
+                            {
+                                role: "user",
+                                content: `Pergunta: "${sessao.enunciado}"\nEsperado: "${respostaCorreta}"\nUsuário: "${resposta}"\nCorreto?`
+                            }
+                        ],
+                        model: "llama-3.3-70b-versatile",
+                        temperature: 0,
+                        max_tokens: 20
+                    });
 
-            // 2. Validação pela IA (aceita sinônimos, variações, erros de digitação leves)
-            try {
-                const validacao = await groq.chat.completions.create({
-                    messages: [
-                        {
-                            role: "system",
-                            content: `Você é um validador de respostas de quiz. 
-Responda APENAS com JSON puro no formato: {"correto": true} ou {"correto": false}
-Considere correto se a resposta do usuário for semanticamente equivalente à resposta esperada, mesmo com pequenos erros de digitação ou sinônimos.`
-                        },
-                        {
-                            role: "user",
-                            content: `Pergunta: "${sessao.pergunta}"
-Resposta esperada: "${respostaCorreta}"
-Resposta do usuário: "${resposta}"
-Esta resposta está correta?`
-                        }
-                    ],
-                    model: "llama-3.3-70b-versatile",
-                    temperature: 0,
-                    max_tokens: 20
-                });
-
-                const rawValidacao = validacao.choices[0]?.message?.content?.trim();
-                const resultado = JSON.parse(rawValidacao.replace(/```json|```/g, '').trim());
-
-                if (resultado.correto === true) {
-                    return await acertar(client, chatId, autorId, sessao, User);
+                    const raw = validacao.choices[0]?.message?.content?.trim();
+                    const resultado = JSON.parse(raw.replace(/```json|```/g, '').trim());
+                    if (resultado.correto === true) return await acertarQuiz(client, chatId, autorId, sessao, User);
+                } catch (e) {
+                    console.error("⚠️ Validação IA falhou:", e.message);
                 }
-            } catch (e) {
-                console.error("⚠️ Erro na validação IA:", e.message);
-                // Se a IA falhar na validação, cai no "errado" silenciosamente
+
+                return await client.sendMessage(chatId, `❌ @${autorId.split('@')[0]}, resposta errada! Tente novamente.`, { mentions: [autorId] });
             }
 
-            // Resposta errada
-            return await client.sendMessage(chatId, `❌ @${autorId.split('@')[0]}, resposta errada! Tente novamente.`, { mentions: [autorId] });
+            // --- QUEM SOU EU ATIVO ---
+            if (sessoesQuemsoueu.has(chatId)) {
+                return await client.sendMessage(chatId, "🎭 Para o *Quem Sou Eu?* use */adivinhar [nome]*!");
+            }
+
+            return await client.sendMessage(chatId, "⚠️ Não há quiz ativo!\nUse */quiz* para iniciar um.");
 
         } catch (e) {
             console.error("❌ Erro no /resp:", e);
@@ -71,15 +66,10 @@ Esta resposta está correta?`
     }
 };
 
-async function acertar(client, chatId, autorId, sessao, User) {
+async function acertarQuiz(client, chatId, autorId, sessao, User) {
     clearTimeout(sessao.timer);
     sessoesQuiz.delete(chatId);
-
-    await User.updateOne(
-        { userId: autorId, groupId: chatId },
-        { $inc: { coins: 500 } }
-    );
-
+    await User.updateOne({ userId: autorId, groupId: chatId }, { $inc: { coins: 500 } });
     await client.sendMessage(chatId, `🎉 *CORRETO!*
 ━━━━━━━━━━━━━━━━━━━━━
 ✅ @${autorId.split('@')[0]} acertou!
