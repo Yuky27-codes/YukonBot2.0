@@ -14,9 +14,13 @@ module.exports = {
                 return await msg.reply("❌ Esse modo não existe na nossa base de dados.");
             }
 
-            // Agora que o /addmodo salva as quebras de linha (\n), 
-            // basta dar um trim() para limpar espaços inúteis no início/fim.
             const descricaoFormatada = modoEscolhido.descricao.trim();
+
+            // Monta seção de configurações se existir
+            let secaoConfigs = "";
+            if (modoEscolhido.configuracoes && modoEscolhido.configuracoes.trim()) {
+                secaoConfigs = `\n⚙️ *CONFIGURAÇÕES DO JOGO:*\n${modoEscolhido.configuracoes.trim()}\n`;
+            }
 
             const textoModo = `
 📑 *DETALHES DO MODO:* ${modoEscolhido.nome.toUpperCase()}
@@ -24,11 +28,10 @@ module.exports = {
 
 🚀 *DIRETRIZES:*
 ${descricaoFormatada}
-
+${secaoConfigs}
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 🛰️ *YUKON STATION PROTOCOL*`.trim();
 
-            // Chamada da função global que já busca na pasta 'assets'
             await global.enviarMenuComFoto(msg, 'detalhe_modo.jpg', textoModo);
 
         } catch (error) {

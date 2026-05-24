@@ -31,6 +31,8 @@ const GroupConfig = mongoose.model('GroupConfig', groupConfigSchema);
 // VARIÁVEIS GLOBAIS DE ESTADO
 // ===============================
 global.codigosPorGrupo = {};
+global.modoCaosAtivo = {};
+global.desafiosAtivos = {};
 
 const LISTA_ADMS = [
     '143130204626959@lid'
@@ -97,6 +99,9 @@ const userSchema = new mongoose.Schema({
     isPassive: { type: Boolean, default: false },
     muteExpires: { type: Number, default: null }, 
     bankCoins: { type: Number, default: 0 },
+    lastModoCaosDate: { type: String, default: null },
+    lastPousar: { type: Date, default: null },
+    lastDesafio: { type: Date, default: null },
     bankDepositedToday: { type: Number, default: 0 },
     lastBankDepositDate: { type: String, default: null },
     lastBankRendimento: { type: Number, default: 0 },
@@ -124,6 +129,7 @@ const modoSchema = new mongoose.Schema({
     groupId: { type: String, required: true },
     nome: { type: String, required: true },
     descricao: { type: String, required: true },
+    configuracoes: { type: String, default: null },
     criadoPor: { type: String },
 }, { timestamps: true });
 
@@ -491,6 +497,21 @@ Para reativar a licença, fale com o suporte.`);
                 );
             }
         }
+
+        // Verifica desafio diário ativo
+if (body.startsWith(prefix) && global.desafiosAtivos) {
+    const chave = `${senderRaw}:${chatId}`;
+    const desafioAtivo = global.desafiosAtivos[chave];
+    if (desafioAtivo && commandName === desafioAtivo.comando) {
+        clearTimeout(desafioAtivo.timer);
+        delete global.desafiosAtivos[chave];
+        await User.updateOne(
+            { userId: senderRaw, groupId: chatId },
+            { $inc: { coins: 1000 }, $set: { lastDesafio: new Date() } }
+        );
+        await client.sendMessage(chatId, `✅ *DESAFIO CONCLUÍDO!*\n\n🎉 @${senderRaw.split('@')[0]} completou o desafio!\n💰 *+1.000 YC* adicionados!`, { mentions: [senderRaw] });
+    }
+}
 
         // --- 🟢 6. PARSER DE COMANDO (EXECUÇÃO FINAL) ---
         if (!body.startsWith(prefix)) return;
