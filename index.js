@@ -498,8 +498,17 @@ Para reativar a licença, fale com o suporte.`);
             }
         }
 
-        // Verifica desafio diário ativo
-if (body.startsWith(prefix) && global.desafiosAtivos) {
+        // --- 🟢 6. PARSER DE COMANDO (EXECUÇÃO FINAL) ---
+        if (!body.startsWith(prefix)) return;
+
+        const args = body.slice(prefix.length).trim().split(/\s+/);
+        const commandName = args.shift().toLowerCase();
+
+        const args = body.slice(prefix.length).trim().split(/\s+/);
+const commandName = args.shift().toLowerCase();
+
+// ✅ Verifica desafio diário ativo (AQUI, depois do commandName)
+if (global.desafiosAtivos) {
     const chave = `${senderRaw}:${chatId}`;
     const desafioAtivo = global.desafiosAtivos[chave];
     if (desafioAtivo && commandName === desafioAtivo.comando) {
@@ -512,12 +521,6 @@ if (body.startsWith(prefix) && global.desafiosAtivos) {
         await client.sendMessage(chatId, `✅ *DESAFIO CONCLUÍDO!*\n\n🎉 @${senderRaw.split('@')[0]} completou o desafio!\n💰 *+1.000 YC* adicionados!`, { mentions: [senderRaw] });
     }
 }
-
-        // --- 🟢 6. PARSER DE COMANDO (EXECUÇÃO FINAL) ---
-        if (!body.startsWith(prefix)) return;
-
-        const args = body.slice(prefix.length).trim().split(/\s+/);
-        const commandName = args.shift().toLowerCase();
 
         const chat = await msg.getChat();
         let iAmAdmin = false;
