@@ -499,15 +499,12 @@ Para reativar a licença, fale com o suporte.`);
         }
 
         // --- 🟢 6. PARSER DE COMANDO (EXECUÇÃO FINAL) ---
-        if (!body.startsWith(prefix)) return;
+if (!body.startsWith(prefix)) return;
 
-        const args = body.slice(prefix.length).trim().split(/\s+/);
-        const commandName = args.shift().toLowerCase();
-
-        const args = body.slice(prefix.length).trim().split(/\s+/);
+const args = body.slice(prefix.length).trim().split(/\s+/);
 const commandName = args.shift().toLowerCase();
 
-// ✅ Verifica desafio diário ativo (AQUI, depois do commandName)
+// Verifica desafio diário ativo
 if (global.desafiosAtivos) {
     const chave = `${senderRaw}:${chatId}`;
     const desafioAtivo = global.desafiosAtivos[chave];
@@ -522,7 +519,7 @@ if (global.desafiosAtivos) {
     }
 }
 
-        const chat = await msg.getChat();
+const chat = await msg.getChat();
         let iAmAdmin = false;
         let isGroupAdmins = false;
 
