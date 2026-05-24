@@ -4,12 +4,12 @@ module.exports = {
         if (!isAdmin) return;
 
         if (msg.from.endsWith('@g.us')) {
-            return msg.reply("❌ Use este comando apenas no meu *Privado*.");
+            return client.sendMessage(msg.from, "❌ Use este comando apenas no meu *Privado*.");
         }
 
         const idGrupo = args[0];
         if (!idGrupo || !idGrupo.includes('@g.us')) {
-            return msg.reply("⚠️ Use: `/sairgrupo [ID@g.us]`\n\nUse */grupos* para ver todos os grupos.");
+            return client.sendMessage(msg.from, "⚠️ Use: `/sairgrupo [ID@g.us]`\n\nUse */grupos* para ver todos os grupos.");
         }
 
         try {
@@ -44,20 +44,18 @@ module.exports = {
                 );
             }
 
-            return msg.reply(`✅ *SAÍDA CONCLUÍDA*
+            return client.sendMessage(msg.from, `✅ *SAÍDA CONCLUÍDA*
 ━━━━━━━━━━━━━━━━━━━━━
 🆔 *Grupo:* \`${idGrupo}\`
 🚪 *Yukon saiu:* ✅
 🔴 *Licença:* Bloqueada
 🗑️ *Dados limpos:* ${totalUsers} usuário(s)
-👤 *Dono notificado:* ${dono ? `@${dono.userId.split('@')[0]}` : 'Não encontrado'}
-━━━━━━━━━━━━━━━━━━━━━`, {
-                mentions: dono ? [dono.userId] : []
-            });
+👤 *Dono:* ${dono ? `@${dono.userId.split('@')[0]}` : 'Não encontrado'}
+━━━━━━━━━━━━━━━━━━━━━`);
 
         } catch (err) {
             console.error("❌ Erro no /sairgrupo:", err);
-            return msg.reply("⚠️ Erro ao processar saída do grupo.");
+            return client.sendMessage(msg.from, "⚠️ Erro ao processar saída do grupo.");
         }
     }
 };
