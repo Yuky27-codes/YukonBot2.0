@@ -401,7 +401,7 @@ _Clique em um comando acima para ativar o grupo correspondente._`, { mentions: [
 }
 
        // --- 🟢 A BARREIRA MESTRA (LICENCIAMENTO AUTOMATIZADO) ---
-if (body.startsWith(prefix) && chatId.endsWith('@g.us')) {
+if (body.startsWith(prefix) && chatId.endsWith('@g.us') && !body.startsWith('/id_grupo')) {
     const groupAuth = await AuthorizedGroup.findOne({ groupId: chatId }).lean();
     const ehDonoReal = isAdminUser(senderRaw); 
 

@@ -1,9 +1,8 @@
 module.exports = {
     name: 'assinar',
     async execute(client, msg, { args, chatId }) {
-        // Redireciona para o PV se for usado em grupo para manter a privacidade dos preços/descontos
         if (chatId.endsWith('@g.us')) {
-            return msg.reply("🛰️ *CENTRAL DE VENDAS*\nPara ver os planos e seus descontos exclusivos, me chame no *Privado*!");
+            return msg.reply("🛰️ *CENTRAL DE VENDAS*\nPara ver os planos e assinar, me chame no *Privado*!");
         }
 
         try {
@@ -12,18 +11,21 @@ module.exports = {
             const UserProfile = mongoose.model('UserProfile');
 
             const escolha = parseInt(args[0]);
-            
-            // Busca o cupom mais recente vinculado ao WhatsApp do cliente
-            const cupomAtivo = await Coupon.findOne({ usedByGroup: msg.from, isUsed: true }).sort({ _id: -1 }).lean();
 
-            let desc = cupomAtivo ? cupomAtivo.discountPercent : 0;
-            
-            // Função para calcular desconto real
+            // ✅ CORRIGIDO: busca cupom pelos grupos vinculados do cliente
+            const perfil = await UserProfile.findOne({ userId: msg.from });
+            let desc = 0;
+
+            if (perfil?.gruposVinculados?.length > 0) {
+                for (const gId of perfil.gruposVinculados) {
+                    const cupom = await Coupon.findOne({ usedByGroup: gId, isUsed: true }).sort({ _id: -1 }).lean();
+                    if (cupom) { desc = cupom.discountPercent; break; }
+                }
+            }
+
             const calc = (valor) => (valor * (1 - desc / 100)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 
-            // Se o usuário NÃO escolheu um plano ainda (ex: mandou apenas /assinar)
             if (!escolha || ![1, 2, 3].includes(escolha)) {
-                // Definição dos valores base com a sua lógica original
                 const v10 = desc > 0 ? `~R$ 10,00~ por *${calc(10)}*` : `*R$ 10,00*`;
                 const v30 = desc > 0 ? `~R$ 30,00~ por *${calc(30)}*` : `*R$ 30,00*`;
                 const v75 = desc > 0 ? `~R$ 75,00~ por *${calc(75)}*` : `*R$ 75,00*`;
@@ -31,59 +33,59 @@ module.exports = {
                 return msg.reply(`🛰️ *CATÁLOGO DE ASSINATURAS YUKON*
 ━━━━━━━━━━━━━━━━━━━━━
 ${desc > 0 ? `🔥 *CUPOM APLICADO:* Você está economizando ${desc}%!\n` : ""}
-1️⃣ **PLANO RECRUTA**
+1️⃣ *PLANO RECRUTA*
 💰 Valor: ${v10}
-📍 Limite: **1 Grupo** vinculado
-🔹 Acesso total aos comandos de games
+📍 Limite: *1 Grupo* vinculado
 
-2️⃣ **PLANO ASTRONAUTA**
+2️⃣ *PLANO ASTRONAUTA*
 💰 Valor: ${v30}
-📍 Limite: **Até 2 Grupos** vinculados
-🔹 Prioridade no processamento
+📍 Limite: *Até 2 Grupos* vinculados
 
-3️⃣ **PLANO INTERGALÁCTICO**
+3️⃣ *PLANO INTERGALÁCTICO*
 💰 Valor: ${v75}
-📍 Limite: **Até 3 Grupos** vinculados
-🔹 Suporte VIP (Direto com o Dono)
+📍 Limite: *Até 3 Grupos* vinculados
 
 ━━━━━━━━━━━━━━━━━━━━━
-📌 **COMO ESCOLHER:**
-Digite **/assinar [número]**
-_Exemplo: /assinar 2_
-
-_A Yukon Station agradece a preferência!_`);
+📌 *COMO ASSINAR:*
+1️⃣ Digite */assinar [número]* para escolher o plano
+2️⃣ Use */id_grupo* no grupo para pegar o ID
+3️⃣ Use */vincular [ID]* aqui no PV
+4️⃣ Use */pix* para pagar`);
             }
 
-            // --- LÓGICA DE SELEÇÃO DE PLANO ---
-            let precoEscolhido = escolha === 1 ? 10 : escolha === 2 ? 30 : 75;
-            let nomePlano = escolha === 1 ? "RECRUTA" : escolha === 2 ? "ASTRONAUTA" : "INTERGALÁCTICO";
-            let limiteGrupos = escolha === 1 ? 1 : escolha === 2 ? 2 : 3;
+            const precoEscolhido = escolha === 1 ? 10 : escolha === 2 ? 30 : 75;
+            const nomePlano = escolha === 1 ? "RECRUTA" : escolha === 2 ? "ASTRONAUTA" : "INTERGALÁCTICO";
+            const limiteGrupos = escolha === 1 ? 1 : escolha === 2 ? 2 : 3;
 
-            // Salva a intenção de compra no perfil do usuário
+            // ✅ CORRIGIDO: não reseta gruposVinculados ao trocar de plano
+            // Só atualiza o preço do plano
+            const perfilAtual = await UserProfile.findOne({ userId: msg.from });
+            const gruposAtuais = perfilAtual?.gruposVinculados || [];
+
+            // Se o novo plano tem limite menor que os grupos já vinculados, avisa
+            if (gruposAtuais.length > limiteGrupos) {
+                return msg.reply(`⚠️ *ATENÇÃO:* Você já tem *${gruposAtuais.length} grupo(s)* vinculados.\nO plano *${nomePlano}* permite apenas *${limiteGrupos} grupo(s)*.\n\nEscolha um plano maior ou remova grupos antes de mudar.`);
+            }
+
             await UserProfile.updateOne(
                 { userId: msg.from },
-                { 
-                    $set: { 
-                        planoPreco: precoEscolhido,
-                        gruposVinculados: [] // Reseta para evitar burlas ao trocar de plano
-                    } 
-                },
+                { $set: { planoPreco: precoEscolhido } },
                 { upsert: true }
             );
 
             return msg.reply(`✅ *PLANO ${nomePlano} SELECIONADO!*
 ━━━━━━━━━━━━━━━━━━━━━
-💰 Valor Final: **${calc(precoEscolhido)}**
-📍 Limite: **${limiteGrupos} grupo(s)**
+💰 *Valor:* ${calc(precoEscolhido)}
+📍 *Limite:* ${limiteGrupos} grupo(s)
 
-🚀 **PRÓXIMOS PASSOS:**
-1️⃣ Use **/id_grupo** dentro dos grupos que deseja adicionar.
-2️⃣ Use **/vincular [ID]** aqui no meu privado.
-3️⃣ Após vincular, use **/pix** para pagar.`);
+🚀 *PRÓXIMOS PASSOS:*
+1️⃣ Use */id_grupo* no grupo que deseja adicionar
+2️⃣ Use */vincular [ID]* aqui no PV
+3️⃣ Use */pix* para pagar e envie o comprovante`);
 
         } catch (err) {
-            console.error(err);
-            return msg.reply("⚠️ Erro ao carregar os planos de voo.");
+            console.error("❌ Erro no /assinar:", err);
+            return msg.reply("⚠️ Erro ao carregar os planos.");
         }
     }
 };
