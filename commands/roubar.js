@@ -50,10 +50,11 @@ module.exports = {
                 return await client.sendMessage(chatId, "⚠️ O alvo não tem moedas.");
             }
 
-            const caosAtivo = global.modoCaosAtivo?.[chatId] > Date.now();
-if (!caosAtivo && alvoData.protectedUntil && alvoData.protectedUntil > agora) {
-    return await client.sendMessage(chatId, `🛡️ *ESCUDO ATIVO:* O alvo está protegido!`);
-}
+            const agora = Date.now();
+            const caosAtivo = global.modoCaosAtivo?.[chatId] > agora;
+            if (!caosAtivo && alvoData.protectedUntil && alvoData.protectedUntil > agora) {
+                return await client.sendMessage(chatId, `🛡️ *ESCUDO ATIVO:* O alvo está protegido!`);
+            }
 
             if (autorData.coins < 50) {
                 return await client.sendMessage(chatId, "⚠️ Você precisa de pelo menos 50 coins para arriscar um roubo.");
