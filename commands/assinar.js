@@ -2,7 +2,7 @@ module.exports = {
     name: 'assinar',
     async execute(client, msg, { args, chatId }) {
         if (chatId.endsWith('@g.us')) {
-            return msg.reply("🛰️ *CENTRAL DE VENDAS*\nPara ver os planos e assinar, me chame no *Privado*!");
+            return client.sendMessage(chatId, "🛰️ *CENTRAL DE VENDAS*\nPara ver os planos e assinar, me chame no *Privado*!");
         }
 
         try {
@@ -12,7 +12,6 @@ module.exports = {
 
             const escolha = parseInt(args[0]);
 
-            // ✅ CORRIGIDO: busca cupom pelos grupos vinculados do cliente
             const perfil = await UserProfile.findOne({ userId: msg.from });
             let desc = 0;
 
@@ -30,20 +29,23 @@ module.exports = {
                 const v30 = desc > 0 ? `~R$ 30,00~ por *${calc(30)}*` : `*R$ 30,00*`;
                 const v75 = desc > 0 ? `~R$ 75,00~ por *${calc(75)}*` : `*R$ 75,00*`;
 
-                return msg.reply(`🛰️ *CATÁLOGO DE ASSINATURAS YUKON*
+                return client.sendMessage(msg.from, `🛰️ *CATÁLOGO DE ASSINATURAS YUKON*
 ━━━━━━━━━━━━━━━━━━━━━
 ${desc > 0 ? `🔥 *CUPOM APLICADO:* Você está economizando ${desc}%!\n` : ""}
 1️⃣ *PLANO RECRUTA*
 💰 Valor: ${v10}
 📍 Limite: *1 Grupo* vinculado
+📅 Duração: *10 dias*
 
 2️⃣ *PLANO ASTRONAUTA*
 💰 Valor: ${v30}
 📍 Limite: *Até 2 Grupos* vinculados
+📅 Duração: *30 dias*
 
 3️⃣ *PLANO INTERGALÁCTICO*
 💰 Valor: ${v75}
 📍 Limite: *Até 3 Grupos* vinculados
+📅 Duração: *90 dias*
 
 ━━━━━━━━━━━━━━━━━━━━━
 📌 *COMO ASSINAR:*
@@ -56,15 +58,13 @@ ${desc > 0 ? `🔥 *CUPOM APLICADO:* Você está economizando ${desc}%!\n` : ""}
             const precoEscolhido = escolha === 1 ? 10 : escolha === 2 ? 30 : 75;
             const nomePlano = escolha === 1 ? "RECRUTA" : escolha === 2 ? "ASTRONAUTA" : "INTERGALÁCTICO";
             const limiteGrupos = escolha === 1 ? 1 : escolha === 2 ? 2 : 3;
+            // ✅ Dias corretos por plano
+            const diasPlano = escolha === 1 ? 10 : escolha === 2 ? 30 : 90;
 
-            // ✅ CORRIGIDO: não reseta gruposVinculados ao trocar de plano
-            // Só atualiza o preço do plano
-            const perfilAtual = await UserProfile.findOne({ userId: msg.from });
-            const gruposAtuais = perfilAtual?.gruposVinculados || [];
+            const gruposAtuais = perfil?.gruposVinculados || [];
 
-            // Se o novo plano tem limite menor que os grupos já vinculados, avisa
             if (gruposAtuais.length > limiteGrupos) {
-                return msg.reply(`⚠️ *ATENÇÃO:* Você já tem *${gruposAtuais.length} grupo(s)* vinculados.\nO plano *${nomePlano}* permite apenas *${limiteGrupos} grupo(s)*.\n\nEscolha um plano maior ou remova grupos antes de mudar.`);
+                return client.sendMessage(msg.from, `⚠️ *ATENÇÃO:* Você já tem *${gruposAtuais.length} grupo(s)* vinculados.\nO plano *${nomePlano}* permite apenas *${limiteGrupos} grupo(s)*.\n\nEscolha um plano maior ou remova grupos antes de mudar.`);
             }
 
             await UserProfile.updateOne(
@@ -73,10 +73,11 @@ ${desc > 0 ? `🔥 *CUPOM APLICADO:* Você está economizando ${desc}%!\n` : ""}
                 { upsert: true }
             );
 
-            return msg.reply(`✅ *PLANO ${nomePlano} SELECIONADO!*
+            return client.sendMessage(msg.from, `✅ *PLANO ${nomePlano} SELECIONADO!*
 ━━━━━━━━━━━━━━━━━━━━━
 💰 *Valor:* ${calc(precoEscolhido)}
 📍 *Limite:* ${limiteGrupos} grupo(s)
+📅 *Duração:* ${diasPlano} dias
 
 🚀 *PRÓXIMOS PASSOS:*
 1️⃣ Use */id_grupo* no grupo que deseja adicionar
@@ -85,7 +86,7 @@ ${desc > 0 ? `🔥 *CUPOM APLICADO:* Você está economizando ${desc}%!\n` : ""}
 
         } catch (err) {
             console.error("❌ Erro no /assinar:", err);
-            return msg.reply("⚠️ Erro ao carregar os planos.");
+            return client.sendMessage(msg.from, "⚠️ Erro ao carregar os planos.");
         }
     }
 };
