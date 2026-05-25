@@ -11,6 +11,7 @@ module.exports = {
 💔 */divorciar* — Separação
 💋 */beijar* — Beijo
 👊 */tapa / chutar / abraçar*
+🗑️ */deserdar @pessoa* — Remove o vínculo familiar
 👨‍👩‍👧‍👦 */criar_familia* — Criar uma família
 👼 */adotar* — Adotar um membro como filho(a)
 🤝 */parentesco* — Definir grau de parentesco
