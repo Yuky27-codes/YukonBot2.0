@@ -2,26 +2,21 @@ module.exports = {
     name: 'menu_cliente',
     async execute(client, msg) {
         try {
-            const txtCliente = `🛰️ *CENTRAL DO CLIENTE YUKON*
-━━━━━━━━━━━━━━━━━━━━━━
-🛠️ *CONFIGURAÇÃO*
-▶️ */id_grupo* — Pegar ID do grupo
-▶️ */vincular* — Vincular grupo ao perfil
-▶️ */meu_plano* — Ver status e grupos
+            const txtCliente = `╭━━━〔 🛰️ CENTRAL DO CLIENTE YUKON 〕━━━╮
+◇ /id_grupo ➜ Obter ID do grupo
+◇ /vincular ➜ Vincular grupo ao perfil
+◇ /meu_plano ➜ Ver plano e grupos vinculados
+◇ /assinar ➜ Escolher plano de assinatura
+◇ /upgrade ➜ Aumentar limite de grupos
+◇ /pix ➜ Gerar pagamento via PIX
+◇ /suporte ➜ FAQ e central de ajuda
+╰━━━━━━━━━━━━━━━━━━━━━━╯
 
-💳 *ASSINATURA*
-▶️ */assinar* — Escolher plano (1, 2 ou 3)
-▶️ */upgrade* — Aumentar limite de grupos
-▶️ */pix* — Gerar pagamento dinâmico
+📌 Dica: Utilize /id_grupo no grupo que deseja vincular e depois use /vincular no privado da Yukon.
+`;
 
-🆘 **SUPORTE**
-▶️ */suporte* — FAQ e Passo a Passo
-━━━━━━━━━━━━━━━━━━━━━━
-📌 *DICA:* Primeiro use /id_grupo no seu grupo, depois venha aqui e use /vincular.`;
-
-            // Mantendo o seu padrão de envio com foto
             if (typeof global.enviarMenuComFoto === 'function') {
-                // Substitua 'banner_cliente.jpg' pelo nome do seu arquivo de imagem
+                
                 await global.enviarMenuComFoto(msg, 'menu_cliente.jpg', txtCliente);
             } else {
                 await msg.reply(txtCliente);

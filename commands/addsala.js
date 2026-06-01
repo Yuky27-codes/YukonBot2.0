@@ -11,7 +11,7 @@ module.exports = {
 
             // 2. Gravação: Salva na variável global que definimos no index.js
             // Usamos o .toUpperCase() para padronizar tudo em maiúsculo
-            if (!global.codigosPorGrupo) global.codigosPorGrupo = {}; // Garante que o objeto existe
+            if (!global.codigosPorGrupo) global.codigosPorGrupo = {}; 
             
             global.codigosPorGrupo[groupId] = novoCodigo.toUpperCase();
 

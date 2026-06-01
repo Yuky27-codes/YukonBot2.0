@@ -25,7 +25,6 @@ module.exports = {
         }
 
         try {
-            // Busca o modo pelo índice
             const lista = await Modo.find({ groupId: chatId });
             const modoEscolhido = lista[numeroModo - 1];
 
@@ -33,7 +32,6 @@ module.exports = {
                 return await msg.reply(`❌ Modo número *${numeroModo}* não encontrado!\nUse */modos* para ver a lista.`);
             }
 
-            // Salva as configurações no modo
             await Modo.updateOne(
                 { _id: modoEscolhido._id },
                 { $set: { configuracoes: configuracoes } }

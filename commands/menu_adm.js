@@ -2,28 +2,36 @@ module.exports = {
     name: 'menu_adm',
     async execute(client, msg) {
         try {
-            const txtAdm = `🛡️ *SETOR DE SEGURANÇA*
-━━━━━━━━━━━━━━━━━━━━━━
-⚠️ */adv* — Advertir
-📋 */listaadv* — Ver Lista de Avisos
-❌ */rmadv* — Remover Advertência
-⛔ */ban* — Banir
-🔇 */mute / Desmute* — Silenciar Chat
-🤐 */mutep / Desmutep* — Mute no Banco
-🔼 */promover* — Tornar Administrador
-🔽 */rebaixar* — Remover Administração
-📣 */todos* — Marcar Todos
-🆔 */id* — Ver Dados Técnicos
-➕ */addcoins* — Adiciona coins para um usuário
-➖ */rmvcoins* — Remove coins de um usuário
-🔒 */lock* — Bloquear interação da bot (somente ADM)
-🔓 */unlock* — Liberar interação para todos
-🧩 */addmodo* — Adicionar um novo mod
-🛠️ */editmodo* — Editar um modo existente
-❌ */delmodo* — Deletar um modo
-⚙️ */monitorar* — Ver informações do grupo 
-🔗 */checar* — Monitorar um membro
-━━━━━━━━━━━━━━━━━━━━━━`;
+            const txtAdm = `╭━━━〔 🛡️ SETOR DE SEGURANÇA 〕━━━╮
+
+◇ /adv ➜ Advertir membro
+◇ /listaadv ➜ Ver advertências
+◇ /rmadv ➜ Remover advertência
+◇ /ban ➜ Banir membro
+◇ /banblack ➜ Banir permanentemente
+◇ /unbanblack ➜ Remover banimento permanente
+◇ /blacklist ➜ Ver lista de banidos
+◇ /mute ➜ Silenciar chat
+◇ /desmute ➜ Remover silenciamento
+◇ /mutep ➜ Mutar no sistema
+◇ /desmutep ➜ Desmutar no sistema
+◇ /promover ➜ Tornar administrador
+◇ /rebaixar ➜ Remover administração
+◇ /todos ➜ Marcar todos os membros
+◇ /id ➜ Ver dados técnicos
+◇ /addcoins ➜ Adicionar YukonCoins
+◇ /rmvcoins ➜ Remover YukonCoins
+◇ /lock ➜ Restringir uso da Yukon
+◇ /unlock ➜ Liberar uso da Yukon
+◇ /addmodo ➜ Criar novo modo
+◇ /editmodo ➜ Editar modo
+◇ /delmodo ➜ Excluir modo
+◇ /confmodos ➜ Configurar sistema de modos
+◇ /monitorar ➜ Informações do grupo
+◇ /checar ➜ Ver atividade de membro
+
+╰━━━━━━━━━━━━━━━━━━━━━━╯
+`;
 
             // Chama a função global que está no seu index
             if (typeof global.enviarMenuComFoto === 'function') {

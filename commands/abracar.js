@@ -2,8 +2,8 @@ const path = require('path');
 const fs = require('fs');
 
 module.exports = {
-    name: 'abraçar', // O usuário digita com 'ç'
-    aliases: ['abracar', 'abraco', 'abraço'], // Aceita variações
+    name: 'abraçar',
+    aliases: ['abracar', 'abraco', 'abraço'], 
     async execute(client, msg, { chatId, senderRaw, MessageMedia }) {
         try {
             const mencoes = msg.mentionedIds;
@@ -19,7 +19,6 @@ module.exports = {
 
             const texto = `🫂 | @${nomeAutor} deu um abraço apertado em @${nomeAlvo}!`;
             
-            // BUSCA O ARQUIVO SEM O 'Ç' PARA EVITAR ERRO DE SISTEMA
             const caminho = path.resolve(__dirname, '..', 'assets', 'abraco.mp4');
 
             if (fs.existsSync(caminho)) {
@@ -30,7 +29,6 @@ module.exports = {
                     sendVideoAsGif: true
                 });
             } else {
-                // Se não achar o vídeo, ele avisa no console o caminho exato que tentou
                 console.error(`❌ Vídeo de abraço não encontrado em: ${caminho}`);
                 await client.sendMessage(chatId, texto, { mentions: [autorId, alvoId] });
             }

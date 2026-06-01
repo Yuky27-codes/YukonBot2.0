@@ -2,15 +2,12 @@ module.exports = {
     name: 'statuscity',
     async execute(client, msg, { chatId }) {
         try {
-            // Mede o tempo de resposta do bot
             const inicio = Date.now();
 
-            // Simula uma operação leve para medir latência real
             await client.sendMessage(chatId, "📡 *Medindo velocidade da estação...*");
 
             const tempoMs = Date.now() - inicio;
 
-            // Define status baseado no tempo de resposta
             let bolinha, status, descricao;
 
             if (tempoMs < 500) {
@@ -38,7 +35,7 @@ ${bolinha} *Velocidade:* ${status}
 📊 *Status:* ${descricao}
 
 🔴 25% — Crítico
-🟠 50% — Instável  
+🟠 50% — Instável
 🟡 75% — Normal
 🟢 100% — Ótimo
 ━━━━━━━━━━━━━━━━━━━━━`);

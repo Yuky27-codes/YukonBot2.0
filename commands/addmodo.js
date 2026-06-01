@@ -3,17 +3,14 @@ module.exports = {
     async execute(client, msg, { chatId, args, Modo, isGroupAdmins }) {
         if (!isGroupAdmins) return await msg.reply("❌ Apenas oficiais (ADMs) podem registrar novos modos de jogo.");
 
-        // Em vez de usar args (que mata as quebras de linha), usamos o corpo da mensagem original
         const corpoMensagem = msg.body;
         
-        // Remove o comando (/addmodo) do início do texto
         const textoSemComando = corpoMensagem.replace(/^\/\w+\s*/, '');
 
         if (!textoSemComando.includes('|')) {
             return await msg.reply("❓ *COMO USAR:* `/addmodo Nome | Regras...`\nUse a barra `|` para separar o nome da descrição.");
         }
 
-        // Divide o nome da descrição mantendo as quebras de linha intactas
         const partes = textoSemComando.split('|');
         const nome = partes[0].trim();
         const descricao = partes.slice(1).join('|').trim();
@@ -26,7 +23,7 @@ module.exports = {
             await Modo.create({
                 groupId: chatId,
                 nome: nome,
-                descricao: descricao, // Aqui a descrição agora mantém os "Enters"
+                descricao: descricao, 
                 criadoPor: msg.author || msg.from
             });
 

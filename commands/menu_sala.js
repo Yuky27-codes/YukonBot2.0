@@ -2,11 +2,11 @@ module.exports = {
     name: 'menu_sala',
     async execute(client, msg) {
         try {
-            const txtSala = `🎮 *GERENCIAMENTO DE SALA*
-━━━━━━━━━━━━━━━━━━━━━━
-🆔 */addsala* — Definir Código
-👁️ */sala* — Ver Sala Atual
-━━━━━━━━━━━━━━━━━━━━━━`;
+            const txtSala = `╭━━━〔 🎮 GERENCIAMENTO DE SALA 〕━━━╮
+◇ /addsala ➜ Definir código da sala
+◇ /sala ➜ Ver sala configurada
+╰━━━━━━━━━━━━━━━━━━━━━━╯
+`;
 
             // Chama a função global definida no seu index
             if (typeof global.enviarMenuComFoto === 'function') {
