@@ -4,7 +4,8 @@ module.exports = {
         try {
             const inicio = Date.now();
 
-            await client.sendMessage(chatId, "📡 *Medindo velocidade da estação...*");
+            // Envia a mensagem e espera a confirmação
+            const msgEnviada = await client.sendMessage(chatId, "📡 *Medindo velocidade da estação...*");
 
             const tempoMs = Date.now() - inicio;
 
@@ -28,6 +29,7 @@ module.exports = {
                 descricao = "Estação sobrecarregada! Comandos podem demorar.";
             }
 
+            // Edita a mensagem anterior com o resultado
             await client.sendMessage(chatId, `🛰️ *STATUS DA YUKON STATION*
 ━━━━━━━━━━━━━━━━━━━━━
 ${bolinha} *Velocidade:* ${status}
@@ -41,8 +43,10 @@ ${bolinha} *Velocidade:* ${status}
 ━━━━━━━━━━━━━━━━━━━━━`);
 
         } catch (e) {
-            console.error("❌ Erro no /statuscity:", e);
-            await client.sendMessage(chatId, "⚠️ Erro ao medir o status da estação.");
+            console.error("❌ Erro no /statuscity:", e.message, e.stack);
+            try {
+                await client.sendMessage(chatId, "⚠️ Erro ao medir o status da estação.");
+            } catch {}
         }
     }
 };
