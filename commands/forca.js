@@ -1,7 +1,6 @@
 const { sessoesForca } = require('./quiz_sessoes_v2');
 
 const DESENHO_FORCA = [
-    // 0 erros
     `\`\`\`
   +---+
   |   |
@@ -10,7 +9,6 @@ const DESENHO_FORCA = [
       |
       |
 =========\`\`\``,
-    // 1 erro
     `\`\`\`
   +---+
   |   |
@@ -19,7 +17,6 @@ const DESENHO_FORCA = [
       |
       |
 =========\`\`\``,
-    // 2 erros
     `\`\`\`
   +---+
   |   |
@@ -28,7 +25,6 @@ const DESENHO_FORCA = [
       |
       |
 =========\`\`\``,
-    // 3 erros
     `\`\`\`
   +---+
   |   |
@@ -37,7 +33,6 @@ const DESENHO_FORCA = [
       |
       |
 =========\`\`\``,
-    // 4 erros
     `\`\`\`
   +---+
   |   |
@@ -46,7 +41,6 @@ const DESENHO_FORCA = [
       |
       |
 =========\`\`\``,
-    // 5 erros
     `\`\`\`
   +---+
   |   |
@@ -55,7 +49,6 @@ const DESENHO_FORCA = [
  /    |
       |
 =========\`\`\``,
-    // 6 erros — morreu
     `\`\`\`
   +---+
   |   |
@@ -66,12 +59,20 @@ const DESENHO_FORCA = [
 =========\`\`\``
 ];
 
+// Categorias para forçar variedade
+const CATEGORIAS_FORCA = [
+    'animal selvagem', 'fruta tropical', 'país da América do Sul', 'profissão',
+    'esporte olímpico', 'instrumento musical', 'objeto da cozinha', 'cor',
+    'veículo', 'parte do corpo humano', 'planeta ou astro', 'flor',
+    'meio de transporte', 'material escolar', 'eletrodoméstico'
+];
+
 module.exports = {
     name: 'forca',
     async execute(client, msg, { chatId, senderRaw, args, groq }) {
         try {
             const autorId = String(senderRaw).trim();
-            const tema = args.join(' ').trim() || 'geral';
+            const tema = args.join(' ').trim() || '';
 
             if (sessoesForca.has(chatId)) {
                 const s = sessoesForca.get(chatId);
@@ -81,19 +82,25 @@ module.exports = {
 
             await msg.react('⚙️');
 
-            // IA escolhe a palavra
+            // Se o usuário não passou tema, escolhe categoria aleatória para forçar variedade
+            const categoriaAleatoria = CATEGORIAS_FORCA[Math.floor(Math.random() * CATEGORIAS_FORCA.length)];
+            const temaFinal = tema || categoriaAleatoria;
+            const seed = Math.floor(Math.random() * 999999);
+
             const completion = await groq.chat.completions.create({
                 messages: [
                     {
                         role: "system",
-                        content: `Escolha UMA palavra em português para o jogo da forca com tema: "${tema}".
-Responda APENAS em JSON puro: {"palavra": "palavra", "dica": "dica curta sobre a categoria"}
-A palavra deve ter entre 4 e 10 letras, sem acento, sem hífen, apenas letras simples, sem apresentar a mesma dica que foi passada anteriormente.`
+                        content: `Escolha UMA palavra DIFERENTE e ALEATÓRIA em português para o jogo da forca com tema: "${temaFinal}".
+Seja criativo e evite sempre as mesmas palavras óbvias.
+Responda APENAS em JSON puro: {"palavra": "palavra", "dica": "dica curta e específica sobre essa palavra"}
+A palavra deve ter entre 4 e 10 letras, sem acento, sem hífen, apenas letras de a-z.
+A dica deve ser específica para a palavra escolhida, não apenas o tema.`
                     },
-                    { role: "user", content: "Escolha agora." }
+                    { role: "user", content: `Escolha agora. (seed: ${seed})` }
                 ],
                 model: "llama-3.3-70b-versatile",
-                temperature: 0.9,
+                temperature: 1.0,
                 max_tokens: 100
             });
 
@@ -101,23 +108,27 @@ A palavra deve ter entre 4 e 10 letras, sem acento, sem hífen, apenas letras si
             const dados = JSON.parse(raw.replace(/```json|```/g, '').trim());
             const palavra = dados.palavra.toLowerCase().replace(/[^a-z]/g, '');
 
+            if (!palavra || palavra.length < 3) {
+                throw new Error("Palavra inválida gerada pela IA");
+            }
+
             sessoesForca.set(chatId, {
                 palavra,
                 dica: dados.dica,
-                tema,
+                tema: temaFinal,
                 acertos: [],
                 erradas: [],
                 erros: 0
             });
 
-            const display = '_ '.repeat(palavra.length).trim();
+            const display = Array(palavra.length).fill('_').join(' ');
 
             await msg.react('✅');
             await client.sendMessage(chatId, `🪦 *JOGO DA FORCA — YUKON*
 ━━━━━━━━━━━━━━━━━━━━━
 ${DESENHO_FORCA[0]}
 
-🎯 *Tema:* ${tema}
+🎯 *Tema:* ${temaFinal}
 💡 *Dica:* ${dados.dica}
 📝 *Palavra:* ${display} (${palavra.length} letras)
 ❌ *Erros:* 0/6
