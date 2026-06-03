@@ -8,7 +8,7 @@ const cron = require('node-cron');
 const { Groq } = require('groq-sdk');
 const partidasAtivas = {};
 const groq = new Groq({
-    apiKey: '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' 
+    apiKey: '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'
 });
 
 const GroupMessageSchema = new mongoose.Schema({
@@ -23,7 +23,8 @@ const GroupMessage = mongoose.models.GroupMessage || mongoose.model('GroupMessag
 // --- 🟢 ADIÇÃO: SCHEMA DE CONFIGURAÇÃO DO GRUPO (LOCK/UNLOCK) ---
 const groupConfigSchema = new mongoose.Schema({
     groupId: { type: String, required: true, unique: true },
-    onlyAdms: { type: Boolean, default: false }
+    onlyAdms:    { type: Boolean, default: false },
+    jogosLocked: { type: Boolean, default: false },
 });
 const GroupConfig = mongoose.model('GroupConfig', groupConfigSchema);
 
@@ -533,6 +534,19 @@ const chat = await msg.getChat();
         }
 
         if (isAdmin) isGroupAdmins = true;
+
+const COMANDOS_JOGOS = [
+    'cassino', 'adotarpet', 'pet', 'quiz', 'resp',
+    'quemsoueu', 'perg', 'forca', 'palpite', 'adivinhar',
+    'jogovelha', 'desafiodiario'
+];
+
+if (chatId.endsWith('@g.us') && COMANDOS_JOGOS.includes(commandName)) {
+    const configGrupo = await GroupConfig.findOne({ groupId: chatId }).lean();
+    if (configGrupo?.jogosLocked && !isAdmin) {
+        return await client.sendMessage(chatId, "🔒 *JOGOS BLOQUEADOS:* Os comandos de jogos estão desativados neste grupo.");
+    }
+}
 
         const commandPath = path.join(__dirname, 'commands', `${commandName}.js`);
         
