@@ -88,7 +88,7 @@ module.exports = {
                         role: "system",
                         content: `Escolha UMA palavra em português para o jogo da forca com tema: "${tema}".
 Responda APENAS em JSON puro: {"palavra": "palavra", "dica": "dica curta sobre a categoria"}
-A palavra deve ter entre 4 e 10 letras, sem acento, sem hífen, apenas letras simples.`
+A palavra deve ter entre 4 e 10 letras, sem acento, sem hífen, apenas letras simples, sem apresentar a mesma dica que foi passada anteriormente.`
                     },
                     { role: "user", content: "Escolha agora." }
                 ],
