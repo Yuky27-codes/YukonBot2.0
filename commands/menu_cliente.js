@@ -8,6 +8,7 @@ module.exports = {
 ◇ /meu_plano ➜ Ver plano e grupos vinculados
 ◇ /assinar ➜ Escolher plano de assinatura
 ◇ /upgrade ➜ Aumentar limite de grupos
+◇ /indicar ➜ Indicar a Yukon para um grupo e ganhar dias
 ◇ /pix ➜ Gerar pagamento via PIX
 ◇ /suporte ➜ FAQ e central de ajuda
 ╰━━━━━━━━━━━━━━━━━━━━━━╯
