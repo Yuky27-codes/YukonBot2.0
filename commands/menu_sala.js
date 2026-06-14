@@ -3,8 +3,8 @@ module.exports = {
     async execute(client, msg) {
         try {
             const txtSala = `╭━━━〔 🎮 GERENCIAMENTO DE SALA 〕━━━╮
-◇ /addsala ➜ Definir código da sala
-◇ /sala ➜ Ver sala configurada
+◇ */addsala* ➜ Definir código da sala
+◇ */sala* ➜ Ver sala configurada
 ╰━━━━━━━━━━━━━━━━━━━━━━╯
 `;
 

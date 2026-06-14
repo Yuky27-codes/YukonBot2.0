@@ -25,6 +25,7 @@ const groupConfigSchema = new mongoose.Schema({
     groupId: { type: String, required: true, unique: true },
     onlyAdms:    { type: Boolean, default: false },
     jogosLocked: { type: Boolean, default: false },
+    prefixo: { type: String, default: null },
 });
 const GroupConfig = mongoose.model('GroupConfig', groupConfigSchema);
 
@@ -34,6 +35,7 @@ const GroupConfig = mongoose.model('GroupConfig', groupConfigSchema);
 global.codigosPorGrupo = {};
 global.modoCaosAtivo = {};
 global.desafiosAtivos = {};
+global.antiFlood = {};
 
 const LISTA_ADMS = [
     '143130204626959@lid'
@@ -402,7 +404,11 @@ _Clique em um comando acima para ativar o grupo correspondente._`, { mentions: [
 }
 
        // --- 🟢 A BARREIRA MESTRA (LICENCIAMENTO AUTOMATIZADO) ---
-if (body.startsWith(prefix) && chatId.endsWith('@g.us') && !body.startsWith('/id_grupo')) {
+const configBarreira = chatId.endsWith('@g.us') ? await GroupConfig.findOne({ groupId: chatId }).lean() : null;
+const prefixoCustom = configBarreira?.prefixo || null;
+const usouQualquerPrefixo = body.startsWith(prefix) || (prefixoCustom && body.startsWith(prefixoCustom));
+
+if (usouQualquerPrefixo && chatId.endsWith('@g.us') && !body.startsWith('/id_grupo')) {
     const groupAuth = await AuthorizedGroup.findOne({ groupId: chatId }).lean();
     const ehDonoReal = isAdminUser(senderRaw); 
 
@@ -500,9 +506,17 @@ Para reativar a licença, fale com o suporte.`);
         }
 
         // --- 🟢 6. PARSER DE COMANDO (EXECUÇÃO FINAL) ---
-if (!body.startsWith(prefix)) return;
+const prefixoCustomFinal = chatId.endsWith('@g.us') 
+    ? (configBarreira?.prefixo || null) 
+    : null;
 
-const args = body.slice(prefix.length).trim().split(/\s+/);
+const prefixoUsado = (prefixoCustomFinal && body.startsWith(prefixoCustomFinal) && !body.startsWith(prefix))
+    ? prefixoCustomFinal
+    : prefix;
+
+if (!body.startsWith(prefix) && !(prefixoCustomFinal && body.startsWith(prefixoCustomFinal))) return;
+
+const args = body.slice(prefixoUsado.length).trim().split(/\s+/);
 const commandName = args.shift().toLowerCase();
 
 // Verifica desafio diário ativo
@@ -517,6 +531,35 @@ if (global.desafiosAtivos) {
             { $inc: { coins: 1000 }, $set: { lastDesafio: new Date() } }
         );
         await client.sendMessage(chatId, `✅ *DESAFIO CONCLUÍDO!*\n\n🎉 @${senderRaw.split('@')[0]} completou o desafio!\n💰 *+1.000 YC* adicionados!`, { mentions: [senderRaw] });
+    }
+}
+// ADICIONE ENTRE A LINHA 520 E 522:
+
+// --- SISTEMA ANTI-FLOOD ---
+if (chatId.endsWith('@g.us') && !isAdmin) {
+    const chaveFlood = `${senderRaw}:${chatId}`;
+    const agoraFlood = Date.now();
+    const JANELA_MS = 10000; // 10 segundos
+    const LIMITE = 5;        // máximo de comandos na janela
+
+    if (!global.antiFlood[chaveFlood]) {
+        global.antiFlood[chaveFlood] = { count: 0, inicio: agoraFlood };
+    }
+
+    const flood = global.antiFlood[chaveFlood];
+
+    if (agoraFlood - flood.inicio > JANELA_MS) {
+        flood.count = 0;
+        flood.inicio = agoraFlood;
+    }
+
+    flood.count++;
+
+    if (flood.count > LIMITE) {
+        if (flood.count === LIMITE + 1) {
+            await client.sendMessage(chatId, `⚠️ @${senderRaw.split('@')[0]}, devagar! Você está enviando comandos muito rápido. Aguarde alguns segundos.`, { mentions: [senderRaw] });
+        }
+        return;
     }
 }
 
