@@ -26,6 +26,7 @@ const groupConfigSchema = new mongoose.Schema({
     onlyAdms:    { type: Boolean, default: false },
     jogosLocked: { type: Boolean, default: false },
     prefixo: { type: String, default: null },
+    simbolo: { type: String, default: null },
 });
 const GroupConfig = mongoose.model('GroupConfig', groupConfigSchema);
 
