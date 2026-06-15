@@ -109,6 +109,7 @@ const userSchema = new mongoose.Schema({
     bankDepositedToday: { type: Number, default: 0 },
     lastBankDepositDate: { type: String, default: null },
     lastBankRendimento: { type: Number, default: 0 },
+    lastCaixaSurpresa: { type: Date, default: null },
     lastBankRendimentoDate: { type: String, default: null },
     isBlacklisted: { type: Boolean, default: false },
     protectedUntil: { type: Number, default: null },
