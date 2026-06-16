@@ -12,23 +12,24 @@ module.exports = {
 
             const alvoId = String(alvoRaw).trim();
             if (alvoId === autorId) return await client.sendMessage(chatId, "❓ Você não pode roubar a si mesmo.");
-            if (alvoId === meuId) return; // Imunidade silenciada
+            if (alvoId === meuId) return;
 
             const hoje = new Date().toLocaleDateString('pt-BR');
 
-            // 1. SE A DATA DO AUTOR FOR DIFERENTE DE HOJE, ZERA O CONTADOR DELE
             await User.updateOne(
                 { userId: autorId, groupId: chatId, lastRobberyDate: { $ne: hoje } },
                 { $set: { robberyCount: 0, lastRobberyDate: hoje } }
             );
 
-            // 2. BUSCA OS DADOS ATUALIZADOS DO AUTOR E DO ALVO
             const autorData = await User.findOne({ userId: autorId, groupId: chatId });
             const alvoData = await User.findOne({ userId: alvoId, groupId: chatId });
 
             if (!autorData) return;
 
-            // 3. VERIFICA O LIMITE INDIVIDUAL ANTES DE QUALQUER OUTRA COISA
+            // Verifica se o modo caos está ativo — define uma vez e usa em todas as verificações
+            const agora = Date.now();
+            const caosAtivo = global.modoCaosAtivo?.[chatId] > agora;
+
             if (!isComandante && autorData.robberyCount >= 3) {
                 return await client.sendMessage(
                     chatId,
@@ -37,12 +38,12 @@ module.exports = {
                 );
             }
 
-            // --- VERIFICAÇÕES DE REGRAS ---
-            if (autorData.isPassive) {
+            // ✅ CORRIGIDO: isPassive só bloqueia se o modo caos NÃO estiver ativo
+            if (!caosAtivo && autorData.isPassive) {
                 return await client.sendMessage(chatId, "⚠️ Você está no *Modo Passivo* e não pode roubar!");
             }
 
-            if (alvoData && alvoData.isPassive) {
+            if (!caosAtivo && alvoData && alvoData.isPassive) {
                 return await client.sendMessage(chatId, `🛡️ @${alvoId.split('@')[0]} está no *Modo Passivo*!`, { mentions: [alvoId] });
             }
 
@@ -50,8 +51,7 @@ module.exports = {
                 return await client.sendMessage(chatId, "⚠️ O alvo não tem moedas.");
             }
 
-            const agora = Date.now();
-            const caosAtivo = global.modoCaosAtivo?.[chatId] > agora;
+            // ✅ protectedUntil também só bloqueia fora do modo caos
             if (!caosAtivo && alvoData.protectedUntil && alvoData.protectedUntil > agora) {
                 return await client.sendMessage(chatId, `🛡️ *ESCUDO ATIVO:* O alvo está protegido!`);
             }
@@ -60,7 +60,6 @@ module.exports = {
                 return await client.sendMessage(chatId, "⚠️ Você precisa de pelo menos 50 coins para arriscar um roubo.");
             }
 
-            // 4. INCREMENTA O CONTADOR SÓ DEPOIS DE TODAS AS VALIDAÇÕES PASSAREM
             if (!isComandante) {
                 await User.updateOne(
                     { userId: autorId, groupId: chatId },
@@ -68,7 +67,6 @@ module.exports = {
                 );
             }
 
-            // --- EXECUÇÃO DO ROUBO ---
             const sucesso = Math.random() < 0.40;
 
             if (sucesso) {
