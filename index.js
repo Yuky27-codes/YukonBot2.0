@@ -678,14 +678,42 @@ cron.schedule('01 00 * * *', async () => {
     }
 });
 /**********************************************************
- * 11. BOAS-VINDAS DINÂMICO COM FOTO - YUKON STATION
+ * 11. BOAS-VINDAS DINÂMICO COM FOTO - YUKON STATION (E AUTO-BAN)
  **********************************************************/
 client.on('group_join', async (notification) => {
     try {
         const chatId = notification.chatId;
         const participantId = notification.recipientIds[0];
 
-        // 🟢 ADIÇÃO: Incrementa o contador de entradas no banco de dados
+        // 🚨 --- MECANISMO DE AUTO-BAN (ANTI-RETORNO DA BLACKLIST) ---
+        // Busca se o número que entrou está marcado com isBlacklisted: true NESTE grupo específico
+        const banidoData = await User.findOne({ 
+            userId: participantId, 
+            groupId: chatId, 
+            isBlacklisted: true 
+        });
+
+        if (banidoData) {
+            const chat = await client.getChatById(chatId);
+            
+            // 1. Expulsa o intruso imediatamente
+            await chat.removeParticipants([participantId]);
+
+            // 2. Envia o aviso de barramento no grupo e interrompe o resto do código de boas-vindas
+            const motivo = banidoData.blacklistReason || "Violação de perímetro";
+            const avisoInvasao = `🚨 *SISTEMA DE DEFESA YUKON* 🚨
+━━━━━━━━━━━━━━━━━━━━━
+O sistema detectou a entrada do número banido: @${participantId.split('@')[0]}.
+📝 *Motivo do Bloqueio:* _${motivo}_
+
+⚡ *Ação:* Intruso removido com sucesso de forma automática.
+━━━━━━━━━━━━━━━━━━━━━`;
+
+            return await client.sendMessage(chatId, avisoInvasao, { mentions: [participantId] });
+        }
+        // -------------------------------------------------------------
+
+        // 🟢 Incrementa o contador de entradas no banco de dados (Código Original)
         const GroupStats = mongoose.model('GroupStats');
         await GroupStats.updateOne(
             { groupId: chatId },
@@ -693,7 +721,7 @@ client.on('group_join', async (notification) => {
             { upsert: true }
         );
         
-        // --- TODO O SEU CÓDIGO ORIGINAL COMEÇA AQUI ---
+        // --- TODO O SEU CÓDIGO ORIGINAL DE BOAS-VINDAS ---
         const chat = await client.getChatById(chatId);
         const nomeDoGrupo = chat.name || "Estação Desconhecida";
         

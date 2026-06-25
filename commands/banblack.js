@@ -1,50 +1,62 @@
 module.exports = {
     name: 'banblack',
-    async execute(client, msg, { chatId, isAdmin, iAmAdmin, chat, User }) {
-        // 1. Checagens de Segurança
-        if (!isAdmin) return; // Só admins do grupo podem usar
-
+    async execute(client, msg, { args, chatId, isAdmin, iAmAdmin, chat, User }) {
+        if (!isAdmin) return; 
         if (!iAmAdmin) {
             return await client.sendMessage(chatId, "❌ *SISTEMA:* Eu preciso ser Administrador para gerenciar a Blacklist.", { sendSeen: false });
         }
 
         try {
             let targetBan;
+            let motivo = "Não especificado";
 
-            // Identifica o alvo (Resposta ou Menção)
+            // 1. IDENTIFICAÇÃO DO ALVO E CAPTURA DO MOTIVO
             if (msg.hasQuotedMsg) {
                 const quoted = await msg.getQuotedMessage();
-                // Prioriza .author para grupos, .from para DMs
                 targetBan = (quoted.author || quoted.from).toString();
+                // No caso de resposta, todo o "args" enviado vira o motivo
+                if (args.length > 0) motivo = args.join(' ');
             } else if (msg.mentionedIds && msg.mentionedIds.length > 0) {
                 targetBan = (msg.mentionedIds[0]._serialized || msg.mentionedIds[0]).toString();
+                // No caso de menção, o motivo começa a partir do segundo argumento (args[1] em diante)
+                if (args.length > 1) motivo = args.slice(1).join(' ');
+            } else if (args.length > 0) {
+                // Captura por número limpo com DDD
+                const cleanNum = args[0].replace(/\D/g, '');
+                if (cleanNum.length >= 8) { 
+                    targetBan = `${cleanNum}@c.us`;
+                    // O motivo começa a partir do segundo argumento
+                    if (args.length > 1) motivo = args.slice(1).join(' ');
+                }
             }
 
             if (!targetBan) {
-                return await client.sendMessage(chatId, "❗ Marque ou responda quem deseja banir permanentemente.", { sendSeen: false });
+                return await client.sendMessage(chatId, "❗ Marque, responda ou digite o número (com DDD) de quem deseja banir permanentemente seguido do motivo.\n\n*Ex:* `/banblack 3499999999 mensagens inapropriadas`", { sendSeen: false });
             }
 
-            // Limpeza do ID para garantir compatibilidade com o Puppeteer/WA-Web.js
             const targetStr = String(targetBan).trim();
 
-            // 2. Registro no Banco de Dados
-            // Usamos findOneAndUpdate com upsert para garantir que o registro exista
+            // 2. REGISTRO NO BANCO DE DADOS (Salva a flag e o motivo)
             await User.findOneAndUpdate(
                 { userId: targetStr, groupId: chatId },
-                { $set: { isBlacklisted: true } },
+                { $set: { isBlacklisted: true, blacklistReason: motivo } },
                 { upsert: true }
             );
 
-            // 3. Execução do Banimento no WhatsApp
-            // O método removeParticipants exige um Array de IDs
-            await chat.removeParticipants([targetStr]);
+            // 3. REMOVE DO GRUPO IMEDIATAMENTE (Se ele estiver no grupo)
+            try {
+                await chat.removeParticipants([targetStr]);
+            } catch (err) {
+                // Ignora o erro caso o usuário digitado por número já estivesse fora do grupo
+            }
 
-            // 4. Confirmação Visual
-            const msgFeedback = `🚫 *PROTOCOLO DE EXCLUSÃO* 🚫
+            // 4. CONFIRMAÇÃO VISUAL
+            const msgFeedback = `🚫 *PROTOCOLO DE EXCLUSÃO COLETIVA* 🚫
 ━━━━━━━━━━━━━━━━━━━━━
-O tripulante @${targetStr.split('@')[0]} foi banido e inserido na *Blacklist*.
+👤 *Alvo:* @${targetStr.split('@')[0]}
+💀 *Motivo:* ${motivo}
 
-⚠️ Acesso permanentemente bloqueado nesta estação.
+⚠️ Registro adicionado ao banco de dados da Yukon Station. O retorno deste número está permanentemente bloqueado neste setor.
 ━━━━━━━━━━━━━━━━━━━━━`;
 
             await client.sendMessage(chatId, msgFeedback, {
@@ -54,7 +66,7 @@ O tripulante @${targetStr.split('@')[0]} foi banido e inserido na *Blacklist*.
 
         } catch (e) {
             console.error("❌ ERRO NO BANBLACK:", e.message);
-            await client.sendMessage(chatId, "⚠️ Erro ao processar banimento permanente. Verifique se o usuário ainda está no grupo ou se tenho permissões.", { sendSeen: false });
+            await client.sendMessage(chatId, "⚠️ Erro ao processar banimento permanente.", { sendSeen: false });
         }
     }
 };
