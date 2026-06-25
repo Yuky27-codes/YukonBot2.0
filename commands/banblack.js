@@ -31,7 +31,7 @@ module.exports = {
             }
 
             if (!targetBan) {
-                return await client.sendMessage(chatId, "❗ Marque, responda ou digite o número (com DDD) de quem deseja banir permanentemente seguido do motivo.\n\n*Ex:* `/banblack 3499999999 mensagens inapropriadas`", { sendSeen: false });
+                return await client.sendMessage(chatId, "❗ Marque, responda ou digite o número (com DDD) de quem deseja banir permanentemente seguido do motivo.\n\n*Ex:* `/banblack DDD 999999999 + motivo`", { sendSeen: false });
             }
 
             const targetStr = String(targetBan).trim();
