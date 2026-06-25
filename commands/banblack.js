@@ -20,8 +20,8 @@ module.exports = {
                 targetBan = (msg.mentionedIds[0]._serialized || msg.mentionedIds[0]).toString();
                 // No caso de menção, o motivo começa a partir do segundo argumento (args[1] em diante)
                 if (args.length > 1) motivo = args.slice(1).join(' ');
-            } else if (args.length > 0) {
-                // Captura por número limpo com DDD
+           } else if (args.length > 0) {
+                // Remove tudo o que não for número (incluindo espaços do DDD)
                 const cleanNum = args[0].replace(/\D/g, '');
                 if (cleanNum.length >= 8) { 
                     targetBan = `${cleanNum}@c.us`;
