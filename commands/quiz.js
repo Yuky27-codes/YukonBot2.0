@@ -58,7 +58,7 @@ historia, geografia, matematica, ciencias, portugues, ingles, fisica, quimica, b
                 return await client.sendMessage(chatId, `⚠️ Já há um quiz ativo!\n\n❓ *${s.enunciado}*\n\n👉 Responda com */resp [sua resposta]*`); //[cite: 5]
             }
 
-            await msg.react('⚙️'); //[cite: 5]
+            try { await msg.react('⚙️'); } catch {}
 
             let enunciado, resposta, mensagem; //[cite: 5]
 
@@ -142,7 +142,7 @@ O campo 'resposta' deve conter estritamente apenas a palavra ou o final que comp
             }
 
             else {
-                await msg.react('❌'); //[cite: 5]
+                try { await msg.react('❌'); } catch {}
                 return await client.sendMessage(chatId, "❓ Subcomando inválido!\nUse: *geral*, *emoji*, *materias*, *embaralhada* ou *frases*."); //[cite: 5]
             }
 
@@ -164,7 +164,7 @@ O campo 'resposta' deve conter estritamente apenas a palavra ou o final que comp
                 timer //[cite: 5]
             });
 
-            await msg.react('✅'); //[cite: 5]
+            try { await msg.react('✅'); } catch {}
             await client.sendMessage(chatId, `${mensagem}
 
 ⏳ Você tem *60 segundos* para responder!
