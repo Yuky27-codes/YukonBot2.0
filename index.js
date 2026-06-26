@@ -104,6 +104,7 @@ const userSchema = new mongoose.Schema({
     muteExpires: { type: Number, default: null }, 
     bankCoins: { type: Number, default: 0 },
     lastModoCaosDate: { type: String, default: null },
+    blacklistReason: { type: String, default: null },
     lastPousar: { type: Date, default: null },
     lastDesafio: { type: Date, default: null },
     bankDepositedToday: { type: Number, default: 0 },
