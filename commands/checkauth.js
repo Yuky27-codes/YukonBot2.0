@@ -9,20 +9,38 @@ module.exports = {
                 return client.sendMessage(msg.from, "❌ *COMANDO RESTRITO*\nConsulte os dados da frota apenas no privado.");
             }
 
-            const idGrupo = args[0];
-            if (!idGrupo || !idGrupo.includes('@g.us')) {
-                return client.sendMessage(msg.from, "⚠️ *ID INVÁLIDO*\nUse: `/checkauth [ID]@g.us`.");
+            if (!args[0]) {
+                return client.sendMessage(msg.from, "⚠️ *FORMATO INVÁLIDO*\nUse: `/checkauth [ID]`.");
             }
+
+            // Limpa o ID extraindo apenas os números e hifens (suporta IDs antigos e de comunidades)
+            const matchId = args[0].match(/[\d\-]+/);
+            if (!matchId) {
+                 return client.sendMessage(msg.from, "⚠️ *ID INVÁLIDO*\nNão consegui reconhecer o formato numérico do grupo.");
+            }
+
+            // Garante que a formatação padrão termine com @g.us
+            const idGrupo = matchId[0] + '@g.us';
 
             const mongoose = require('mongoose');
             const AuthorizedGroup = mongoose.models.AuthorizedGroup || mongoose.model('AuthorizedGroup');
 
             const groupAuth = await AuthorizedGroup.findOne({ groupId: idGrupo }).lean();
 
+            // Se não existir na coleção, ele é um grupo "Não Registrado" (ainda não ativaram plano nele)
             if (!groupAuth) {
-                return client.sendMessage(msg.from, `⚠️ *NÃO ENCONTRADO*\nO grupo \`${idGrupo}\` não existe no banco.`);
+                return client.sendMessage(msg.from, `🖥️ *PAINEL YUKON*
+━━━━━━━━━━━━━━━━━━━━━
+🆔 *Grupo:* \`${idGrupo}\`
+📡 *Status:* ⚪ Não Registrado
+🗓️ *Vencimento:* Sem registro
+⏳ *Restante:* Nunca ativado
+👤 *Dono da Licença:* Nenhum
+
+⚠️ *Aviso:* Este grupo nunca recebeu uma licença na base de dados. O acesso aos comandos encontra-se interceptado pela Barreira Mestra.`);
             }
 
+            // Se o grupo foi encontrado, calcula o tempo restante
             const expiraMs = groupAuth.expiresAt ? new Date(groupAuth.expiresAt).getTime() : 0;
             const agoraMs = Date.now();
             const restanteMs = expiraMs - agoraMs;
