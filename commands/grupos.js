@@ -5,7 +5,7 @@ module.exports = {
 
         try {
             const mongoose = require('mongoose');
-            const AuthorizedGroup = mongoose.model('AuthorizedGroup');
+            const AuthorizedGroup = mongoose.models.AuthorizedGroup || mongoose.model('AuthorizedGroup');
 
             const chats = await client.getChats();
             const grupos = chats.filter(chat => chat.isGroup);
@@ -14,19 +14,23 @@ module.exports = {
                 return client.sendMessage(msg.from, "⚠️ Nenhum grupo encontrado.");
             }
 
-            // Filtra grupos que foram removidos via /sairgrupo (licença com expiresAt = 0)
-            const removidos = await AuthorizedGroup.find({
-                isAuthorized: false,
-                expiresAt: new Date(0)
-            }).lean();
-            const idsRemovidos = new Set(removidos.map(r => r.groupId));
+            // Busca todos os registros de uma vez para otimizar
+            const registrosAuth = await AuthorizedGroup.find({}).lean();
+            const mapaAuth = new Map(registrosAuth.map(r => [r.groupId, r]));
 
-            const gruposFiltrados = grupos.filter(g => !idsRemovidos.has(g.id._serialized));
+            let lista = `🛰️ *ESTAÇÕES CONECTADAS (${grupos.length} grupos)*\n━━━━━━━━━━━━━━━━━━━━━\n`;
 
-            let lista = `🛰️ *ESTAÇÕES CONECTADAS (${gruposFiltrados.length} grupos)*\n━━━━━━━━━━━━━━━━━━━━━\n`;
+            grupos.forEach((g, index) => {
+                const idReal = g.id._serialized; // Ex: 123@g.us
+                
+                // Tenta achar com @g.us ou apenas números (para identificar a falha de formato)
+                const registro = mapaAuth.get(idReal) || mapaAuth.get(idReal.replace('@g.us', ''));
+                
+                let status = "⚪";
+                if (registro && registro.isAuthorized) status = "🟢";
+                else if (registro) status = "🔴";
 
-            gruposFiltrados.forEach((g, index) => {
-                lista += `${index + 1}. *${g.name}*\n🆔 \`${g.id._serialized}\`\n\n`;
+                lista += `${index + 1}. *${g.name.substring(0, 20)}...*\n🆔 \`${idReal}\`\nStatus: ${status}\n\n`;
             });
 
             await client.sendMessage(msg.from, lista);
