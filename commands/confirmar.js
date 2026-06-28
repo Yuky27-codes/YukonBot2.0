@@ -10,28 +10,44 @@ module.exports = {
 
         try {
             const mongoose = require('mongoose');
-            const AuthorizedGroup = mongoose.model('AuthorizedGroup');
-            const UserProfile = mongoose.model('UserProfile');
+            const AuthorizedGroup = mongoose.models.AuthorizedGroup || mongoose.model('AuthorizedGroup');
+            const UserProfile = mongoose.models.UserProfile || mongoose.model('UserProfile');
 
-            // ✅ Dias corretos por plano
+            // ✅ Dias corretos por preço
             const diasPorPlano = { 10: 10, 30: 30, 75: 90 };
 
+            // 🧠 INTELIGÊNCIA DE DETECÇÃO (Cliente vs Grupo)
+            const apenasNumeros = alvo.replace(/\D/g, '');
+            let targetType = 'desconhecido';
+            
+            if (alvo.includes('@g.us') || alvo.includes('-') || apenasNumeros.length >= 17) {
+                targetType = 'grupo'; // IDs de comunidade tem 18+ dígitos
+            } else if (alvo.includes('@c.us') || (apenasNumeros.length >= 8 && apenasNumeros.length <= 15)) {
+                targetType = 'cliente';
+            }
+
             // --- ATIVAÇÃO POR NÚMERO DO CLIENTE ---
-            if (alvo.endsWith('@c.us') || (!alvo.includes('@g.us') && alvo.includes('@'))) {
-                const clienteId = alvo.endsWith('@c.us') ? alvo : `${alvo.replace(/\D/g, '')}@c.us`;
+            if (targetType === 'cliente') {
+                const clienteId = `${apenasNumeros}@c.us`;
                 const perfil = await UserProfile.findOne({ userId: clienteId });
 
-                if (!perfil || perfil.gruposVinculados.length === 0) {
+                if (!perfil || !perfil.gruposVinculados || perfil.gruposVinculados.length === 0) {
                     return client.sendMessage(msg.from, `⚠️ Cliente \`${clienteId}\` não encontrado ou sem grupos vinculados.`);
                 }
 
-                // ✅ Define os dias baseado no plano do cliente
                 const dias = diasPorPlano[perfil.planoPreco] || 30;
-                const nomePlano = perfil.planoPreco === 10 ? 'Recruta' : perfil.planoPreco === 30 ? 'Astronauta' : 'Intergaláctico';
+                let nomePlano = 'FREE';
+                if (perfil.planoPreco === 10) nomePlano = 'ASTRONAUTA';
+                if (perfil.planoPreco === 30) nomePlano = 'COMANDANTE';
+                if (perfil.planoPreco === 75) nomePlano = 'INTERGALÁCTICO';
 
-                // Verifica se já tem assinatura ativa para somar os dias
                 let dataBase = new Date();
-                const authAtual = await AuthorizedGroup.findOne({ groupId: perfil.gruposVinculados[0] });
+                
+                // Pega o primeiro grupo para calcular se a assinatura já existe
+                let primeiroGrupoMatch = perfil.gruposVinculados[0].match(/[\d\-]+/);
+                let idPrimeiroGrupo = primeiroGrupoMatch ? primeiroGrupoMatch[0] + '@g.us' : perfil.gruposVinculados[0];
+
+                const authAtual = await AuthorizedGroup.findOne({ groupId: idPrimeiroGrupo });
                 if (authAtual?.expiresAt && new Date(authAtual.expiresAt) > new Date()) {
                     dataBase = new Date(authAtual.expiresAt);
                 }
@@ -41,24 +57,27 @@ module.exports = {
 
                 let ativados = 0;
 
-                // Ativa TODOS os grupos vinculados com a mesma validade
-                for (const grupoId of perfil.gruposVinculados) {
+                // Ativa TODOS os grupos vinculados forçando a formatação correta
+                for (const grupoCru of perfil.gruposVinculados) {
+                    // 🧲 A SOLUÇÃO: Normaliza qualquer ID mal formatado para o padrão @g.us
+                    const matchG = grupoCru.match(/[\d\-]+/);
+                    if (!matchG) continue;
+                    const grupoIdFormatado = matchG[0] + '@g.us';
+
                     await AuthorizedGroup.updateOne(
-                        { groupId: grupoId },
+                        { groupId: grupoIdFormatado },
                         { $set: { isAuthorized: true, expiresAt: dataVencimento, authorizedBy: clienteId } },
                         { upsert: true }
                     );
 
-                    // ✅ Promove o dono automaticamente como isBotAdmin no grupo
                     await User.updateOne(
-                        { userId: clienteId, groupId: grupoId },
+                        { userId: clienteId, groupId: grupoIdFormatado },
                         { $set: { isBotAdmin: true } },
                         { upsert: true }
                     );
 
-                    // Notifica cada grupo
                     try {
-                        await client.sendMessage(grupoId, `🚀 *YUKON STATION ATIVADA*
+                        await client.sendMessage(grupoIdFormatado, `🚀 *YUKON STATION ATIVADA*
 ━━━━━━━━━━━━━━━━━━━━━
 ✅ Assinatura ativada com sucesso!
 📦 *Plano:* ${nomePlano}
@@ -68,7 +87,6 @@ module.exports = {
                     } catch {}
                 }
 
-                // Notifica o cliente no PV
                 try {
                     await client.sendMessage(clienteId, `✅ *PAGAMENTO APROVADO!*
 ━━━━━━━━━━━━━━━━━━━━━
@@ -94,15 +112,28 @@ _Use */meu_plano* para acompanhar sua assinatura._`);
 🔑 *isBotAdmin:* Promovido automaticamente`, { mentions: [clienteId] });
             }
 
-            // --- ATIVAÇÃO POR ID DO GRUPO (modo antigo mantido) ---
-            if (alvo.includes('@g.us')) {
-                const dono = await UserProfile.findOne({ gruposVinculados: alvo });
-                const dias = diasPorPlano[dono?.planoPreco] || 30;
-                const nomePlano = dono?.planoPreco === 10 ? 'Recruta' : dono?.planoPreco === 30 ? 'Astronauta' : dono?.planoPreco === 75 ? 'Intergaláctico' : 'Padrão';
+            // --- ATIVAÇÃO POR ID DO GRUPO (AVULSO) ---
+            if (targetType === 'grupo') {
+                const matchG = alvo.match(/[\d\-]+/);
+                const idFormatado = matchG ? matchG[0] + '@g.us' : alvo;
 
-                // Verifica se já tem assinatura ativa para somar os dias
+                // Busca o dono pelo ID exato ou pelas variações
+                const dono = await UserProfile.findOne({
+                    $or: [
+                        { gruposVinculados: idFormatado },
+                        { gruposVinculados: idFormatado.replace('@g.us', '') }
+                    ]
+                });
+                
+                let nomePlano = 'FREE';
+                const dias = diasPorPlano[dono?.planoPreco] || 30;
+                
+                if (dono?.planoPreco === 10) nomePlano = 'ASTRONAUTA';
+                if (dono?.planoPreco === 30) nomePlano = 'COMANDANTE';
+                if (dono?.planoPreco === 75) nomePlano = 'INTERGALÁCTICO';
+
                 let dataBase = new Date();
-                const authAtual = await AuthorizedGroup.findOne({ groupId: alvo });
+                const authAtual = await AuthorizedGroup.findOne({ groupId: idFormatado });
                 if (authAtual?.expiresAt && new Date(authAtual.expiresAt) > new Date()) {
                     dataBase = new Date(authAtual.expiresAt);
                 }
@@ -111,22 +142,21 @@ _Use */meu_plano* para acompanhar sua assinatura._`);
                 dataVencimento.setDate(dataVencimento.getDate() + dias);
 
                 await AuthorizedGroup.updateOne(
-                    { groupId: alvo },
-                    { $set: { isAuthorized: true, expiresAt: dataVencimento } },
+                    { groupId: idFormatado },
+                    { $set: { isAuthorized: true, expiresAt: dataVencimento, authorizedBy: dono ? dono.userId : "Sistema" } },
                     { upsert: true }
                 );
 
-                // ✅ Promove o dono automaticamente se encontrado
                 if (dono) {
                     await User.updateOne(
-                        { userId: dono.userId, groupId: alvo },
+                        { userId: dono.userId, groupId: idFormatado },
                         { $set: { isBotAdmin: true } },
                         { upsert: true }
                     );
                 }
 
                 try {
-                    await client.sendMessage(alvo, `🚀 *YUKON STATION ATIVADA*
+                    await client.sendMessage(idFormatado, `🚀 *YUKON STATION ATIVADA*
 ━━━━━━━━━━━━━━━━━━━━━
 ✅ Assinatura ativada com sucesso!
 📦 *Plano:* ${nomePlano}
@@ -146,10 +176,10 @@ Seu grupo foi ativado com sucesso!
                     } catch {}
                 }
 
-                return client.sendMessage(msg.from, `✅ Grupo \`${alvo}\` ativado!\n📦 *Plano:* ${nomePlano}\n📅 *Válido até:* ${dataVencimento.toLocaleDateString('pt-BR')}${dono ? `\n🔑 *Dono promovido:* @${dono.userId.split('@')[0]}` : ''}`);
+                return client.sendMessage(msg.from, `✅ Grupo \`${idFormatado}\` ativado!\n📦 *Plano:* ${nomePlano}\n📅 *Válido até:* ${dataVencimento.toLocaleDateString('pt-BR')}${dono ? `\n🔑 *Dono promovido:* @${dono.userId.split('@')[0]}` : ''}`);
             }
 
-            return client.sendMessage(msg.from, "⚠️ ID inválido. Use o número do cliente ou o ID do grupo.");
+            return client.sendMessage(msg.from, "⚠️ Formato não reconhecido. Use o número do cliente (com DDD) ou o ID numérico do grupo.");
 
         } catch (err) {
             console.error("❌ Erro no /confirmar:", err);
