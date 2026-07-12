@@ -2,6 +2,9 @@ module.exports = {
   name: 'código',
   async execute(client, msg, { chatId, senderId, isAdmin, isGroupAdmins }) {
     try {
+      const mongoose = require('mongoose');
+      const LinkCode = mongoose.model('LinkCode');
+
       const chat = await msg.getChat();
 
       // Verificar se é um grupo
@@ -14,57 +17,55 @@ module.exports = {
         return msg.reply(`❌ Apenas administradores do grupo podem gerar códigos de vinculação.`);
       }
 
-      // Gerar código único (6 caracteres alfanuméricos)
-      const generateCode = () => {
-        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-        let code = '';
-        for (let i = 0; i < 6; i++) {
-          code += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
-        return code;
-      };
+      const groupName = chat.name || 'Grupo sem nome';
+      const memberCount = chat.participants?.length || 0;
 
-      const code = generateCode();
-
-      const groupInfo = {
+      // Se já existe um código válido (não expirado) pra esse grupo, reaproveita
+      let linkCode = await LinkCode.findOne({
         groupId: chatId,
-        groupName: chat.name || 'Grupo sem nome',
-        memberCount: chat.participants?.length || 0,
-        platform: 'whatsapp',
-      };
-
-      // Calcular expiração (1 hora)
-      const expiresAt = new Date(Date.now() + 60 * 60 * 1000);
-
-      // Salvar código no banco SaaS (via API)
-      const saasResponse = await fetch('http://localhost:4000/api/v1/community-links/group-codes', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          code,
-          groupId: groupInfo.groupId,
-          groupName: groupInfo.groupName,
-          memberCount: groupInfo.memberCount,
-          platform: groupInfo.platform,
-          createdBy: senderId,
-          expiresAt: expiresAt.toISOString(),
-        }),
+        expiresAt: { $gt: new Date() },
       });
 
-      if (!saasResponse.ok) {
-        const errorData = await saasResponse.json();
-        console.error('[código] SaaS API Error:', errorData);
-        return msg.reply(`❌ Erro ao salvar código no sistema SaaS.`);
+      if (linkCode) {
+        // Atualiza dados do grupo (podem ter mudado desde a geração) sem trocar o código
+        linkCode.groupName = groupName;
+        linkCode.memberCount = memberCount;
+        await linkCode.save();
+      } else {
+        // Gerar código único (6 caracteres alfanuméricos)
+        const generateCode = () => {
+          const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+          let code = '';
+          for (let i = 0; i < 6; i++) {
+            code += chars.charAt(Math.floor(Math.random() * chars.length));
+          }
+          return code;
+        };
+
+        let code = generateCode();
+        while (await LinkCode.findOne({ code })) {
+          code = generateCode();
+        }
+
+        linkCode = await LinkCode.create({
+          code,
+          groupId: chatId,
+          groupName,
+          memberCount,
+          platform: 'whatsapp',
+          createdBy: senderId,
+          expiresAt: new Date(Date.now() + 60 * 60 * 1000), // 1 hora
+        });
       }
+
+      const minutosRestantes = Math.max(1, Math.round((linkCode.expiresAt.getTime() - Date.now()) / 60000));
 
       // Enviar código no PV do dono/admin
       const pvMessage = `🔗 *CÓDIGO DE VINCULAÇÃO*\n\n` +
-        `📋 *Código:* \`${code}\`\n` +
-        `📝 *Grupo:* ${groupInfo.groupName}\n` +
-        `👥 *Membros:* ${groupInfo.memberCount}\n` +
-        `⏰ *Expira em:* 1 hora\n\n` +
+        `📋 *Código:* \`${linkCode.code}\`\n` +
+        `📝 *Grupo:* ${groupName}\n` +
+        `👥 *Membros:* ${memberCount}\n` +
+        `⏰ *Expira em:* ${minutosRestantes} min\n\n` +
         `📌 *Como usar:*\n` +
         `1. Acesse o painel SaaS\n` +
         `2. Vá para a tela de vincular grupos\n` +
@@ -74,10 +75,9 @@ module.exports = {
 
       await client.sendMessage(senderId, pvMessage);
 
-      // Confirmação no grupo
       return msg.reply(`✅ *Código gerado com sucesso!*\n\n` +
         `📋 O código foi enviado no seu PV (privado).\n` +
-        `⏰ O código expira em 1 hora.\n` +
+        `⏰ Válido por ${minutosRestantes} min.\n` +
         `🔒 Mantenha-o seguro!`);
 
     } catch (error) {

@@ -211,6 +211,21 @@ const petSchema = new mongoose.Schema({
  
 const Pet = mongoose.model('Pet', petSchema);
 
+// --- SISTEMA DE CÓDIGOS DE VINCULAÇÃO (BOT -> SAAS) ---
+const linkCodeSchema = new mongoose.Schema({
+    code: { type: String, required: true, unique: true },
+    groupId: { type: String, required: true },
+    groupName: { type: String, default: 'Grupo sem nome' },
+    memberCount: { type: Number, default: 0 },
+    platform: { type: String, default: 'whatsapp' },
+    createdBy: { type: String, required: true },
+    used: { type: Boolean, default: false },
+    usedAt: { type: Date, default: null },
+    expiresAt: { type: Date, required: true },
+}, { timestamps: true });
+
+const LinkCode = mongoose.models.LinkCode || mongoose.model('LinkCode', linkCodeSchema);
+
 /**********************************************************
  * 5. CLIENT WHATSAPP
  **********************************************************/
