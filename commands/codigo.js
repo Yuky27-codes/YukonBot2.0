@@ -1,23 +1,16 @@
 module.exports = {
   name: 'código',
-  async execute(client, msg, { chatId, senderId }) {
+  async execute(client, msg, { chatId, senderId, isAdmin, isGroupAdmins }) {
     try {
-      // ✅ Liberado para todos — necessário para vincular grupos ao SaaS
-      // A barreira de licença do index.js é ignorada para este comando
+      const chat = await msg.getChat();
 
-      // Verificar se é um grupo (não PV)
-      if (!chatId.includes('@g.us')) {
+      // Verificar se é um grupo
+      if (!chat.isGroup) {
         return msg.reply(`❌ Este comando só pode ser usado em grupos.`);
       }
 
-      // Verificar se o usuário é admin do grupo
-      const groupMetadata = await msg.groupMetadata?.();
-      if (!groupMetadata) {
-        return msg.reply(`❌ Não foi possível obter informações do grupo.`);
-      }
-
-      const isAdmin = groupMetadata.participants?.find(p => p.id === senderId)?.admin;
-      if (!isAdmin) {
+      // Verificar se o usuário é admin (bot admin OU admin do grupo)
+      if (!isAdmin && !isGroupAdmins) {
         return msg.reply(`❌ Apenas administradores do grupo podem gerar códigos de vinculação.`);
       }
 
@@ -33,24 +26,10 @@ module.exports = {
 
       const code = generateCode();
 
-      // Buscar informações do grupo no banco Yukon
-      // Aqui você precisa adaptar para buscar no seu banco de dados
-      // Exemplo usando MongoDB:
-      /*
-      const groupInfo = await db.collection('authorizedgroups').findOne({ 
-        groupId: chatId 
-      });
-      
-      if (!groupInfo) {
-        return msg.reply(`❌ Grupo não encontrado no sistema Yukon.`);
-      }
-      */
-
-      // Mock das informações do grupo (substituir com busca real no banco)
       const groupInfo = {
         groupId: chatId,
-        groupName: groupMetadata.subject || 'Grupo sem nome',
-        memberCount: groupMetadata.participants?.length || 0,
+        groupName: chat.name || 'Grupo sem nome',
+        memberCount: chat.participants?.length || 0,
         platform: 'whatsapp',
       };
 
@@ -93,7 +72,7 @@ module.exports = {
         `4. Clique em "Verificar Grupos"\n\n` +
         `_Este código é pessoal e intransferível._`;
 
-      await client.sendMessage(senderId + '@s.whatsapp.net', { text: pvMessage });
+      await client.sendMessage(senderId, pvMessage);
 
       // Confirmação no grupo
       return msg.reply(`✅ *Código gerado com sucesso!*\n\n` +
