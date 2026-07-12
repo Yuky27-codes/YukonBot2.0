@@ -9,20 +9,13 @@ module.exports = {
                 return await client.sendMessage(chatId, "❌ Registro não encontrado nos arquivos da Yukon.", { sendSeen: false });
             }
 
-           // --- SUBSTITUA O BLOCO DE BUSCA DA FOTO ---
-let fotoUrl;
-try {
-    // Tenta buscar a foto através do objeto chat (mais estável)
-    const chat = await client.getChatById(senderId);
-    fotoUrl = await chat.getProfilePicUrl();
-} catch (e) {
-    // Fallback: se falhar no chat, tenta o método direto que você já usava
-    try {
-        fotoUrl = await client.getProfilePicUrl(senderId);
-    } catch (err) {
-        fotoUrl = null;
-    }
-}
+            // --- BUSCA DA FOTO DE PERFIL ---
+            let fotoUrl;
+            try {
+                fotoUrl = await client.getProfilePicUrl(senderId);
+            } catch (e) {
+                fotoUrl = null; // Caso não tenha foto ou erro de privacidade
+            }
 
             // --- LÓGICA DE ANIVERSÁRIO E ESCUDO (Mantida) ---
             const hoje = new Date();
@@ -67,22 +60,14 @@ try {
 ┃📜 *STATUS:* ${statusCivil}
 ┗━━━━━━━━━━━━━━━━━━━━━━`.trim();
 
-            // --- SUBSTITUA O BLOCO DE ENVIO POR ESTE ---
-if (fotoUrl) {
-    console.log("DEBUG FOTO: Tentando baixar foto em:", fotoUrl);
-    try {
-        const { MessageMedia } = require('whatsapp-web.js');
-        const media = await MessageMedia.fromUrl(fotoUrl, { unsafeMime: true }); // Adicionamos unsafeMime
-        await client.sendMessage(chatId, media, { caption: perfilCustom, mentions });
-    } catch (e) {
-        console.error("DEBUG FOTO: Falha ao baixar ou enviar a mídia:", e);
-        // Fallback: se a foto falhar, envia apenas o texto
-        await client.sendMessage(chatId, perfilCustom, { mentions, sendSeen: false });
-    }
-} else {
-    console.log("DEBUG FOTO: Nenhuma foto encontrada para este usuário.");
-    await client.sendMessage(chatId, perfilCustom, { mentions, sendSeen: false });
-}
+            // --- ENVIO COM FOTO ---
+            if (fotoUrl) {
+                const { MessageMedia } = require('whatsapp-web.js');
+                const media = await MessageMedia.fromUrl(fotoUrl);
+                await client.sendMessage(chatId, media, { caption: perfilCustom, mentions });
+            } else {
+                await client.sendMessage(chatId, perfilCustom, { mentions, sendSeen: false });
+            }
 
         } catch (err) {
             console.error("❌ Erro no comando perfil:", err.message);
