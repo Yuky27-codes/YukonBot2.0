@@ -1,6 +1,6 @@
 module.exports = {
   name: 'código',
-  async execute(client, msg, { chatId, senderId, isAdmin, isGroupAdmins }) {
+  async execute(client, msg, { chatId, senderRaw, isAdmin, isGroupAdmins }) {
     try {
       const mongoose = require('mongoose');
       const LinkCode = mongoose.model('LinkCode');
@@ -53,7 +53,7 @@ module.exports = {
           groupName,
           memberCount,
           platform: 'whatsapp',
-          createdBy: senderId,
+          createdBy: senderRaw,
           expiresAt: new Date(Date.now() + 60 * 60 * 1000), // 1 hora
         });
       }
@@ -73,7 +73,7 @@ module.exports = {
         `4. Clique em "Verificar Grupos"\n\n` +
         `_Este código é pessoal e intransferível._`;
 
-      await client.sendMessage(senderId, pvMessage);
+      await client.sendMessage(senderRaw, pvMessage);
 
       return msg.reply(`✅ *Código gerado com sucesso!*\n\n` +
         `📋 O código foi enviado no seu PV (privado).\n` +
