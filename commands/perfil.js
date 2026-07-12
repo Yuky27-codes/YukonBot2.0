@@ -3,23 +3,26 @@ module.exports = {
     async execute(client, msg, { chatId, senderRaw, User }) { 
         try {
             const senderId = senderRaw.toString();
-            
             const userProfile = await User.findOne({ userId: senderId, groupId: chatId });
 
             if (!userProfile) {
                 return await client.sendMessage(chatId, "❌ Registro não encontrado nos arquivos da Yukon.", { sendSeen: false });
             }
 
-            // --- LÓGICA DE ANIVERSÁRIO ---
-            const hoje = new Date();
-            const diaMesHoje = `${String(hoje.getDate()).padStart(2, '0')}/${String(hoje.getMonth() + 1).padStart(2, '0')}`;
-            
-            let displayAniversario = userProfile.birthday || "Não registrado";
-            if (userProfile.birthday === diaMesHoje) {
-                displayAniversario += " 🎂 *[HOJE!]*";
+            // --- BUSCA DA FOTO DE PERFIL ---
+            let fotoUrl;
+            try {
+                fotoUrl = await client.getProfilePicUrl(senderId);
+            } catch (e) {
+                fotoUrl = null; // Caso não tenha foto ou erro de privacidade
             }
 
-            // --- LÓGICA DE PROTEÇÃO (ESCUDO) ---
+            // --- LÓGICA DE ANIVERSÁRIO E ESCUDO (Mantida) ---
+            const hoje = new Date();
+            const diaMesHoje = `${String(hoje.getDate()).padStart(2, '0')}/${String(hoje.getMonth() + 1).padStart(2, '0')}`;
+            let displayAniversario = userProfile.birthday || "Não registrado";
+            if (userProfile.birthday === diaMesHoje) displayAniversario += " 🎂 *[HOJE!]*";
+
             const agora = Date.now();
             const estaProtegido = userProfile.protectedUntil && userProfile.protectedUntil > agora;
             const statusEscudo = estaProtegido ? "🛡️ ATIVO" : "🔓 VULNERÁVEL";
@@ -31,17 +34,11 @@ module.exports = {
             if (lvl >= 30) patente = "👨‍✈️ Comandante Glacial";
             if (lvl >= 50) patente = "👑 Lenda de Yukon";
 
-            // --- BARRA DE PROGRESSO ---
             const xpAtual = userProfile.xp || 0;
-            const xpNecessario = 100; 
-            let calculoProgresso = Math.floor((xpAtual / xpNecessario) * 10);
-            let progresso = Math.max(0, Math.min(10, calculoProgresso)); 
-            const barra = "▓".repeat(progresso) + "░".repeat(10 - progresso);
+            const barra = "▓".repeat(Math.min(10, Math.floor(xpAtual / 10))) + "░".repeat(Math.max(0, 10 - Math.floor(xpAtual / 10)));
 
-            // --- STATUS CIVIL (Com Menção) ---
             let statusCivil = "🤍 Solteiro(a)";
             let mentions = [senderId];
-            
             if (userProfile.marriedWith) {
                 const conjugeId = userProfile.marriedWith.toString();
                 statusCivil = `💍 Casado(a) com @${conjugeId.split('@')[0]}`;
@@ -51,9 +48,8 @@ module.exports = {
             const nomeUsuario = msg._data.notifyName || "Tripulante";
             const moedas = Number(userProfile.coins || 0).toLocaleString('pt-BR');
 
-            const perfilCustom = `
-❄️ *ID DE ACESSO — YUKON STATION* ❄️
-┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+            const perfilCustom = `❄️ *ID DE ACESSO — YUKON STATION* ❄️
+┏━━━━━━━━━━━━━━━━━━━━━━
 ┃👤 *NOME:* ${nomeUsuario}
 ┃🎂 *ANIVER:* ${displayAniversario}
 ┃🛡️ *ESCUDO:* ${statusEscudo}
@@ -62,12 +58,24 @@ module.exports = {
 ┃💰 *CRÉDITOS:* ${moedas} YC
 ┃📊 *XP:* [${barra}] ${xpAtual}%
 ┃📜 *STATUS:* ${statusCivil}
-┗━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━`.trim();
+┗━━━━━━━━━━━━━━━━━━━━━━`.trim();
 
-            await client.sendMessage(chatId, perfilCustom, { 
-                mentions, 
-                sendSeen: false 
-            });
+            // --- SUBSTITUA O BLOCO DE ENVIO POR ESTE ---
+if (fotoUrl) {
+    console.log("DEBUG FOTO: Tentando baixar foto em:", fotoUrl);
+    try {
+        const { MessageMedia } = require('whatsapp-web.js');
+        const media = await MessageMedia.fromUrl(fotoUrl, { unsafeMime: true }); // Adicionamos unsafeMime
+        await client.sendMessage(chatId, media, { caption: perfilCustom, mentions });
+    } catch (e) {
+        console.error("DEBUG FOTO: Falha ao baixar ou enviar a mídia:", e);
+        // Fallback: se a foto falhar, envia apenas o texto
+        await client.sendMessage(chatId, perfilCustom, { mentions, sendSeen: false });
+    }
+} else {
+    console.log("DEBUG FOTO: Nenhuma foto encontrada para este usuário.");
+    await client.sendMessage(chatId, perfilCustom, { mentions, sendSeen: false });
+}
 
         } catch (err) {
             console.error("❌ Erro no comando perfil:", err.message);
