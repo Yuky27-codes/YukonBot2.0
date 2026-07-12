@@ -9,13 +9,20 @@ module.exports = {
                 return await client.sendMessage(chatId, "❌ Registro não encontrado nos arquivos da Yukon.", { sendSeen: false });
             }
 
-            // --- BUSCA DA FOTO DE PERFIL ---
-            let fotoUrl;
-            try {
-                fotoUrl = await client.getProfilePicUrl(senderId);
-            } catch (e) {
-                fotoUrl = null; // Caso não tenha foto ou erro de privacidade
-            }
+           // --- SUBSTITUA O BLOCO DE BUSCA DA FOTO ---
+let fotoUrl;
+try {
+    // Tenta buscar a foto através do objeto chat (mais estável)
+    const chat = await client.getChatById(senderId);
+    fotoUrl = await chat.getProfilePicUrl();
+} catch (e) {
+    // Fallback: se falhar no chat, tenta o método direto que você já usava
+    try {
+        fotoUrl = await client.getProfilePicUrl(senderId);
+    } catch (err) {
+        fotoUrl = null;
+    }
+}
 
             // --- LÓGICA DE ANIVERSÁRIO E ESCUDO (Mantida) ---
             const hoje = new Date();
