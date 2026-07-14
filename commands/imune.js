@@ -1,6 +1,11 @@
 module.exports = {
     name: 'imune',
     async execute(client, msg, { chatId, senderRaw, User }) {
+        // TRAVA DE SEGURANÇA: Bloqueia durante o Modo Caos
+        if (global.modoCaosAtivo && global.modoCaosAtivo[chatId] > Date.now()) {
+            return await msg.reply("🚫 *IMPOSSÍVEL!* O Modo Caos está ativo, as defesas estão offline.");
+        }
+
         try {
             const senderId = senderRaw.toString();
             const player = await User.findOne({ userId: senderId, groupId: chatId });

@@ -219,6 +219,8 @@ const linkCodeSchema = new mongoose.Schema({
     memberCount: { type: Number, default: 0 },
     platform: { type: String, default: 'whatsapp' },
     createdBy: { type: String, required: true },
+    hasActiveSubscription: { type: Boolean, default: false },
+    subscriptionExpiresAt: { type: Date, default: null },
     used: { type: Boolean, default: false },
     usedAt: { type: Date, default: null },
     expiresAt: { type: Date, required: true },

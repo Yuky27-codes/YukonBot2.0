@@ -39,9 +39,20 @@ module.exports = {
                 }
             );
 
-            // Ativa o modo caos globalmente para o grupo
+            // ATIVAÇÃO DO CAOS E LIMPEZA FORÇADA DO BANCO
             const expiraEm = Date.now() + DURACAO_MS;
             global.modoCaosAtivo[chatId] = expiraEm;
+
+            // Limpa as proteções de todos os usuários do grupo instantaneamente
+            await User.updateMany(
+                { groupId: chatId },
+                { 
+                    $set: { 
+                        isPassive: false,       // Desativa o /imune[cite: 3]
+                        protectedUntil: 0       // Desativa o /protecao[cite: 5]
+                    } 
+                }
+            );
 
             // Desativa automaticamente após 10 minutos
             setTimeout(async () => {
@@ -54,9 +65,9 @@ module.exports = {
 💥 @${autorId.split('@')[0]} ativou o Modo Caos!
 
 ⚠️ *REGRAS DO CAOS:*
-• Todas as proteções estão desativadas!
-• Modo passivo ignorado!
-• Qualquer um pode roubar qualquer um!
+• Todas as proteções foram removidas!
+• Modo passivo forçado a desligar!
+• Ninguém pode se proteger pelos próximos 10 minutos!
 
 ⏳ *Duração:* 10 minutos
 💰 *Custo pago:* ${CUSTO.toLocaleString('pt-BR')} YC

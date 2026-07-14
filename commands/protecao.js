@@ -1,6 +1,11 @@
 module.exports = {
     name: 'protecao',
     async execute(client, msg, { chatId, senderRaw, User }) {
+        // TRAVA DE SEGURANÇA: Bloqueia durante o Modo Caos
+        if (global.modoCaosAtivo && global.modoCaosAtivo[chatId] > Date.now()) {
+            return await msg.reply("🚫 *IMPOSSÍVEL!* O Modo Caos está ativo, as defesas estão offline.");
+        }
+
         const CUSTO_PROTECAO = 500; // Valor para ativar o escudo
         const DURACAO_HORAS = 5;
 

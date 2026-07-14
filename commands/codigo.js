@@ -4,6 +4,7 @@ module.exports = {
     try {
       const mongoose = require('mongoose');
       const LinkCode = mongoose.model('LinkCode');
+      const AuthorizedGroup = mongoose.model('AuthorizedGroup');
 
       const chat = await msg.getChat();
 
@@ -20,6 +21,16 @@ module.exports = {
       const groupName = chat.name || 'Grupo sem nome';
       const memberCount = chat.participants?.length || 0;
 
+      // Consulta o mesmo status usado pela barreira de licença do index.js
+      const groupAuth = await AuthorizedGroup.findOne({ groupId: chatId }).lean();
+      const subscriptionExpiresAt = groupAuth?.expiresAt || null;
+      const hasActiveSubscription = Boolean(
+        groupAuth?.isAuthorized &&
+        (!subscriptionExpiresAt || new Date(subscriptionExpiresAt).getTime() > Date.now())
+      );
+      // eslint-disable-next-line no-console
+      console.log('[código] groupAuth:', groupAuth, '| hasActiveSubscription calculado:', hasActiveSubscription);
+
       // Se já existe um código válido (não expirado) pra esse grupo, reaproveita
       let linkCode = await LinkCode.findOne({
         groupId: chatId,
@@ -27,9 +38,11 @@ module.exports = {
       });
 
       if (linkCode) {
-        // Atualiza dados do grupo (podem ter mudado desde a geração) sem trocar o código
+        // Atualiza dados do grupo e status de assinatura (podem ter mudado) sem trocar o código
         linkCode.groupName = groupName;
         linkCode.memberCount = memberCount;
+        linkCode.hasActiveSubscription = hasActiveSubscription;
+        linkCode.subscriptionExpiresAt = subscriptionExpiresAt;
         await linkCode.save();
       } else {
         // Gerar código único (6 caracteres alfanuméricos)
@@ -54,6 +67,8 @@ module.exports = {
           memberCount,
           platform: 'whatsapp',
           createdBy: senderRaw,
+          hasActiveSubscription,
+          subscriptionExpiresAt,
           expiresAt: new Date(Date.now() + 60 * 60 * 1000), // 1 hora
         });
       }
