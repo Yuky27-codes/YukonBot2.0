@@ -642,7 +642,7 @@ if (chatId.endsWith('@g.us') && COMANDOS_JOGOS.includes(commandName)) {
         }
 
     } catch (e) {
-        console.error("❌ ERRO GERAL NO INDEX:", e.message);
+        console.error("❌ ERRO GERAL NO INDEX:", e && e.stack ? e.stack : e);
     }
 });
 
