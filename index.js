@@ -238,10 +238,12 @@ const client = new Client({
         args: ['--no-sandbox', '--disable-setuid-sandbox']
     },
     // --- ADICIONE ESTE BLOCO PARA FIXAR A VERSÃO ---
-    webVersionCache: {
-        type: 'remote',
-        remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1018973687.html',
-        strict: true
+    // No seu index.js, dentro da configuração do Client:
+webVersionCache: {
+    type: 'remote',
+    remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1018973687.html',
+    strict: true
+}
     }
 });
 
