@@ -525,7 +525,7 @@ Para reativar a licença, fale com o suporte.`);
             }
         }
 
-        // --- 🟢 6. PARSER DE COMANDO (EXECUÇÃO FINAL) ---
+        // --- 🟢 6. PARSER DE COMANDO (CORRIGIDO) ---
 const prefixoCustomFinal = chatId.endsWith('@g.us') 
     ? (configBarreira?.prefixo || null) 
     : null;
@@ -537,7 +537,10 @@ const prefixoUsado = (prefixoCustomFinal && body.startsWith(prefixoCustomFinal) 
 if (!body.startsWith(prefix) && !(prefixoCustomFinal && body.startsWith(prefixoCustomFinal))) return;
 
 const args = body.slice(prefixoUsado.length).trim().split(/\s+/);
-const commandName = args.shift().toLowerCase();
+const commandName = args.shift()?.toLowerCase(); // Adicionamos ? para evitar erro se args estiver vazio
+
+// VALIDAÇÃO DE SEGURANÇA
+if (!commandName || commandName === "") return;
 
 // Verifica desafio diário ativo
 if (global.desafiosAtivos) {
