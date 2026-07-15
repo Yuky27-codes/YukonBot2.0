@@ -232,20 +232,16 @@ const LinkCode = mongoose.models.LinkCode || mongoose.model('LinkCode', linkCode
  * 5. CLIENT WHATSAPP
  **********************************************************/
 const client = new Client({
-    authStrategy: new LocalAuth({
-        clientId: "yukon_session_v1",
-        dataPath: path.resolve(__dirname, '.wwebjs_auth')
-    }),
+    authStrategy: new LocalAuth(),
     puppeteer: {
         headless: true,
-        args: [
-            '--no-sandbox',
-            '--disable-setuid-sandbox',
-            '--disable-dev-shm-usage',
-            '--disable-gpu',
-            '--no-zygote',
-            '--single-process'
-        ]
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
+    },
+    // --- ADICIONE ESTE BLOCO PARA FIXAR A VERSÃO ---
+    webVersionCache: {
+        type: 'remote',
+        remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1018973687.html',
+        strict: true
     }
 });
 
