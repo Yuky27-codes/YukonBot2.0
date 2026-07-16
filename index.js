@@ -258,10 +258,10 @@ const client = new Client({
         clientId: "yukon_session_v1",
         dataPath: path.resolve(__dirname, '.wwebjs_auth')
     }),
-    webVersionCache: {
-        type: 'remote',
-        remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1018973687.html',
-        strict: true
+   webVersionCache: {
+    type: 'none',
+    remotePath: '',
+    strict: false
     },
     puppeteer: {
         headless: true,
