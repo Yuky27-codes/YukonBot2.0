@@ -642,17 +642,26 @@ if (chatId.endsWith('@g.us') && !isAdmin) {
     }
 }
 
-const chat = await msg.getChat();
+let chat = null;
         let iAmAdmin = false;
         let isGroupAdmins = false;
 
-        if (chat.isGroup) {
-            const meuId = client.info.wid._serialized;
-            const botNoGrupo = chat.participants.find(p => p.id._serialized === meuId);
-            iAmAdmin = botNoGrupo ? botNoGrupo.isAdmin : false;
+        try {
+            // 🔧 msg.getChat() usa client.getChatById() por baixo, que pode falhar
+            // com "Evaluation failed: r" pelo mesmo bug atual do whatsapp-web.js.
+            // Se falhar, seguimos com os defaults (false/false) em vez de travar o comando.
+            chat = await msg.getChat();
 
-            const autorNoGrupo = chat.participants.find(p => p.id._serialized === senderRaw);
-            isGroupAdmins = autorNoGrupo ? (autorNoGrupo.isAdmin || autorNoGrupo.isSuperAdmin) : false;
+            if (chat.isGroup) {
+                const meuId = client.info.wid._serialized;
+                const botNoGrupo = chat.participants.find(p => p.id._serialized === meuId);
+                iAmAdmin = botNoGrupo ? botNoGrupo.isAdmin : false;
+
+                const autorNoGrupo = chat.participants.find(p => p.id._serialized === senderRaw);
+                isGroupAdmins = autorNoGrupo ? (autorNoGrupo.isAdmin || autorNoGrupo.isSuperAdmin) : false;
+            }
+        } catch (e) {
+            console.warn("⚠️ Não foi possível obter dados do chat/participantes:", e.message);
         }
 
         if (isAdmin) isGroupAdmins = true;
