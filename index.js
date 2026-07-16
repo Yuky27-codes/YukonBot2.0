@@ -229,21 +229,14 @@ const linkCodeSchema = new mongoose.Schema({
 const LinkCode = mongoose.models.LinkCode || mongoose.model('LinkCode', linkCodeSchema);
 
 /**********************************************************
- * 5. CLIENT WHATSAPP
+ * 5. CLIENT WHATSAPP - ESTRUTURA BLINDADA
  **********************************************************/
-// 🔄 Rotação automática de versão do WhatsApp Web.
-// Quando o WhatsApp atualiza e a lib quebra (erro "Evaluation failed" em
-// getChat/getChatById etc.), o bot troca sozinho para a próxima versão
-// desta lista e reinicia o processo. IMPORTANTE: na Square Cloud, deixe
-// AUTORESTART=true no squarecloud.app/config, senão o processo não volta
-// sozinho depois do restart. Para forçar uma versão manualmente (teste),
-// defina WA_VERSION no .env — isso ignora a rotação automática.
+
 const WA_VERSION_STATE_PATH = path.resolve(__dirname, '.wa_version_state.json');
 const WA_VERSION_POOL = [
-    '2.3000.1041135829-alpha',
-    '2.3000.1039627990-alpha',
-    '2.3000.1038189736-alpha',
-    '2.3000.1035829411-alpha',
+    '2.3000.1018973687',
+    '2.3000.1018267270',
+    '2.3000.1017054665',
     '2.2412.54'
 ];
 
@@ -251,32 +244,21 @@ function lerIndiceVersaoWA() {
     try {
         const dados = JSON.parse(fs.readFileSync(WA_VERSION_STATE_PATH, 'utf8'));
         return Number.isInteger(dados.index) ? dados.index : 0;
-    } catch {
-        return 0;
-    }
+    } catch { return 0; }
 }
 
 function salvarIndiceVersaoWA(index) {
     try {
         fs.writeFileSync(WA_VERSION_STATE_PATH, JSON.stringify({ index, atualizadoEm: new Date().toISOString() }));
-    } catch (e) {
-        console.error("⚠️ Não foi possível salvar o estado da versão do WhatsApp Web:", e.message);
-    }
-}
-
-function ehErroDeVersaoWhatsApp(e) {
-    const texto = `${e && e.message} ${e && e.stack}`.toLowerCase();
-    return texto.includes('evaluation failed')
-        || texto.includes('executioncontext.js')
-        || (texto.includes('getchatbyid') && texto.includes('evaluate'));
+    } catch (e) { console.error("⚠️ Erro ao salvar estado WA:", e.message); }
 }
 
 function rotacionarVersaoWAEReiniciar(motivo) {
     const indiceAtual = lerIndiceVersaoWA();
     const proximoIndice = (indiceAtual + 1) % WA_VERSION_POOL.length;
-    console.error(`🔄 Quebra de compatibilidade com o WhatsApp Web detectada (${motivo}). Trocando de "${WA_VERSION_POOL[indiceAtual]}" para "${WA_VERSION_POOL[proximoIndice]}" e reiniciando o processo...`);
+    console.error(`🔄 FALHA DETECTADA: ${motivo}. Trocando para versão ${WA_VERSION_POOL[proximoIndice]}...`);
     salvarIndiceVersaoWA(proximoIndice);
-    setTimeout(() => process.exit(1), 1500);
+    setTimeout(() => process.exit(1), 2000);
 }
 
 const WA_VERSION = process.env.WA_VERSION || WA_VERSION_POOL[lerIndiceVersaoWA()];
@@ -288,7 +270,8 @@ const client = new Client({
     }),
     webVersionCache: {
         type: 'remote',
-        remotePath: `https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/${WA_VERSION}.html`
+        remotePath: `https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/${WA_VERSION}.html`,
+        strict: true
     },
     puppeteer: {
         headless: true,
@@ -298,9 +281,25 @@ const client = new Client({
             '--disable-dev-shm-usage',
             '--disable-gpu',
             '--no-zygote',
-            '--single-process'
+            '--single-process',
+            '--disable-extensions'
         ]
     }
+});
+
+// MONITORAMENTO DE ERROS CRÍTICOS
+client.on('ready', () => console.log("✅ YukonBot Conectado com sucesso!"));
+
+client.on('error', (err) => {
+    const msg = err.message.toLowerCase();
+    if (msg.includes('evaluation failed') || msg.includes('executioncontext') || msg.includes('versionresolveerror')) {
+        rotacionarVersaoWAEReiniciar(err.message);
+    }
+});
+
+process.on('unhandledRejection', (reason) => {
+    if (reason?.message?.includes('Evaluation failed')) return;
+    console.error('❌ Erro não tratado:', reason);
 });
 
 /**********************************************************
