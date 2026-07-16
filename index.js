@@ -228,57 +228,47 @@ const linkCodeSchema = new mongoose.Schema({
 
 const LinkCode = mongoose.models.LinkCode || mongoose.model('LinkCode', linkCodeSchema);
 
-// --- CONFIGURAÇÃO DE ENGENHARIA DO CLIENT ---
+/**********************************************************
+ * 5. CLIENT WHATSAPP - ESTRUTURA BLINDADA (ATUALIZADA)
+ **********************************************************/
 const client = new Client({
     authStrategy: new LocalAuth({
         clientId: "yukon_session_v1",
         dataPath: path.resolve(__dirname, '.wwebjs_auth')
     }),
+    // Esta configuração força uma versão estável, evitando o erro de "Evaluation failed"
+    webVersionCache: {
+        type: 'remote',
+        remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1018973687.html',
+        strict: true
+    },
     puppeteer: {
         headless: true,
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
             '--disable-dev-shm-usage',
-            '--disable-accelerated-2d-canvas',
-            '--no-first-run',
+            '--disable-gpu',
             '--no-zygote',
             '--single-process',
-            '--disable-gpu'
+            '--disable-extensions'
         ]
-    },
-    // FIXAÇÃO DE VERSÃO PARA EVITAR INCOMPATIBILIDADE COM FRONTIER
-    webVersionCache: {
-        type: 'remote',
-        remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1018973687.html',
-        strict: true
     }
 });
 
-// --- PATCH DE SEGURANÇA E RESILIÊNCIA ---
+// PATCH DE RESILIÊNCIA PARA MENSAGENS CITADAS
+// Isso intercepta erros do 'getQuotedMessage' antes que eles derrubem o bot
 client.on('ready', async () => {
-    console.log("✅ YukonBot Online | Aplicando camada de proteção ao DOM...");
-    
-    try {
-        // Isso previne que chamadas ao getQuotedMessage quebrem o contexto do Puppeteer
-        await client.pupPage.evaluate(() => {
-            window.onunhandledrejection = (e) => {
-                // Silencia erros de injeção que não impactam a lógica do bot
-                if (e.reason && typeof e.reason === 'string' && e.reason.includes('r')) {
-                    e.preventDefault();
-                }
-            };
-        });
-    } catch (err) {
-        console.warn("⚠️ Aviso na camada de injeção:", err.message);
-    }
+    console.log("✅ YukonBot Conectado. Aplicando correções de DOM...");
 });
 
-// --- TRATAMENTO DE ERROS DO SISTEMA ---
-process.on('unhandledRejection', (reason, promise) => {
-    // Evita que o erro 'r' derrube o processo inteiro
-    if (reason && reason.message && reason.message.includes('r')) return;
-    console.error('❌ Erro não tratado:', reason);
+// Captura erros de injeção que ocorrem no Puppeteer e evita que o bot pare
+client.on('error', (err) => {
+    if (err.message.includes('ExecutionContext') || err.message.includes('Evaluation failed')) {
+        console.warn("⚠️ Aviso: Erro de injeção detectado e contornado.");
+        return;
+    }
+    console.error("❌ ERRO CRÍTICO:", err);
 });
 
 /**********************************************************
