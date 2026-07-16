@@ -231,22 +231,65 @@ const LinkCode = mongoose.models.LinkCode || mongoose.model('LinkCode', linkCode
 /**********************************************************
  * 5. CLIENT WHATSAPP
  **********************************************************/
-// 🟢 Permite fixar uma versão específica do WhatsApp Web quando a lib
-// quebrar por causa de atualização do WhatsApp (defina WA_VERSION no .env,
-// ex: WA_VERSION=2.3000.1024511290-alpha). Veja instruções abaixo do código.
-const WA_VERSION = process.env.WA_VERSION || null;
+// 🔄 Rotação automática de versão do WhatsApp Web.
+// Quando o WhatsApp atualiza e a lib quebra (erro "Evaluation failed" em
+// getChat/getChatById etc.), o bot troca sozinho para a próxima versão
+// desta lista e reinicia o processo. IMPORTANTE: na Square Cloud, deixe
+// AUTORESTART=true no squarecloud.app/config, senão o processo não volta
+// sozinho depois do restart. Para forçar uma versão manualmente (teste),
+// defina WA_VERSION no .env — isso ignora a rotação automática.
+const WA_VERSION_STATE_PATH = path.resolve(__dirname, '.wa_version_state.json');
+const WA_VERSION_POOL = [
+    '2.3000.1041135829-alpha',
+    '2.3000.1039627990-alpha',
+    '2.3000.1038189736-alpha',
+    '2.3000.1035829411-alpha',
+    '2.2412.54'
+];
+
+function lerIndiceVersaoWA() {
+    try {
+        const dados = JSON.parse(fs.readFileSync(WA_VERSION_STATE_PATH, 'utf8'));
+        return Number.isInteger(dados.index) ? dados.index : 0;
+    } catch {
+        return 0;
+    }
+}
+
+function salvarIndiceVersaoWA(index) {
+    try {
+        fs.writeFileSync(WA_VERSION_STATE_PATH, JSON.stringify({ index, atualizadoEm: new Date().toISOString() }));
+    } catch (e) {
+        console.error("⚠️ Não foi possível salvar o estado da versão do WhatsApp Web:", e.message);
+    }
+}
+
+function ehErroDeVersaoWhatsApp(e) {
+    const texto = `${e && e.message} ${e && e.stack}`.toLowerCase();
+    return texto.includes('evaluation failed')
+        || texto.includes('executioncontext.js')
+        || (texto.includes('getchatbyid') && texto.includes('evaluate'));
+}
+
+function rotacionarVersaoWAEReiniciar(motivo) {
+    const indiceAtual = lerIndiceVersaoWA();
+    const proximoIndice = (indiceAtual + 1) % WA_VERSION_POOL.length;
+    console.error(`🔄 Quebra de compatibilidade com o WhatsApp Web detectada (${motivo}). Trocando de "${WA_VERSION_POOL[indiceAtual]}" para "${WA_VERSION_POOL[proximoIndice]}" e reiniciando o processo...`);
+    salvarIndiceVersaoWA(proximoIndice);
+    setTimeout(() => process.exit(1), 1500);
+}
+
+const WA_VERSION = process.env.WA_VERSION || WA_VERSION_POOL[lerIndiceVersaoWA()];
 
 const client = new Client({
     authStrategy: new LocalAuth({
         clientId: "yukon_session_v1",
         dataPath: path.resolve(__dirname, '.wwebjs_auth')
     }),
-    webVersionCache: WA_VERSION
-        ? {
-              type: 'remote',
-              remotePath: `https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/${WA_VERSION}.html`
-          }
-        : { type: 'local' },
+    webVersionCache: {
+        type: 'remote',
+        remotePath: `https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/${WA_VERSION}.html`
+    },
     puppeteer: {
         headless: true,
         args: [
