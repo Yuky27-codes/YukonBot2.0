@@ -1,4 +1,21 @@
 require('dotenv').config();
+// FORÇAR VERSÃO NO CACHE INTERNO ANTES DE QUALQUER COISA
+const fs = require('fs');
+const path = require('path');
+
+const forceVersion = {
+    "version": "2.3000.1018973687",
+    "isResolved": true,
+    "isStable": true
+};
+
+try {
+    // Isso cria ou sobrescreve o arquivo de cache da lib que ela lê automaticamente
+    fs.writeFileSync(path.resolve(__dirname, '.wwebjs_cache', 'session.json'), JSON.stringify(forceVersion));
+    console.log("✅ Patch de versão forçado com sucesso.");
+} catch (e) {
+    console.log("⚠️ Nota: Pasta de cache ainda não existe, prosseguindo...");
+}
 const mongoose = require('mongoose');
 const { Client, LocalAuth, MessageMedia } = require('whatsapp-web.js');
 const qrcode = require('qrcode-terminal');
