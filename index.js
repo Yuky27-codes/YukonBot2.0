@@ -231,14 +231,32 @@ const LinkCode = mongoose.models.LinkCode || mongoose.model('LinkCode', linkCode
 /**********************************************************
  * 5. CLIENT WHATSAPP
  **********************************************************/
+// 🟢 Permite fixar uma versão específica do WhatsApp Web quando a lib
+// quebrar por causa de atualização do WhatsApp (defina WA_VERSION no .env,
+// ex: WA_VERSION=2.3000.1024511290-alpha). Veja instruções abaixo do código.
+const WA_VERSION = process.env.WA_VERSION || null;
+
 const client = new Client({
-    authStrategy: new LocalAuth(),
+    authStrategy: new LocalAuth({
+        clientId: "yukon_session_v1",
+        dataPath: path.resolve(__dirname, '.wwebjs_auth')
+    }),
+    webVersionCache: WA_VERSION
+        ? {
+              type: 'remote',
+              remotePath: `https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/${WA_VERSION}.html`
+          }
+        : { type: 'local' },
     puppeteer: {
         headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox']
-    },
-    webVersionCache: {
-        type: 'none' // Desativa a busca remota para usar o arquivo local da biblioteca
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-gpu',
+            '--no-zygote',
+            '--single-process'
+        ]
     }
 });
 
