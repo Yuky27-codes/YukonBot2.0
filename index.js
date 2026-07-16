@@ -259,8 +259,8 @@ const client = new Client({
         dataPath: path.resolve(__dirname, '.wwebjs_auth')
     }),
    webVersionCache: {
-    type: 'remote',
-    remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1043273181-alpha.html'
+    type: 'none',
+    remotePath: 'https://github.com/wwebjs/whatsapp-web.js'
 },
     puppeteer: {
         headless: true,
