@@ -259,10 +259,9 @@ const client = new Client({
         dataPath: path.resolve(__dirname, '.wwebjs_auth')
     }),
    webVersionCache: {
-    type: 'none',
-    remotePath: '',
-    strict: false
-    },
+    type: 'remote',
+    remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1043273181-alpha.html'
+},
     puppeteer: {
         headless: true,
         args: [
@@ -553,19 +552,23 @@ Para reativar a licença, fale com o suporte.`);
 
         // --- 🟢 5. LÓGICA DE AFINIDADE POR RESPOSTA ---
         if (msg.hasQuotedMsg) {
-            const quotedMsg = await msg.getQuotedMessage();
-            const autorOriginal = (quotedMsg.author || quotedMsg.from).split('@')[0] + '@lid';
-            const quemRespondeu = senderRaw.split('@')[0] + '@lid';
+    try {
+        const quotedMsg = await msg.getQuotedMessage();
+        const autorOriginal = (quotedMsg.author || quotedMsg.from).split('@')[0] + '@lid';
+        const quemRespondeu = senderRaw.split('@')[0] + '@lid';
 
-            if (autorOriginal !== quemRespondeu) {
-                const campoAmigo = `friends.${autorOriginal.replace(/\D/g, '')}`;
-                await User.updateOne(
-                    { userId: quemRespondeu, groupId: chatId },
-                    { $inc: { [campoAmigo]: 0.5 } },
-                    { upsert: true }
-                );
-            }
+        if (autorOriginal !== quemRespondeu) {
+            const campoAmigo = `friends.${autorOriginal.replace(/\D/g, '')}`;
+            await User.updateOne(
+                { userId: quemRespondeu, groupId: chatId },
+                { $inc: { [campoAmigo]: 0.5 } },
+                { upsert: true }
+            );
         }
+    } catch (e) {
+        console.warn("⚠️ Não foi possível processar mensagem citada:", e.message);
+    }
+}
 
         // --- 🟢 6. PARSER DE COMANDO (CORRIGIDO) ---
 const prefixoCustomFinal = chatId.endsWith('@g.us') 
