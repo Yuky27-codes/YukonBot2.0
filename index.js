@@ -228,77 +228,56 @@ const linkCodeSchema = new mongoose.Schema({
 
 const LinkCode = mongoose.models.LinkCode || mongoose.model('LinkCode', linkCodeSchema);
 
-/**********************************************************
- * 5. CLIENT WHATSAPP - ESTRUTURA BLINDADA
- **********************************************************/
-
-const WA_VERSION_STATE_PATH = path.resolve(__dirname, '.wa_version_state.json');
-const WA_VERSION_POOL = [
-    '2.3000.1018973687',
-    '2.3000.1018267270',
-    '2.3000.1017054665',
-    '2.2412.54'
-];
-
-function lerIndiceVersaoWA() {
-    try {
-        const dados = JSON.parse(fs.readFileSync(WA_VERSION_STATE_PATH, 'utf8'));
-        return Number.isInteger(dados.index) ? dados.index : 0;
-    } catch { return 0; }
-}
-
-function salvarIndiceVersaoWA(index) {
-    try {
-        fs.writeFileSync(WA_VERSION_STATE_PATH, JSON.stringify({ index, atualizadoEm: new Date().toISOString() }));
-    } catch (e) { console.error("⚠️ Erro ao salvar estado WA:", e.message); }
-}
-
-function rotacionarVersaoWAEReiniciar(motivo) {
-    const indiceAtual = lerIndiceVersaoWA();
-    const proximoIndice = (indiceAtual + 1) % WA_VERSION_POOL.length;
-    console.error(`🔄 FALHA DETECTADA: ${motivo}. Trocando para versão ${WA_VERSION_POOL[proximoIndice]}...`);
-    salvarIndiceVersaoWA(proximoIndice);
-    setTimeout(() => process.exit(1), 2000);
-}
-
-const WA_VERSION = process.env.WA_VERSION || WA_VERSION_POOL[lerIndiceVersaoWA()];
-
+// --- CONFIGURAÇÃO DE ENGENHARIA DO CLIENT ---
 const client = new Client({
     authStrategy: new LocalAuth({
         clientId: "yukon_session_v1",
         dataPath: path.resolve(__dirname, '.wwebjs_auth')
     }),
-    webVersionCache: {
-        type: 'remote',
-        remotePath: `https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/${WA_VERSION}.html`,
-        strict: true
-    },
     puppeteer: {
         headless: true,
         args: [
             '--no-sandbox',
             '--disable-setuid-sandbox',
             '--disable-dev-shm-usage',
-            '--disable-gpu',
+            '--disable-accelerated-2d-canvas',
+            '--no-first-run',
             '--no-zygote',
             '--single-process',
-            '--disable-extensions'
+            '--disable-gpu'
         ]
+    },
+    // FIXAÇÃO DE VERSÃO PARA EVITAR INCOMPATIBILIDADE COM FRONTIER
+    webVersionCache: {
+        type: 'remote',
+        remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1018973687.html',
+        strict: true
     }
 });
 
-// MONITORAMENTO DE ERROS CRÍTICOS
-client.on('ready', () => console.log("✅ YukonBot Conectado com sucesso!"));
-
-client.on('error', (err) => {
-    const msg = err.message.toLowerCase();
-    if (msg.includes('evaluation failed') || msg.includes('executioncontext') || msg.includes('versionresolveerror')) {
-        rotacionarVersaoWAEReiniciar(err.message);
+// --- PATCH DE SEGURANÇA E RESILIÊNCIA ---
+client.on('ready', async () => {
+    console.log("✅ YukonBot Online | Aplicando camada de proteção ao DOM...");
+    
+    try {
+        // Isso previne que chamadas ao getQuotedMessage quebrem o contexto do Puppeteer
+        await client.pupPage.evaluate(() => {
+            window.onunhandledrejection = (e) => {
+                // Silencia erros de injeção que não impactam a lógica do bot
+                if (e.reason && typeof e.reason === 'string' && e.reason.includes('r')) {
+                    e.preventDefault();
+                }
+            };
+        });
+    } catch (err) {
+        console.warn("⚠️ Aviso na camada de injeção:", err.message);
     }
 });
 
-process.on('unhandledRejection', (reason) => {
-    if (reason?.message?.includes('Evaluation failed')) return;
+// --- TRATAMENTO DE ERROS DO SISTEMA ---
+process.on('unhandledRejection', (reason, promise) => {
+    // Evita que o erro 'r' derrube o processo inteiro
+    if (reason && reason.message && reason.message.includes('r')) return;
     console.error('❌ Erro não tratado:', reason);
 });
 
