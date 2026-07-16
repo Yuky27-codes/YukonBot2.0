@@ -258,10 +258,9 @@ const client = new Client({
         clientId: "yukon_session_v1",
         dataPath: path.resolve(__dirname, '.wwebjs_auth')
     }),
-   webVersionCache: {
-    type: 'none',
-    remotePath: 'https://github.com/wwebjs/whatsapp-web.js'
-},
+    webVersionCache: {
+        type: 'none'
+    },
     puppeteer: {
         headless: true,
         args: [
@@ -552,23 +551,35 @@ Para reativar a licença, fale com o suporte.`);
 
         // --- 🟢 5. LÓGICA DE AFINIDADE POR RESPOSTA ---
         if (msg.hasQuotedMsg) {
-    try {
-        const quotedMsg = await msg.getQuotedMessage();
-        const autorOriginal = (quotedMsg.author || quotedMsg.from).split('@')[0] + '@lid';
-        const quemRespondeu = senderRaw.split('@')[0] + '@lid';
+            try {
+                // 🔧 Usamos msg._data.quotedParticipant (já vem serializado com a mensagem)
+                // em vez de msg.getQuotedMessage(), que hoje quebra com "Evaluation failed: r"
+                // por causa de uma incompatibilidade atual do whatsapp-web.js com o WhatsApp Web.
+                let autorOriginalRaw = msg._data?.quotedParticipant || msg._data?.quotedMsg?.from;
 
-        if (autorOriginal !== quemRespondeu) {
-            const campoAmigo = `friends.${autorOriginal.replace(/\D/g, '')}`;
-            await User.updateOne(
-                { userId: quemRespondeu, groupId: chatId },
-                { $inc: { [campoAmigo]: 0.5 } },
-                { upsert: true }
-            );
+                // Fallback: se não veio no _data, tenta o método antigo (caso volte a funcionar)
+                if (!autorOriginalRaw) {
+                    const quotedMsg = await msg.getQuotedMessage();
+                    autorOriginalRaw = quotedMsg.author || quotedMsg.from;
+                }
+
+                if (autorOriginalRaw) {
+                    const autorOriginal = autorOriginalRaw.split('@')[0] + '@lid';
+                    const quemRespondeu = senderRaw.split('@')[0] + '@lid';
+
+                    if (autorOriginal !== quemRespondeu) {
+                        const campoAmigo = `friends.${autorOriginal.replace(/\D/g, '')}`;
+                        await User.updateOne(
+                            { userId: quemRespondeu, groupId: chatId },
+                            { $inc: { [campoAmigo]: 0.5 } },
+                            { upsert: true }
+                        );
+                    }
+                }
+            } catch (e) {
+                console.warn("⚠️ Não foi possível processar mensagem citada:", e.message);
+            }
         }
-    } catch (e) {
-        console.warn("⚠️ Não foi possível processar mensagem citada:", e.message);
-    }
-}
 
         // --- 🟢 6. PARSER DE COMANDO (CORRIGIDO) ---
 const prefixoCustomFinal = chatId.endsWith('@g.us') 
