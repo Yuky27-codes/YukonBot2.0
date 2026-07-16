@@ -276,10 +276,19 @@ const client = new Client({
     }
 });
 
-// PATCH DE RESILIÊNCIA PARA MENSAGENS CITADAS
-// Isso intercepta erros do 'getQuotedMessage' antes que eles derrubem o bot
 client.on('ready', async () => {
-    console.log("✅ YukonBot Conectado. Aplicando correções de DOM...");
+    console.log("✅ YukonBot Online | Aplicando camada de proteção ao DOM...");
+    
+    // CORREÇÃO: Impedir que erros de citação derrubem o bot
+    await client.pupPage.evaluate(() => {
+        window.Store.Msg.prototype.getQuotedMsg = function() {
+            try {
+                return this.quotedMsgObj || null;
+            } catch (e) {
+                return null;
+            }
+        };
+    });
 });
 
 // Captura erros de injeção que ocorrem no Puppeteer e evita que o bot pare
