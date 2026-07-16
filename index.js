@@ -236,7 +236,6 @@ const client = new Client({
         clientId: "yukon_session_v1",
         dataPath: path.resolve(__dirname, '.wwebjs_auth')
     }),
-    // Esta configuração força uma versão estável, evitando o erro de "Evaluation failed"
     webVersionCache: {
         type: 'remote',
         remotePath: 'https://raw.githubusercontent.com/wppconnect-team/wa-version/main/html/2.3000.1018973687.html',
@@ -250,8 +249,7 @@ const client = new Client({
             '--disable-dev-shm-usage',
             '--disable-gpu',
             '--no-zygote',
-            '--single-process',
-            '--disable-extensions'
+            '--single-process'
         ]
     }
 });
