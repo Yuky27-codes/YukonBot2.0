@@ -647,23 +647,41 @@ let chat = null;
         let isGroupAdmins = false;
 
         try {
-            // 🔧 msg.getChat() usa client.getChatById() por baixo, que pode falhar
-            // com "Evaluation failed: r" pelo mesmo bug atual do whatsapp-web.js.
-            // Se falhar, seguimos com os defaults (false/false) em vez de travar o comando.
-            chat = await msg.getChat();
+    chat = await msg.getChat();
 
-            if (chat.isGroup) {
-                const meuId = client.info.wid._serialized;
-                const botNoGrupo = chat.participants.find(p => p.id._serialized === meuId);
-                iAmAdmin = botNoGrupo ? botNoGrupo.isAdmin : false;
+    if (chat.isGroup) {
+        const meuId = client.info.wid._serialized;
+        const botNoGrupo = chat.participants.find(p => p.id._serialized === meuId);
+        iAmAdmin = botNoGrupo ? botNoGrupo.isAdmin : false;
 
-                const autorNoGrupo = chat.participants.find(p => p.id._serialized === senderRaw);
-                isGroupAdmins = autorNoGrupo ? (autorNoGrupo.isAdmin || autorNoGrupo.isSuperAdmin) : false;
-            }
-        } catch (e) {
-            console.warn("⚠️ Não foi possível obter dados do chat/participantes:", e.message);
-        }
+        const autorNoGrupo = chat.participants.find(p => p.id._serialized === senderRaw);
+        isGroupAdmins = autorNoGrupo ? (autorNoGrupo.isAdmin || autorNoGrupo.isSuperAdmin) : false;
 
+        // ✅ Deu certo: salva cache de admins E de todos os participantes
+        // (usado como fallback por outros comandos, ex: /sala, quando a busca falhar)
+        const listaAdmins = chat.participants
+            .filter(p => p.isAdmin || p.isSuperAdmin)
+            .map(p => p.id._serialized);
+        const listaParticipantes = chat.participants.map(p => p.id._serialized);
+
+        await GroupConfig.updateOne(
+            { groupId: chatId },
+            { $set: {
+                cachedAdmins: listaAdmins,
+                cachedParticipants: listaParticipantes,
+                cachedAt: new Date()
+            } },
+            { upsert: true }
+        );
+    }
+} catch (e) {
+    console.warn("⚠️ Não foi possível obter dados do chat/participantes (usando cache):", e.message);
+
+    const configGrupo = await GroupConfig.findOne({ groupId: chatId }).lean();
+    if (configGrupo?.cachedAdmins?.includes(senderRaw)) {
+        isGroupAdmins = true;
+    }
+}
         if (isAdmin) isGroupAdmins = true;
 
 const COMANDOS_JOGOS = [
