@@ -14,30 +14,32 @@ module.exports = {
                 return client.sendMessage(msg.from, "⚠️ Nenhum grupo encontrado.");
             }
 
-            // Busca todos os registros de uma vez para otimizar
             const registrosAuth = await AuthorizedGroup.find({}).lean();
             const mapaAuth = new Map(registrosAuth.map(r => [r.groupId, r]));
 
             let lista = `🛰️ *ESTAÇÕES CONECTADAS (${grupos.length} grupos)*\n━━━━━━━━━━━━━━━━━━━━━\n`;
 
             grupos.forEach((g, index) => {
-                const idReal = g.id._serialized; // Ex: 123@g.us
+                // Segurança: Caso o ID seja um objeto ou string
+                const idReal = (g.id && typeof g.id === 'object') ? g.id._serialized : (g.id || "");
                 
-                // Tenta achar com @g.us ou apenas números (para identificar a falha de formato)
+                // Segurança: Caso o nome seja nulo ou undefined
+                const nomeGrupo = (g.name || "Sem Nome").substring(0, 20);
+                
                 const registro = mapaAuth.get(idReal) || mapaAuth.get(idReal.replace('@g.us', ''));
                 
                 let status = "⚪";
                 if (registro && registro.isAuthorized) status = "🟢";
                 else if (registro) status = "🔴";
 
-                lista += `${index + 1}. *${g.name.substring(0, 20)}...*\n🆔 \`${idReal}\`\nStatus: ${status}\n\n`;
+                lista += `${index + 1}. *${nomeGrupo}...*\n🆔 \`${idReal}\`\nStatus: ${status}\n\n`;
             });
 
             await client.sendMessage(msg.from, lista);
 
         } catch (err) {
             console.error("❌ Erro no /grupos:", err);
-            await client.sendMessage(msg.from, "⚠️ Erro ao listar grupos.");
+            await client.sendMessage(msg.from, `⚠️ Erro ao listar grupos: ${err.message}`);
         }
     }
 };
