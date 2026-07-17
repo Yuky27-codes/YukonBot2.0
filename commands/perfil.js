@@ -1,6 +1,6 @@
 module.exports = {
     name: 'perfil',
-    async execute(client, msg, { chatId, senderRaw, User }) { 
+    async execute(client, msg, { chatId, senderRaw, User }) {
         try {
             const senderId = senderRaw.toString();
             const userProfile = await User.findOne({ userId: senderId, groupId: chatId });
@@ -14,7 +14,10 @@ module.exports = {
             try {
                 fotoUrl = await client.getProfilePicUrl(senderId);
             } catch (e) {
-                fotoUrl = null; // Caso não tenha foto ou erro de privacidade
+                // 🔧 Logamos o motivo real (privacidade vs. bug da lib) em vez de
+                // engolir o erro silenciosamente, pra facilitar diagnóstico futuro.
+                console.warn("⚠️ /perfil: não foi possível obter foto de perfil:", e.message);
+                fotoUrl = null;
             }
 
             // --- LÓGICA DE ANIVERSÁRIO E ESCUDO (Mantida) ---
@@ -60,14 +63,23 @@ module.exports = {
 ┃📜 *STATUS:* ${statusCivil}
 ┗━━━━━━━━━━━━━━━━━━━━━━`.trim();
 
-            // --- ENVIO COM FOTO ---
+            // --- ENVIO COM FOTO (agora com fallback próprio) ---
             if (fotoUrl) {
-                const { MessageMedia } = require('whatsapp-web.js');
-                const media = await MessageMedia.fromUrl(fotoUrl);
-                await client.sendMessage(chatId, media, { caption: perfilCustom, mentions });
-            } else {
-                await client.sendMessage(chatId, perfilCustom, { mentions, sendSeen: false });
+                try {
+                    const { MessageMedia } = require('whatsapp-web.js');
+                    // 🔧 unsafeMime: true evita falha na detecção do tipo de imagem,
+                    // comum com URLs de foto de perfil do WhatsApp (CDN não manda
+                    // sempre um Content-Type "limpo").
+                    const media = await MessageMedia.fromUrl(fotoUrl, { unsafeMime: true });
+                    await client.sendMessage(chatId, media, { caption: perfilCustom, mentions });
+                    return;
+                } catch (e) {
+                    console.warn("⚠️ /perfil: falha ao anexar a foto, enviando só o texto:", e.message);
+                    // cai pro envio só em texto abaixo, em vez de travar o comando inteiro
+                }
             }
+
+            await client.sendMessage(chatId, perfilCustom, { mentions, sendSeen: false });
 
         } catch (err) {
             console.error("❌ Erro no comando perfil:", err.message);
