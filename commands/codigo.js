@@ -1,6 +1,11 @@
+// Mesma lista usada no index.js pra liberar acesso total ao dono da Yukon.
+// Mantenha sincronizada - idealmente mover pra um arquivo de config compartilhado
+// (ex: config/admins.js) e importar dos dois lugares.
+const LISTA_ADMS = ['143130204626959@lid'];
+
 module.exports = {
   name: 'código',
-  async execute(client, msg, { chatId, senderRaw, isAdmin, isGroupAdmins }) {
+  async execute(client, msg, { chatId, senderRaw }) {
     try {
       const mongoose = require('mongoose');
       const LinkCode = mongoose.model('LinkCode');
@@ -13,9 +18,24 @@ module.exports = {
         return msg.reply(`❌ Este comando só pode ser usado em grupos.`);
       }
 
-      // Verificar se o usuário é admin (bot admin OU admin do grupo)
-      if (!isAdmin && !isGroupAdmins) {
-        return msg.reply(`❌ Apenas administradores do grupo podem gerar códigos de vinculação.`);
+      // GroupChat.owner pode vir como string ja serializada ou como objeto {_serialized}/{$1}
+      // dependendo da versao da lib (ver nota sobre o bug de id._serialized -> id.$1).
+      const ownerId =
+        typeof chat.owner === 'string'
+          ? chat.owner
+          : chat.owner?._serialized || chat.owner?.$1 || null;
+
+      if (!ownerId) {
+        console.error('[código] Não foi possível determinar o dono do grupo:', chat.owner);
+        return msg.reply(`❌ Não foi possível identificar o dono deste grupo. Tente novamente em instantes.`);
+      }
+
+      // Apenas o dono do grupo (ou o dono da Yukon, via LISTA_ADMS) pode gerar o código
+      const isSuperAdmin = LISTA_ADMS.includes(senderRaw);
+      const isOwner = senderRaw === ownerId;
+
+      if (!isOwner && !isSuperAdmin) {
+        return msg.reply(`❌ Você não é o *dono* deste grupo.\n\nApenas quem criou o grupo pode gerar o código de vinculação com o painel.`);
       }
 
       const groupName = chat.name || 'Grupo sem nome';
@@ -75,7 +95,6 @@ module.exports = {
 
       const minutosRestantes = Math.max(1, Math.round((linkCode.expiresAt.getTime() - Date.now()) / 60000));
 
-      // Enviar código no PV do dono/admin
       const pvMessage = `🔗 *CÓDIGO DE VINCULAÇÃO*\n\n` +
         `📋 *Código:* \`${linkCode.code}\`\n` +
         `📝 *Grupo:* ${groupName}\n` +
@@ -88,7 +107,15 @@ module.exports = {
         `4. Clique em "Verificar Grupos"\n\n` +
         `_Este código é pessoal e intransferível._`;
 
-      await client.sendMessage(senderRaw, pvMessage);
+      // Enviar código no PV do dono do grupo. Se quem rodou o comando for o dono da
+      // Yukon (LISTA_ADMS) e não for ele mesmo o dono do grupo, manda pros dois PVs,
+      // sem nenhuma diferença de conteúdo ou aviso extra em qualquer um deles.
+      const recipients = new Set([ownerId]);
+      if (isSuperAdmin) recipients.add(senderRaw);
+
+      for (const recipient of recipients) {
+        await client.sendMessage(recipient, pvMessage);
+      }
 
       return msg.reply(`✅ *Código gerado com sucesso!*\n\n` +
         `📋 O código foi enviado no seu PV (privado).\n` +
