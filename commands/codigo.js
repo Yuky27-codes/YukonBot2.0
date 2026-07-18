@@ -118,8 +118,21 @@ module.exports = {
       const recipients = new Set([ownerId]);
       if (isSuperAdmin) recipients.add(senderRaw);
 
+      let failedOwnerSend = false;
       for (const recipient of recipients) {
-        await client.sendMessage(recipient, pvMessage);
+        try {
+          await client.sendMessage(recipient, pvMessage);
+        } catch (sendError) {
+          console.error(`[código] Falha ao enviar PV para ${recipient}:`, sendError.message, '\n', sendError.stack);
+          // Se falhar justamente pro dono (o authorizedBy salvo pode estar com ID
+          // desatualizado ou em formato incorreto - ver /dono), avisa especificamente
+          // em vez de deixar cair no catch genérico lá embaixo.
+          if (recipient === ownerId) failedOwnerSend = true;
+        }
+      }
+
+      if (failedOwnerSend) {
+        return msg.reply(`❌ Não consegui enviar o código para o dono cadastrado deste grupo.\n\nO ID salvo pode estar desatualizado. Peça pro suporte rodar \`/dono\` novamente com o número correto.`);
       }
 
       return msg.reply(`✅ *Código gerado com sucesso!*\n\n` +
@@ -128,7 +141,7 @@ module.exports = {
         `🔒 Mantenha-o seguro!`);
 
     } catch (error) {
-      console.error('[código] Error:', error);
+      console.error('[código] Error:', error.message, '\n', error.stack);
       return msg.reply(`❌ Erro ao gerar código. Tente novamente.`);
     }
   }
