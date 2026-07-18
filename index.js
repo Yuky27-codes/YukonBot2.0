@@ -250,6 +250,19 @@ const linkCodeSchema = new mongoose.Schema({
 
 const LinkCode = mongoose.models.LinkCode || mongoose.model('LinkCode', linkCodeSchema);
 
+// --- SCHEMA PARA MÉTRICAS DE GRUPO (CHS, SOCIAL LOCK-IN, GROWTH) ---
+const groupMetricsSchema = new mongoose.Schema({
+    groupId: { type: String, required: true, unique: true },
+    members: { type: Number, default: 0 },
+    activeMembers: { type: Number, default: 0 },
+    chs: { type: Number, default: 50 },
+    growth: { type: String, default: '—' },
+    socialLockin: { type: Number, default: 0 },
+    tier: { type: String, default: 'standard' },
+    calculatedAt: { type: Date, default: Date.now }
+}, { timestamps: true });
+const GroupMetrics = mongoose.model('GroupMetrics', groupMetricsSchema);
+
 /**********************************************************
  * 5. CLIENT WHATSAPP - ESTRUTURA BLINDADA (ATUALIZADA)
  **********************************************************/
@@ -955,5 +968,98 @@ cron.schedule('0 0 * * *', async () => {
         console.log(`🏦 Rendimentos aplicados: ${totalProcessados} usuários processados.`);
     } catch (e) {
         console.error("❌ Erro no cron do banco:", e);
+    }
+});
+
+// ============================================================
+// SISTEMA DE MÉTRICAS DE GRUPO (CHS, SOCIAL LOCK-IN, GROWTH)
+// ============================================================
+
+cron.schedule('0 2 * * *', async () => {
+    console.log("📊 Calculando métricas de grupos...");
+    try {
+        const authorizedGroups = await AuthorizedGroup.find({ isAuthorized: true });
+        
+        for (const authGroup of authorizedGroups) {
+            const groupId = authGroup.groupId;
+            
+            // 1. Obter memberCount atual do cache
+            const groupConfig = await GroupConfig.findOne({ groupId }).lean();
+            const members = groupConfig?.cachedParticipants?.length || 0;
+            
+            // 2. Calcular activeMembers (usuários com mensagem nos últimos 7 dias)
+            const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+            const activeMembers = await User.countDocuments({
+                groupId: groupId,
+                lastMessageAt: { $gte: sevenDaysAgo }
+            });
+            
+            // 3. Calcular socialLockin (% de usuários com interações sociais)
+            const users = await User.find({ groupId: groupId }).lean();
+            let usersWithSocialInteraction = 0;
+            
+            for (const user of users) {
+                const friendCount = Object.keys(user.friends || {}).length;
+                if (friendCount > 0) {
+                    usersWithSocialInteraction++;
+                }
+            }
+            
+            const socialLockin = users.length > 0 
+                ? Math.round((usersWithSocialInteraction / users.length) * 100) 
+                : 0;
+            
+            // 4. Calcular growth (variação de membros nos últimos 7 dias)
+            const previousMetrics = await GroupMetrics.findOne({ groupId }).lean();
+            let growth = '—';
+            
+            if (previousMetrics) {
+                const memberDiff = members - previousMetrics.members;
+                const growthPercent = previousMetrics.members > 0 
+                    ? Math.round((memberDiff / previousMetrics.members) * 100) 
+                    : 0;
+                
+                if (growthPercent > 0) {
+                    growth = `+${growthPercent}%`;
+                } else if (growthPercent < 0) {
+                    growth = `${growthPercent}%`;
+                } else {
+                    growth = '0%';
+                }
+            }
+            
+            // 5. Calcular CHS (Community Health Score)
+            // Fórmula: 40% engajamento (activeMembers/members) + 30% socialLockin + 30% estabilidade
+            const engagementScore = members > 0 ? (activeMembers / members) * 40 : 0;
+            const socialScore = (socialLockin / 100) * 30;
+            const stabilityScore = 30; // Base estável se grupo está autorizado
+            const chs = Math.round(engagementScore + socialScore + stabilityScore);
+            
+            // 6. Determinar tier baseado no CHS
+            let tier = 'hibernating';
+            if (chs >= 80) tier = 'premium';
+            else if (chs >= 50) tier = 'standard';
+            
+            // Salvar métricas
+            await GroupMetrics.findOneAndUpdate(
+                { groupId },
+                {
+                    members,
+                    activeMembers,
+                    chs,
+                    growth,
+                    socialLockin,
+                    tier,
+                    calculatedAt: new Date()
+                },
+                { upsert: true }
+            );
+            
+            console.log(`📊 Grupo ${groupId}: CHS=${chs}, Tier=${tier}, Members=${members}, Active=${activeMembers}`);
+        }
+        
+        console.log("✅ Métricas de grupos calculadas com sucesso.");
+    } catch (e) {
+        console.error("❌ Erro no cron de métricas:", e);
     }
 });
