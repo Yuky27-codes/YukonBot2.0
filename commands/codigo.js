@@ -18,16 +18,31 @@ module.exports = {
         return msg.reply(`❌ Este comando só pode ser usado em grupos.`);
       }
 
-      // GroupChat.owner pode vir como string ja serializada ou como objeto {_serialized}/{$1}
-      // dependendo da versao da lib (ver nota sobre o bug de id._serialized -> id.$1).
-      const ownerId =
+      // Consulta o mesmo status usado pela barreira de licença do index.js
+      const groupAuth = await AuthorizedGroup.findOne({ groupId: chatId }).lean();
+      const subscriptionExpiresAt = groupAuth?.expiresAt || null;
+      const hasActiveSubscription = Boolean(
+        groupAuth?.isAuthorized &&
+        (!subscriptionExpiresAt || new Date(subscriptionExpiresAt).getTime() > Date.now())
+      );
+      // eslint-disable-next-line no-console
+      console.log('[código] groupAuth:', groupAuth, '| hasActiveSubscription calculado:', hasActiveSubscription);
+
+      // GroupChat.owner (a fonte "oficial" do WhatsApp) já se mostrou não confiável -
+      // chegou a apontar pra uma dona antiga do grupo. Por isso o /dono existe: ele
+      // grava manualmente o dono correto em AuthorizedGroup.authorizedBy, e essa é
+      // agora a fonte prioritária. chat.owner só entra como fallback caso o grupo
+      // ainda não tenha passado por /dono.
+      const chatOwnerId =
         typeof chat.owner === 'string'
           ? chat.owner
           : chat.owner?._serialized || chat.owner?.$1 || null;
 
+      const ownerId = groupAuth?.authorizedBy || chatOwnerId || null;
+
       if (!ownerId) {
-        console.error('[código] Não foi possível determinar o dono do grupo:', chat.owner);
-        return msg.reply(`❌ Não foi possível identificar o dono deste grupo. Tente novamente em instantes.`);
+        console.error('[código] Não foi possível determinar o dono do grupo:', { authorizedBy: groupAuth?.authorizedBy, chatOwner: chat.owner });
+        return msg.reply(`❌ Não foi possível identificar o dono deste grupo.\n\nPeça pro suporte definir o dono com o comando \`/dono\`.`);
       }
 
       // Apenas o dono do grupo (ou o dono da Yukon, via LISTA_ADMS) pode gerar o código
@@ -40,16 +55,6 @@ module.exports = {
 
       const groupName = chat.name || 'Grupo sem nome';
       const memberCount = chat.participants?.length || 0;
-
-      // Consulta o mesmo status usado pela barreira de licença do index.js
-      const groupAuth = await AuthorizedGroup.findOne({ groupId: chatId }).lean();
-      const subscriptionExpiresAt = groupAuth?.expiresAt || null;
-      const hasActiveSubscription = Boolean(
-        groupAuth?.isAuthorized &&
-        (!subscriptionExpiresAt || new Date(subscriptionExpiresAt).getTime() > Date.now())
-      );
-      // eslint-disable-next-line no-console
-      console.log('[código] groupAuth:', groupAuth, '| hasActiveSubscription calculado:', hasActiveSubscription);
 
       // Se já existe um código válido (não expirado) pra esse grupo, reaproveita
       let linkCode = await LinkCode.findOne({
