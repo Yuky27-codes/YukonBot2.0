@@ -5,7 +5,7 @@ module.exports = {
 
         const categoria = args[0]?.toLowerCase();
 
-        // Mapeamento idêntico ao do /lock
+        // Mapeamento de categorias
         const mapaCampos = {
             'adm': 'admLocked',
             'jogos': 'jogosLocked',
@@ -16,19 +16,17 @@ module.exports = {
             'util': 'utilLocked'
         };
 
-        // Se o usuário digitar apenas /unlock sem categoria, libera tudo (Opcional)
+        // CASO 1: Desbloqueio Global (Libera o grupo todo para membros)
         if (!categoria) {
             await GroupConfig.updateOne(
                 { groupId: chatId },
-                { $set: { 
-                    admLocked: false, jogosLocked: false, ecoLocked: false, 
-                    iaLocked: false, salaLocked: false, socLocked: false, utilLocked: false 
-                } },
+                { $set: { onlyAdms: false } },
                 { upsert: true }
             );
-            return await client.sendMessage(chatId, "🔓 *SISTEMA LIBERADO:* Todas as categorias foram reativadas.");
+            return await client.sendMessage(chatId, "🔓 *MODO ADM DESATIVADO:* O grupo está aberto para todos.");
         }
 
+        // CASO 2: Desbloqueio por Categoria
         if (mapaCampos[categoria]) {
             const campo = mapaCampos[categoria];
             await GroupConfig.updateOne(
@@ -36,9 +34,9 @@ module.exports = {
                 { $set: { [campo]: false } },
                 { upsert: true }
             );
-            return await client.sendMessage(chatId, `🔓 *SISTEMA:* A categoria *${categoria.toUpperCase()}* foi desbloqueada com sucesso.`);
+            return await client.sendMessage(chatId, `🔓 *SISTEMA:* A categoria *${categoria.toUpperCase()}* foi desbloqueada para os membros.`);
         } else {
-            return await client.sendMessage(chatId, "⚠️ *Categoria inválida.* Use: /unlock [adm/jogos/economia/ia/sala/social/util]");
+            return await client.sendMessage(chatId, "⚠️ *Categoria inválida.* Use: /unlock [ou apenas /unlock para liberar tudo]");
         }
     }
 };
