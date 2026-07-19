@@ -132,7 +132,7 @@ const userSchema = new mongoose.Schema({
     isMuted: { type: Boolean, default: false },
     isPassive: { type: Boolean, default: false },
     muteExpires: { type: Number, default: null }, 
-    bankCoins: { type: Number, default: 0 },
+    bankCoins: { type: Number, default: 0 }, // Saldo no banco do bot (total depositado via /depositar)
     lastModoCaosDate: { type: String, default: null },
     blacklistReason: { type: String, default: null },
     lastPousar: { type: Date, default: null },
@@ -178,6 +178,20 @@ const groupStatsSchema = new mongoose.Schema({
     saidas: { type: Number, default: 0 }
 });
 const GroupStats = mongoose.model('GroupStats', groupStatsSchema);
+
+// --- NOVO SCHEMA PARA ESTATÍSTICAS DIÁRIAS DE GRUPO ---
+// Armazena contadores que resetam diariamente (fuso America/Sao_Paulo)
+const groupDailyStatsSchema = new mongoose.Schema({
+    groupId: { type: String, required: true },
+    date: { type: String, required: true }, // Formato YYYY-MM-DD
+    newMembers: { type: Number, default: 0 }, // Membros que entraram hoje
+    leftMembers: { type: Number, default: 0 }, // Membros que saíram hoje
+    coinsGenerated: { type: Number, default: 0 }, // Coins gerados hoje (recompensas, etc)
+    coinsBet: { type: Number, default: 0 }, // Coins apostados no cassino hoje
+    messagesCount: { type: Number, default: 0 }, // Mensagens enviadas hoje
+    bansCount: { type: Number, default: 0 }, // Banimentos executados hoje
+}, { timestamps: true });
+const GroupDailyStats = mongoose.model('GroupDailyStats', groupDailyStatsSchema);
 
 // --- NOVO SCHEMA PARA AUTORIZAÇÃO
 const authorizedGroupSchema = new mongoose.Schema({
@@ -540,6 +554,14 @@ Para reativar a licença, fale com o suporte.`);
                         timestamp: new Date()
                     });
 
+                    // --- CAPTURA DE MENSAGENS DIÁRIAS ---
+                    const today = getCurrentDateSP();
+                    await GroupDailyStats.findOneAndUpdate(
+                        { groupId: chatId, date: today },
+                        { $inc: { messagesCount: 1 } },
+                        { upsert: true }
+                    );
+
                     const xpGanho = 1; 
                     const userUpdate = await User.findOneAndUpdate(
                         { userId: senderRaw, groupId: groupId },
@@ -862,6 +884,14 @@ O sistema detectou a entrada do número banido: @${participantId.split('@')[0]}.
             { $inc: { entradas: 1 } },
             { upsert: true }
         );
+
+        // --- CAPTURA DE MEMBROS NOVOS DIÁRIOS ---
+        const today = getCurrentDateSP();
+        await GroupDailyStats.findOneAndUpdate(
+            { groupId: chatId, date: today },
+            { $inc: { newMembers: 1 } },
+            { upsert: true }
+        );
         
         // --- TODO O SEU CÓDIGO ORIGINAL DE BOAS-VINDAS ---
         const chat = await client.getChatById(chatId);
@@ -910,6 +940,14 @@ client.on('group_leave', async (notification) => {
         await GroupStats.updateOne(
             { groupId: chatId },
             { $inc: { saidas: 1 } },
+            { upsert: true }
+        );
+
+        // --- CAPTURA DE MEMBROS QUE SAÍRAM DIÁRIOS ---
+        const today = getCurrentDateSP();
+        await GroupDailyStats.findOneAndUpdate(
+            { groupId: chatId, date: today },
+            { $inc: { leftMembers: 1 } },
             { upsert: true }
         );
 
@@ -1086,5 +1124,55 @@ cron.schedule('0 2 * * *', async () => {
         console.log("✅ Métricas de grupos calculadas com sucesso.");
     } catch (e) {
         console.error("❌ Erro no cron de métricas:", e);
+    }
+});
+
+// ============================================================
+// SISTEMA DE RESET DIÁRIO E HISTÓRICO DE 7 DIAS
+// ============================================================
+
+// Função auxiliar para obter data atual no fuso America/Sao_Paulo
+function getCurrentDateSP() {
+    const now = new Date();
+    const options = { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' };
+    const dateStr = now.toLocaleDateString('en-CA', options); // Formato YYYY-MM-DD
+    return dateStr;
+}
+
+// Cron job às 00:00 (fuso America/Sao_Paulo) para reset diário e histórico
+cron.schedule('0 0 * * *', async () => {
+    console.log("🔄 Processando reset diário de estatísticas...");
+    try {
+        const today = getCurrentDateSP();
+        
+        // Buscar todos os grupos com estatísticas diárias
+        const allDailyStats = await GroupDailyStats.find({ date: today });
+        
+        for (const stat of allDailyStats) {
+            // Salvar no histórico de 7 dias (já está salvo em GroupDailyStats com timestamp)
+            // Resetar contadores para o novo dia
+            await GroupDailyStats.updateOne(
+                { _id: stat._id },
+                {
+                    $set: {
+                        newMembers: 0,
+                        leftMembers: 0,
+                        coinsGenerated: 0,
+                        coinsBet: 0,
+                        messagesCount: 0,
+                        bansCount: 0
+                    }
+                }
+            );
+        }
+        
+        // Limpar registros com mais de 7 dias
+        const sevenDaysAgo = new Date();
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+        await GroupDailyStats.deleteMany({ createdAt: { $lt: sevenDaysAgo } });
+        
+        console.log("✅ Reset diário concluído. Histórico de 7 dias mantido.");
+    } catch (e) {
+        console.error("❌ Erro no cron de reset diário:", e);
     }
 });
