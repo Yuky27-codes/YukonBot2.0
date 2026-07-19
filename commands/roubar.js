@@ -28,15 +28,18 @@ module.exports = {
 
             // Verifica se o modo caos está ativo — define uma vez e usa em todas as verificações
             const agora = Date.now();
-            const caosAtivo = global.modoCaosAtivo?.[chatId] > agora;
+const caosAtivo = global.modoCaosAtivo?.[chatId] > agora;
 
-            if (!isComandante && autorData.robberyCount >= 3) {
-                return await client.sendMessage(
-                    chatId,
-                    `🚫 @${autorId.split('@')[0]}, você já atingiu seu limite de 3 assaltos hoje! Volte amanhã.`,
-                    { mentions: [autorId] }
-                );
-            }
+// DEFINE O LIMITE DINAMICAMENTE
+const limiteDiario = caosAtivo ? 10 : 3;
+
+if (!isComandante && autorData.robberyCount >= limiteDiario) {
+    return await client.sendMessage(
+        chatId,
+        `🚫 @${autorId.split('@')[0]}, você já atingiu seu limite de *${limiteDiario}* assaltos hoje! Volte amanhã.`,
+        { mentions: [autorId] }
+    );
+}
 
             // ✅ CORRIGIDO: isPassive só bloqueia se o modo caos NÃO estiver ativo
             if (!caosAtivo && autorData.isPassive) {
