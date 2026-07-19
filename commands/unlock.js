@@ -3,24 +3,42 @@ module.exports = {
     async execute(client, msg, { chatId, isAdmin, args, GroupConfig }) {
         if (!isAdmin) return;
 
-        const subcomando = args[0]?.toLowerCase();
+        const categoria = args[0]?.toLowerCase();
 
-        // --- UNLOCK JOGOS ---
-        if (subcomando === 'jogos') {
+        // Mapeamento idêntico ao do /lock
+        const mapaCampos = {
+            'adm': 'admLocked',
+            'jogos': 'jogosLocked',
+            'economia': 'ecoLocked',
+            'ia': 'iaLocked',
+            'sala': 'salaLocked',
+            'social': 'socLocked',
+            'util': 'utilLocked'
+        };
+
+        // Se o usuário digitar apenas /unlock sem categoria, libera tudo (Opcional)
+        if (!categoria) {
             await GroupConfig.updateOne(
                 { groupId: chatId },
-                { $set: { jogosLocked: false } },
+                { $set: { 
+                    admLocked: false, jogosLocked: false, ecoLocked: false, 
+                    iaLocked: false, salaLocked: false, socLocked: false, utilLocked: false 
+                } },
                 { upsert: true }
             );
-            return await client.sendMessage(chatId, "🔓 *JOGOS LIBERADOS:* Os comandos de jogos, pets e quiz foram reativados neste grupo.");
+            return await client.sendMessage(chatId, "🔓 *SISTEMA LIBERADO:* Todas as categorias foram reativadas.");
         }
 
-        // --- UNLOCK NORMAL (já existia) ---
-        await GroupConfig.updateOne(
-            { groupId: chatId },
-            { $set: { onlyAdms: false } },
-            { upsert: true }
-        );
-        await client.sendMessage(chatId, "🔓 *SISTEMA LIBERADO:* A tripulação agora tem permissão total para usar os comandos da Yukon.");
+        if (mapaCampos[categoria]) {
+            const campo = mapaCampos[categoria];
+            await GroupConfig.updateOne(
+                { groupId: chatId },
+                { $set: { [campo]: false } },
+                { upsert: true }
+            );
+            return await client.sendMessage(chatId, `🔓 *SISTEMA:* A categoria *${categoria.toUpperCase()}* foi desbloqueada com sucesso.`);
+        } else {
+            return await client.sendMessage(chatId, "⚠️ *Categoria inválida.* Use: /unlock [adm/jogos/economia/ia/sala/social/util]");
+        }
     }
 };

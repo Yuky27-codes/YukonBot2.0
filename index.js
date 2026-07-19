@@ -263,6 +263,23 @@ const groupMetricsSchema = new mongoose.Schema({
 }, { timestamps: true });
 const GroupMetrics = mongoose.model('GroupMetrics', groupMetricsSchema);
 
+// --- SISTEMA DE LOCK ---
+const groupConfigSchema = new mongoose.Schema({
+    groupId: { type: String, required: true, unique: true },
+    onlyAdms:    { type: Boolean, default: false },
+    admLocked:   { type: Boolean, default: false },
+    jogosLocked: { type: Boolean, default: false },
+    ecoLocked:   { type: Boolean, default: false },
+    iaLocked:    { type: Boolean, default: false },
+    salaLocked:  { type: Boolean, default: false },
+    socLocked:   { type: Boolean, default: false },
+    utilLocked:  { type: Boolean, default: false },
+    prefixo:     { type: String, default: null },
+    simbolo:     { type: String, default: null },
+    cachedAdmins: { type: Array, default: [] },
+    cachedParticipants: { type: Array, default: [] }
+});
+
 /**********************************************************
  * 5. CLIENT WHATSAPP - ESTRUTURA BLINDADA (ATUALIZADA)
  **********************************************************/
@@ -697,16 +714,27 @@ let chat = null;
 }
         if (isAdmin) isGroupAdmins = true;
 
-const COMANDOS_JOGOS = [
-    'cassino', 'adotarpet', 'pet', 'quiz', 'resp',
-    'quemsoueu', 'perg', 'forca', 'palpite', 'adivinhar',
-    'jogovelha', 'desafiodiario'
-];
+// Adicione esta constante logo após suas definições de Schemas
+const MAPA_BLOQUEIOS = {
+    admLocked: ['adv', 'listaadv', 'rmadv', 'ban', 'banblack', 'unbanblack', 'blacklist', 'mute', 'desmute', 'mutep', 'desmutep', 'promover', 'rebaixar', 'todos', 'id', 'addcoins', 'rmvcoins', 'lock', 'unlock', 'addmodo', 'editmodo', 'delmodo', 'confmodos', 'monitorar', 'checar'],
+    jogosLocked: ['cassino', 'apostar', 'roleta', '21', 'corrida', 'f', 'modo', 'modos', 'humor', 'cantadas', 'frasemotivacional', 'curiosidades', 'matar', 'encontro', 'adotarpet', 'pet', 'jogovelha', 'quiz', 'resp', 'quemsoueu', 'perg', 'forca', 'palpite', 'adivinhar', 'desafiodiario'],
+    ecoLocked: ['perfil', 'inventario', 'rank', 'rankglobal', 'missão', 'yukonshop', 'doar', 'protecao', 'roubar', 'banco', 'modocaos', 'caixasurpresa', 'pousar', 'imune', 'assinatura'],
+    iaLocked: ['ia', 'resumir'],
+    salaLocked: ['addsala', 'sala'],
+    socLocked: ['ship', 'amizade', 'casar', 'casais', 'divorciar', 'beijar', 'tapa', 'chutar', 'abraçar', 'criar_familia', 'adotar', 'parentesco', 'heranca', 'mesada', 'deserdar', 'amante', 'meu_amante', 'dar_flores', 'meu_aniver', 'aceitarp', 'aceitard', 'lista_aniver'],
+    utilLocked: ['iniciar', 'painel', 'id_grupo', 'prefixo', 'simbolo']
+};
 
-if (chatId.endsWith('@g.us') && COMANDOS_JOGOS.includes(commandName)) {
+if (chatId.endsWith('@g.us') && !isAdmin) {
     const configGrupo = await GroupConfig.findOne({ groupId: chatId }).lean();
-    if (configGrupo?.jogosLocked && !isAdmin) {
-        return await client.sendMessage(chatId, "🔒 *JOGOS BLOQUEADOS:* Os comandos de jogos estão desativados neste grupo.");
+    
+    if (configGrupo) {
+        for (const [campo, listaComandos] of Object.entries(MAPA_BLOQUEIOS)) {
+            // Se o grupo tem a flag ativada e o comando está na lista proibida
+            if (configGrupo[campo] === true && listaComandos.includes(commandName)) {
+                return await client.sendMessage(chatId, `🔒 *SISTEMA DE BLOQUEIO:* O módulo correspondente a este comando está desativado neste grupo.`);
+            }
+        }
     }
 }
 

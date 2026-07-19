@@ -3,24 +3,42 @@ module.exports = {
     async execute(client, msg, { chatId, isAdmin, args, GroupConfig }) {
         if (!isAdmin) return;
 
-        const subcomando = args[0]?.toLowerCase();
+        // O primeiro argumento é a categoria, o segundo é o estado (opcional)
+        const categoria = args[0]?.toLowerCase();
+        
+        // Mapeamento das categorias para os campos no seu Schema
+        const mapaCampos = {
+            'adm': 'admLocked',
+            'jogos': 'jogosLocked',
+            'economia': 'ecoLocked',
+            'ia': 'iaLocked',
+            'sala': 'salaLocked',
+            'social': 'socLocked',
+            'util': 'utilLocked'
+        };
 
-        // --- LOCK JOGOS ---
-        if (subcomando === 'jogos') {
-            await GroupConfig.updateOne(
-                { groupId: chatId },
-                { $set: { jogosLocked: true } },
-                { upsert: true }
-            );
-            return await client.sendMessage(chatId, "🔒 *JOGOS BLOQUEADOS:* Os comandos de jogos, pets e quiz foram desativados neste grupo.");
+        if (!categoria || !mapaCampos[categoria]) {
+            return await client.sendMessage(chatId, `⚠️ *Uso correto:* /lock [categoria]
+            
+Categorias disponíveis: 
+- adm, jogos, economia, ia, sala, social, util
+
+Exemplo: /lock jogos`);
         }
 
-        // --- LOCK NORMAL (já existia) ---
+        const campo = mapaCampos[categoria];
+
+        // Alterna o estado (se estiver true, vira false e vice-versa)
+        const config = await GroupConfig.findOne({ groupId: chatId }) || { groupId: chatId };
+        const novoEstado = !config[campo];
+
         await GroupConfig.updateOne(
             { groupId: chatId },
-            { $set: { onlyAdms: true } },
+            { $set: { [campo]: novoEstado } },
             { upsert: true }
         );
-        await client.sendMessage(chatId, "🔒 *PROTOCOLO DE SEGURANÇA:* A Yukon Station agora está em modo restrito. Apenas oficiais (ADMs) podem interagir com o bot.");
+
+        const status = novoEstado ? '🔒 BLOQUEADO' : '🔓 DESBLOQUEADO';
+        await client.sendMessage(chatId, `⚙️ *Sistema:* Categoria *${categoria.toUpperCase()}* está agora *${status}*.`);
     }
 };
