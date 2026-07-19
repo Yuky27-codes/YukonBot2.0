@@ -46,9 +46,17 @@ const GroupMessage = mongoose.models.GroupMessage || mongoose.model('GroupMessag
 const groupConfigSchema = new mongoose.Schema({
     groupId: { type: String, required: true, unique: true },
     onlyAdms:    { type: Boolean, default: false },
-    jogosLocked: { type: Boolean, default: false },
     prefixo: { type: String, default: null },
     simbolo: { type: String, default: null },
+    admLocked:   { type: Boolean, default: false },
+    jogosLocked: { type: Boolean, default: false },
+    ecoLocked:   { type: Boolean, default: false },
+    iaLocked:    { type: Boolean, default: false },
+    salaLocked:  { type: Boolean, default: false },
+    socLocked:   { type: Boolean, default: false },
+    utilLocked:  { type: Boolean, default: false },
+    cachedAdmins: { type: Array, default: [] },
+    cachedParticipants: { type: Array, default: [] },
 });
 const GroupConfig = mongoose.model('GroupConfig', groupConfigSchema);
 
@@ -262,23 +270,6 @@ const groupMetricsSchema = new mongoose.Schema({
     calculatedAt: { type: Date, default: Date.now }
 }, { timestamps: true });
 const GroupMetrics = mongoose.model('GroupMetrics', groupMetricsSchema);
-
-// --- SISTEMA DE LOCK ---
-const groupConfigSchema = new mongoose.Schema({
-    groupId: { type: String, required: true, unique: true },
-    onlyAdms:    { type: Boolean, default: false },
-    admLocked:   { type: Boolean, default: false },
-    jogosLocked: { type: Boolean, default: false },
-    ecoLocked:   { type: Boolean, default: false },
-    iaLocked:    { type: Boolean, default: false },
-    salaLocked:  { type: Boolean, default: false },
-    socLocked:   { type: Boolean, default: false },
-    utilLocked:  { type: Boolean, default: false },
-    prefixo:     { type: String, default: null },
-    simbolo:     { type: String, default: null },
-    cachedAdmins: { type: Array, default: [] },
-    cachedParticipants: { type: Array, default: [] }
-});
 
 /**********************************************************
  * 5. CLIENT WHATSAPP - ESTRUTURA BLINDADA (ATUALIZADA)
