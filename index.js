@@ -718,19 +718,18 @@ const MAPA_BLOQUEIOS = {
 
 // --- 🟢 BARREIRA DE SEGURANÇA INTEGRADA ---
 const configGrupo = await GroupConfig.findOne({ groupId: chatId }).lean();
-
+// Verifique se o 'commandName' realmente está batendo com os nomes no MAPA_BLOQUEIOS
 if (chatId.endsWith('@g.us') && !isAdmin) {
-    // 1. Barreira Global: Se apenas ADMs podem usar, bloqueia tudo para membros
-    if (configGrupo && configGrupo.onlyAdms) {
-        // Se o comando for para uso de membros, bloqueia
-        return; 
-    }
-
-    // 2. Barreira Modular: Verifica as travas das categorias individuais
+    const configGrupo = await GroupConfig.findOne({ groupId: chatId }).lean();
+    
     if (configGrupo) {
+        // Log de debug para ver se o comando está chegando aqui
+        // console.log("Verificando comando:", commandName); 
+
         for (const [campo, listaComandos] of Object.entries(MAPA_BLOQUEIOS)) {
+            // AQUI ESTÁ O PULO DO GATO: Se o campo for undefined, ele ignora
             if (configGrupo[campo] === true && listaComandos.includes(commandName)) {
-                return await client.sendMessage(chatId, `🔒 *SISTEMA:* O módulo *${campo.replace('Locked', '')}* está desativado para membros.`);
+                return await client.sendMessage(chatId, `🔒 *SISTEMA:* Comando bloqueado.`);
             }
         }
     }
