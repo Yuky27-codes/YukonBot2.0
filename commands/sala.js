@@ -22,7 +22,7 @@ module.exports = {
                 : "🛰️ Nenhuma sala aberta no momento.";
 
             // --- MENSAGEM 1: O CÓDIGO ---
-            await client.sendMessage(chatId, `\n\n${codigoDesteGrupo}`, { sendSeen: false });
+            await client.sendMessage(chatId, `${codigoDesteGrupo}`, { sendSeen: false });
 
             // --- MENSAGEM 2: A MARCAÇÃO GERAL ---
             const ehGrupo = chat ? chat.isGroup : chatId.endsWith('@g.us');
