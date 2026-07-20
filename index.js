@@ -193,6 +193,22 @@ const groupDailyStatsSchema = new mongoose.Schema({
 }, { timestamps: true });
 const GroupDailyStats = mongoose.model('GroupDailyStats', groupDailyStatsSchema);
 
+// --- NOVO SCHEMA PARA HISTÓRICO DE CHS POR COMUNIDADE ---
+// Armazena snapshots diários do CHS para evolução 7/30/90 dias
+const groupCHSHistorySchema = new mongoose.Schema({
+    groupId: { type: String, required: true },
+    date: { type: String, required: true }, // Formato YYYY-MM-DD
+    chs: { type: Number, required: true }, // CHS do dia
+    pillars: {
+        activity: { type: Number, required: true }, // 0-100
+        social: { type: Number, required: true }, // 0-100
+        economy: { type: Number, default: null }, // 0-100 ou null
+        retention: { type: Number, required: true }, // 0-100
+        administration: { type: Number, default: null }, // 0-100 ou null
+    }
+}, { timestamps: true });
+const GroupCHSHistory = mongoose.model('GroupCHSHistory', groupCHSHistorySchema);
+
 // --- NOVO SCHEMA PARA AUTORIZAÇÃO
 const authorizedGroupSchema = new mongoose.Schema({
     groupId: { type: String, required: true, unique: true },
@@ -1141,7 +1157,7 @@ function getCurrentDateSP() {
 
 // Cron job às 00:00 (fuso America/Sao_Paulo) para reset diário e histórico
 cron.schedule('0 0 * * *', async () => {
-    console.log("🔄 Processando reset diário de estatísticas...");
+    console.log("🔄 Processando reset diário de estatísticas e snapshot de CHS...");
     try {
         const today = getCurrentDateSP();
         
@@ -1149,7 +1165,129 @@ cron.schedule('0 0 * * *', async () => {
         const allDailyStats = await GroupDailyStats.find({ date: today });
         
         for (const stat of allDailyStats) {
-            // Salvar no histórico de 7 dias (já está salvo em GroupDailyStats com timestamp)
+            const groupId = stat.groupId;
+            
+            // Calcular pilares do CHS para o snapshot
+            const yukonUsers = await User.find({ groupId });
+            const totalMembers = yukonUsers.length;
+            const now = new Date();
+            const thirtyMinutesAgo = new Date(now.getTime() - 30 * 60 * 1000);
+            const activeMembers = yukonUsers.filter(user => 
+                user.lastMessageAt && user.lastMessageAt > thirtyMinutesAgo
+            ).length;
+            
+            // Atividade: activeMembers / members * 100
+            const activityPillar = totalMembers > 0 ? Math.round((activeMembers / totalMembers) * 100) : 0;
+            
+            // Social: buscar socialLockin das métricas
+            const groupMetrics = await GroupMetrics.findOne({ groupId });
+            const socialPillar = groupMetrics?.socialLockin ?? 0;
+            
+            // Retenção: 100 - (saídas do dia / (membros atuais + saídas do dia) * 100)
+            const leftMembersToday = stat.leftMembers || 0;
+            const retentionPillar = totalMembers > 0 
+                ? Math.round(100 - (leftMembersToday / (totalMembers + leftMembersToday) * 100))
+                : 100;
+            
+            // Economia: calibrado baseado no valor econômico total
+            // Fórmula: Comparar com média histórica (30 dias) - se não tiver histórico, usar baseline
+            let economyPillar = null;
+            try {
+                const thirtyDaysAgo = new Date();
+                thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+                
+                const historyEconomy = await GroupCHSHistory.find({
+                    groupId,
+                    date: { $gte: thirtyDaysAgo.toLocaleDateString('en-CA') }
+                });
+                
+                // Buscar total de coins do grupo
+                const totalCoinsResult = await User.aggregate([
+                    { $match: { groupId } },
+                    { $group: { _id: null, total: { $sum: '$coins' } } }
+                ]);
+                const totalCoins = totalCoinsResult[0]?.total || 0;
+                
+                if (historyEconomy.length > 0) {
+                    const avgEconomy = historyEconomy.reduce((sum, h) => sum + (h.pillars.economy || 0), 0) / historyEconomy.length;
+                    
+                    if (avgEconomy > 0) {
+                        economyPillar = Math.min(100, Math.round((totalCoins / (avgEconomy * totalMembers)) * 100));
+                    } else {
+                        const coinsPerMember = totalMembers > 0 ? totalCoins / totalMembers : 0;
+                        economyPillar = Math.min(100, Math.round(coinsPerMember * 2));
+                    }
+                } else {
+                    const coinsPerMember = totalMembers > 0 ? totalCoins / totalMembers : 0;
+                    economyPillar = Math.min(100, Math.round(coinsPerMember * 2));
+                }
+            } catch (error) {
+                console.warn('[cron] Economy pillar calculation error:', error);
+                economyPillar = null;
+            }
+            
+            // Administração: calibrado baseado em taxa de advertências por membro
+            let administrationPillar = null;
+            try {
+                const totalAdvsResult = await User.aggregate([
+                    { $match: { groupId } },
+                    { $group: { _id: null, total: { $sum: '$advs' } } }
+                ]);
+                const totalAdvs = totalAdvsResult[0]?.total || 0;
+                const advsPerMember = totalMembers > 0 ? totalAdvs / totalMembers : 0;
+                
+                if (advsPerMember <= 0.1) {
+                    administrationPillar = 100;
+                } else if (advsPerMember <= 0.5) {
+                    administrationPillar = 80;
+                } else if (advsPerMember <= 1.0) {
+                    administrationPillar = 50;
+                } else if (advsPerMember <= 2.0) {
+                    administrationPillar = 30;
+                } else {
+                    administrationPillar = 10;
+                }
+            } catch (error) {
+                console.warn('[cron] Administration pillar calculation error:', error);
+                administrationPillar = null;
+            }
+            
+            // Calcular CHS completo (todos os 5 pilares)
+            const availableWeight = economyPillar !== null && administrationPillar !== null 
+                ? 1.0 // Todos os pilares disponíveis
+                : 0.70; // Só 3 pilares disponíveis
+            
+            let chs;
+            if (availableWeight === 1.0) {
+                chs = Math.round(
+                    activityPillar * 0.30 + 
+                    socialPillar * 0.25 + 
+                    economyPillar * 0.20 + 
+                    retentionPillar * 0.15 + 
+                    administrationPillar * 0.10
+                );
+            } else {
+                chs = Math.round(
+                    (activityPillar * 0.30 + socialPillar * 0.25 + retentionPillar * 0.15) / 0.70
+                );
+            }
+            
+            // Salvar snapshot do CHS no histórico
+            await GroupCHSHistory.findOneAndUpdate(
+                { groupId, date: today },
+                {
+                    chs,
+                    pillars: {
+                        activity: activityPillar,
+                        social: socialPillar,
+                        economy: economyPillar,
+                        retention: retentionPillar,
+                        administration: administrationPillar
+                    }
+                },
+                { upsert: true }
+            );
+            
             // Resetar contadores para o novo dia
             await GroupDailyStats.updateOne(
                 { _id: stat._id },
@@ -1166,12 +1304,17 @@ cron.schedule('0 0 * * *', async () => {
             );
         }
         
-        // Limpar registros com mais de 7 dias
+        // Limpar registros de GroupDailyStats com mais de 7 dias
         const sevenDaysAgo = new Date();
         sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
         await GroupDailyStats.deleteMany({ createdAt: { $lt: sevenDaysAgo } });
         
-        console.log("✅ Reset diário concluído. Histórico de 7 dias mantido.");
+        // Limpar registros de GroupCHSHistory com mais de 90 dias
+        const ninetyDaysAgo = new Date();
+        ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90);
+        await GroupCHSHistory.deleteMany({ createdAt: { $lt: ninetyDaysAgo } });
+        
+        console.log("✅ Reset diário e snapshot de CHS concluídos. Histórico mantido (7 dias diários, 90 dias CHS).");
     } catch (e) {
         console.error("❌ Erro no cron de reset diário:", e);
     }
