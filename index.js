@@ -411,6 +411,7 @@ client.initialize();
  **********************************************************/
 client.on('message_create', async (msg) => {
     if (!msg || !msg.from) return;
+    if (msg.fromMe) return;
 
     const chatId = msg.from._serialized || msg.from.toString();
     const senderRaw = (msg.author || msg.from)._serialized || (msg.author || msg.from).toString();
