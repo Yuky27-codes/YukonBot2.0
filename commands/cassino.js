@@ -1,3 +1,5 @@
+const mongoose = require('mongoose');
+
 module.exports = {
     name: 'cassino',
     async execute(client, msg, { args, chatId, senderRaw, User }) {
@@ -71,6 +73,15 @@ module.exports = {
                     { $inc: { casinoCount: 1 } }
                 );
             }
+
+            // Capturar aposta em GroupDailyStats
+            const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
+            const GroupDailyStats = mongoose.model('GroupDailyStats');
+            await GroupDailyStats.findOneAndUpdate(
+                { groupId: chatId, date: today },
+                { $inc: { coinsBet: valorAp } },
+                { upsert: true }
+            );
 
             // --- PROCESSAMENTO DOS JOGOS ---
             switch (jogo) {

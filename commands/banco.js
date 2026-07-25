@@ -1,3 +1,5 @@
+const mongoose = require('mongoose');
+
 module.exports = {
     name: 'banco',
     async execute(client, msg, { chatId, senderRaw, args, User }) {
@@ -53,6 +55,15 @@ module.exports = {
                 }
 
                 const valorReal = Math.min(valor, limiteRestante);
+
+                // Capturar depósito em GroupDailyStats
+                const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD (compatível com fuso SP)
+                const GroupDailyStats = mongoose.model('GroupDailyStats');
+                await GroupDailyStats.findOneAndUpdate(
+                    { groupId: chatId, date: today },
+                    { $inc: { coinsGenerated: valorReal } },
+                    { upsert: true }
+                );
 
                 await User.updateOne(
                     { userId: autorId, groupId: chatId },

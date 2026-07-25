@@ -42,6 +42,14 @@ const GroupMessageSchema = new mongoose.Schema({
 
 const GroupMessage = mongoose.models.GroupMessage || mongoose.model('GroupMessage', GroupMessageSchema);
 
+// Função auxiliar para data no fuso America/Sao_Paulo
+function getCurrentDateSP() {
+    const now = new Date();
+    const options = { timeZone: 'America/Sao_Paulo', year: 'numeric', month: '2-digit', day: '2-digit' };
+    const formatter = new Intl.DateTimeFormat('en-CA', options);
+    return formatter.format(now); // Retorna YYYY-MM-DD
+}
+
 // --- 🟢 ADIÇÃO: SCHEMA DE CONFIGURAÇÃO DO GRUPO (LOCK/UNLOCK) ---
 const groupConfigSchema = new mongoose.Schema({
     groupId: { type: String, required: true, unique: true },
@@ -116,6 +124,8 @@ const userSchema = new mongoose.Schema({
     userId: { type: String, required: true },
     groupId: { type: String, required: true },
     lastMessageAt: { type: Date, default: Date.now },
+    joinedAt: { type: Date, default: null }, // Data que o usuário entrou no grupo
+    joinedIsEstimate: { type: Boolean, default: false }, // Se joinedAt é uma estimativa (para membros antigos)
     isBotAdmin: { type: Boolean, default: false },
     coins: { type: Number, default: 0 },
     xp: { type: Number, default: 0 },
@@ -400,6 +410,30 @@ client.on('ready', () => {
     console.log("✅ YukonBot está online e operante!");
 });
 
+// --- EVENTO DE BOAS-VINDAS (NOVOS MEMBROS) ---
+client.on('group_join', async (notification) => {
+    try {
+        const groupId = notification.id.remote;
+        const userId = notification.id.participant;
+        
+        // Capturar data de entrada
+        await User.findOneAndUpdate(
+            { userId, groupId },
+            { 
+                $set: { 
+                    joinedAt: new Date(),
+                    joinedIsEstimate: false
+                } 
+            },
+            { upsert: true }
+        );
+        
+        console.log(`✅ Novo membro capturado: ${userId} em ${groupId}`);
+    } catch (error) {
+        console.error("❌ Erro ao capturar novo membro:", error);
+    }
+});
+
 /**********************************************************
  * 8. INICIALIZAÇÃO
  **********************************************************/
@@ -411,7 +445,7 @@ client.initialize();
  **********************************************************/
 client.on('message_create', async (msg) => {
     if (!msg || !msg.from) return;
-    if (msg.fromMe) return;
+    if (msg.fromMe) return; // Ignorar mensagens do próprio bot para evitar competição nos registros
 
     const chatId = msg.from._serialized || msg.from.toString();
     const senderRaw = (msg.author || msg.from)._serialized || (msg.author || msg.from).toString();
@@ -877,6 +911,14 @@ client.on('group_join', async (notification) => {
         if (banidoData) {
             const chat = await client.getChatById(chatId);
             
+            // Capturar banimento em GroupDailyStats
+            const today = getCurrentDateSP();
+            await GroupDailyStats.findOneAndUpdate(
+                { groupId: chatId, date: today },
+                { $inc: { bansCount: 1 } },
+                { upsert: true }
+            );
+            
             // 1. Expulsa o intruso imediatamente
             await chat.removeParticipants([participantId]);
 
@@ -1074,19 +1116,42 @@ cron.schedule('0 2 * * *', async () => {
                 lastMessageAt: { $gte: sevenDaysAgo }
             });
             
-            // 3. Calcular socialLockin (% de usuários com interações sociais)
+            // 3. Calcular socialLockin (% de usuários com interações sociais recíprocas)
             const users = await User.find({ groupId: groupId }).lean();
-            let usersWithSocialInteraction = 0;
+            let usersWithReciprocalInteraction = 0;
             
+            // Criar mapa de userId para índice no array users
+            const userMap = {};
+            users.forEach((user, idx) => {
+                userMap[user.userId] = idx;
+            });
+            
+            // Verificar reciprocidade para cada usuário
             for (const user of users) {
-                const friendCount = Object.keys(user.friends || {}).length;
-                if (friendCount > 0) {
-                    usersWithSocialInteraction++;
+                const friends = user.friends || {};
+                const friendIds = Object.keys(friends);
+                
+                // Verificar se pelo menos um amigo também tem este usuário como amigo
+                let hasReciprocal = false;
+                for (const friendId of friendIds) {
+                    const friendIdx = userMap[friendId];
+                    if (friendIdx !== undefined) {
+                        const friend = users[friendIdx];
+                        const userNumericId = user.userId.replace(/\D/g, '');
+                        if (friend.friends && friend.friends[userNumericId]) {
+                            hasReciprocal = true;
+                            break;
+                        }
+                    }
+                }
+                
+                if (hasReciprocal) {
+                    usersWithReciprocalInteraction++;
                 }
             }
             
             const socialLockin = users.length > 0 
-                ? Math.round((usersWithSocialInteraction / users.length) * 100) 
+                ? Math.round((usersWithReciprocalInteraction / users.length) * 100) 
                 : 0;
             
             // 4. Calcular growth (variação de membros nos últimos 7 dias)
