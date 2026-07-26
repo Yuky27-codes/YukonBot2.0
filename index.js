@@ -225,7 +225,8 @@ const authorizedGroupSchema = new mongoose.Schema({
     isAuthorized: { type: Boolean, default: false },
     authorizedBy: { type: String },
     expiresAt: { type: Date, default: null },
-    createdAt: { type: Date, default: Date.now }
+    createdAt: { type: Date, default: Date.now },
+    jaFezTeste: { type: Boolean, default: false },
 });
 const AuthorizedGroup = mongoose.model('AuthorizedGroup', authorizedGroupSchema);
 
@@ -474,19 +475,25 @@ client.on('message_create', async (msg) => {
                 }
             }
         }
-        // No seu index.js, dentro do evento de mensagem
-if (!msg.from.endsWith('@g.us')) { // Se for PV
-    const corpo = msg.body.toLowerCase();
+     // --- 🟢 RESPOSTA AUTOMÁTICA NO PV PARA QUALQUER MENSAGEM ---
+if (!msg.from.endsWith('@g.us')) { // Apenas no Chat Privado (PV)
+    const corpo = msg.body ? msg.body.trim().toLowerCase() : "";
     
-    if (corpo.includes('start') || corpo === 'oi' || corpo === 'olá') {
-        return msg.reply(`🛰️ *BEM-VINDO À CENTRAL YUKON*
+    // Se o usuário mandou o comprovante, deixa o outro bloco de comprovante tratar
+    if (msg.hasMedia && msg.type === 'image' && corpo.includes("comprovante")) {
+        // Deixa passar para o bloco de comprovantes mais abaixo no código
+    } 
+    // Se ele mandou qualquer outra coisa (texto aleatório, cumprimento, etc.) e não é o comando /menu_cliente já digitado
+    else if (corpo !== '/menu_cliente') {
+        return msg.reply(`🛰️ *CENTRAL YUKON — ATENDIMENTO AUTOMATIZADO*
 ━━━━━━━━━━━━━━━━━━━━━
-Olá! Eu sou a inteligência da YukonBot. Aqui você gerencia suas assinaturas e grupos de forma automática.
+Olá! Seja muito bem-vindo(a) à central da YukonBot. Recebi a sua mensagem!
 
-🚀 *Para começar:*
-Digite **/menu_cliente** para ver todos os meus comandos e como funcionam as assinaturas.
+🚀 Para ver todos os recursos disponíveis, gerenciar suas assinaturas, ver os planos ou ver como vincular seus grupos, acesse o painel principal digitando ou clicando no comando abaixo:
 
-🔧 *Dica:* Se você quer vincular um grupo, use **/id_grupo** dentro do seu grupo e depois venha aqui no PV.`);
+👉 \`/menu_cliente\`
+
+🔧 *Dica:* Se você veio do Instagram para testar ou assinar, digite **/menu_cliente** para ver o passo a passo de ativação.`);
     }
 }
 

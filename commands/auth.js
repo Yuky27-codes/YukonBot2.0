@@ -103,9 +103,10 @@ module.exports = {
             }
 
             if (acao === 'teste') {
-                const tempoTeste = new Date(Date.now() + 10 * 1000);
+                // 24 horas em milissegundos (24 * 60 * 60 * 1000)
+                const tempoTeste = new Date(Date.now() + 24 * 60 * 60 * 1000);
                 await AuthorizedGroup.updateOne({ groupId: idGrupo }, { $set: { isAuthorized: true, expiresAt: tempoTeste } }, { upsert: true });
-                return msg.reply(`⏳ *MODO TESTE*\nGrupo liberado por *10 segundos*!`);
+                return msg.reply(`⏳ *MODO TESTE*\nGrupo liberado por *24 horas*!`);
             }
 
             if (acao === 'rem') {
