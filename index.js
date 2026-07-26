@@ -355,23 +355,25 @@ client.on('error', (err) => {
 /**********************************************************
  * 6A. CONTROLE DE ATENDIMENTO NO PV (SESSÃO / TIMERS)
  **********************************************************/
-const TEMPO_INATIVIDADE = 10 * 1000; // TESTE: 10 segundos
-const TEMPO_AVISO_FIM = 10 * 1000;   // TESTE: 10 segundos
+const TEMPO_INATIVIDADE = 10 * 60 * 1000; // 10 minutos
+const TEMPO_AVISO_FIM = 5 * 60 * 1000;    // 5 minutos
 
 const MENSAGEM_PADRAO_ATENDIMENTO = `🛰️ *CENTRAL YUKON — ATENDIMENTO AUTOMATIZADO*
 ━━━━━━━━━━━━━━━━━━━━━
 Olá! Seja muito bem-vindo(a) à central da YukonBot. Recebi a sua mensagem!
 
-🚀 Para ver todos os recursos disponíveis, gerenciar suas assinaturas, ver os planos ou ver como vincular seus grupos, acesse o menu principal digitando o comando abaixo:
+🚀 Para ver todos os recursos disponíveis, gerenciar suas assinaturas, ver os planos ou ver como vincular seus grupos, acesse o painel principal digitando ou clicando no comando abaixo:
 
 👉 \`/menu_cliente\`
 
 🔧 *Dica:* Se você veio do Instagram para testar ou assinar, digite **/menu_cliente** para ver o passo a passo de ativação.`;
 
-const MENSAGEM_AVISO_INATIVIDADE = `⚠️ *AVISO DE INATIVIDADE*\nNotamos que você está ausente. O seu atendimento será encerrado em breve (5 minutos) caso não haja novas interações.`;
+const MENSAGEM_AVISO_INATIVIDADE = `Oi! 😊 Notamos que você ficou um tempinho sem responder por aqui.\n\nAinda precisa de alguma coisa? Se não mandar mais nenhuma mensagem nos próximos 5 minutinhos, esse atendimento vai se encerrar automaticamente — mas fica tranquilo(a), é só um probleminha de rotina! 💙`;
+
+const MENSAGEM_ENCERRAMENTO_ATENDIMENTO = `🔴 Como você ficou um tempo sem interagir, esse atendimento foi encerrado por aqui, tudo bem?\n\nMas não se preocupe: se precisar de qualquer coisa, é só mandar uma nova mensagem que a gente já reinicia o atendimento na hora! 🚀`;
 
 // Verificador periódico: roda sozinho, independente do cliente mandar mensagem.
-// Manda o aviso de inatividade aos 10min e encerra a sessão aos +5min (15min totais),
+// Manda o aviso de inatividade aos 10min e encerra a sessão (com aviso) aos +5min (15min totais),
 // para que a mensagem padrão volte a ser enviada na próxima mensagem do cliente.
 function iniciarVerificadorDeSessoes() {
     setInterval(async () => {
@@ -383,9 +385,12 @@ function iniciarVerificadorDeSessoes() {
             const tempoPassado = agora - sessao.ultimoContato;
 
             if (tempoPassado > (TEMPO_INATIVIDADE + TEMPO_AVISO_FIM)) {
-                // Encerra a sessão. Não precisa mandar mensagem agora:
-                // a mensagem padrão será enviada na próxima mensagem do cliente.
                 sessao.etapa = 'encerrado';
+                try {
+                    await client.sendMessage(remetente, MENSAGEM_ENCERRAMENTO_ATENDIMENTO);
+                } catch (e) {
+                    console.error("❌ Erro ao enviar mensagem de encerramento:", e.message);
+                }
             } else if (tempoPassado > TEMPO_INATIVIDADE && sessao.etapa === 'ativo') {
                 sessao.etapa = 'aviso_encerramento';
                 try {
