@@ -477,10 +477,6 @@ client.on('message_create', async (msg) => {
             }
         }
      // --- 🟢 CONTROLE DE SESSÃO DE ATENDIMENTO NO PV ---
-if (!global.sessoesAtendimento) {
-    global.sessoesAtendimento = {};
-}
-
 if (!msg.from.endsWith('@g.us')) { // Apenas no Chat Privado (PV)
     const corpo = msg.body ? msg.body.trim().toLowerCase() : "";
     
@@ -488,54 +484,56 @@ if (!msg.from.endsWith('@g.us')) { // Apenas no Chat Privado (PV)
     if (!corpo.startsWith('/') && !(msg.hasMedia && msg.type === 'image' && corpo.includes("comprovante"))) {
         const agora = Date.now();
         const remetente = msg.from;
+        
+        // Garante segurança caso por algum motivo venha vazio
+        if (!global.sessoesAtendimento) {
+            global.sessoesAtendimento = {};
+        }
+
         const sessao = global.sessoesAtendimento[remetente];
 
-        // Tempos em milissegundos
+        // Defina o tempo (use segundos para testar agora, ou minutos depois)
         const TEMPO_INATIVIDADE = 10 * 60 * 1000; // 10 minutos
-        const TEMPO_AVISO_FIM = 5 * 60 * 1000;    // + 5 minutos para encerrar de vez
+        const TEMPO_AVISO_FIM = 5 * 60 * 1000;    // 5 minutos
 
         if (!sessao) {
             // PRIMEIRA MENSAGEM: Cria a sessão e manda a saudação padrão
             global.sessoesAtendimento[remetente] = {
                 ultimoContato: agora,
-                etapa: 'ativo' // 'ativo', 'aviso_encerramento'
+                etapa: 'ativo'
             };
 
             return msg.reply(`🛰️ *CENTRAL YUKON — ATENDIMENTO AUTOMATIZADO*
 ━━━━━━━━━━━━━━━━━━━━━
 Olá! Seja muito bem-vindo(a) à central da YukonBot. Recebi a sua mensagem!
 
-🚀 Para ver todos os recursos disponíveis, gerenciar suas assinaturas, ver os planos ou ver como vincular seus grupos, acesse o menu principal digitando o comando abaixo:
+🚀 Para ver todos os recursos disponíveis, gerenciar suas assinaturas, ver os planos ou ver como vincular seus grupos, acesse o painel principal digitando ou clicando no comando abaixo:
 
 👉 \`/menu_cliente\`
 
-🔧 *Dica:* Se você veio do Instagram para testar ou assinar, digite */menu_cliente* para ver o passo a passo de ativação.`);
+🔧 *Dica:* Se você veio do Instagram para testar ou assinar, digite **/menu_cliente** para ver o passo a passo de ativação.`);
         } 
         
-        // SE JÁ EXISTE UMA SESSÃO ATIVA:
         const tempoPassado = agora - sessao.ultimoContato;
 
         if (tempoPassado > (TEMPO_INATIVIDADE + TEMPO_AVISO_FIM)) {
-            // Passou do tempo limite total (15 min): Encerra a sessão anterior e reinicia o ciclo
             global.sessoesAtendimento[remetente] = {
                 ultimoContato: agora,
                 etapa: 'ativo'
             };
 
-            await msg.reply(`🔴 *ATENDIMENTO ANTERIOR ENCERRADO* por inatividade.\n\n🔄 Iniciando nova sessão de atendimento...\n\n🛰️ *CENTRAL YUKON:* Digite \`/menu_cliente\` para ver os planos e testar a Yukon!`);
+            await msg.reply(`🔴 *ATENDIMENTO ANTERIOR ENCERRADO* por inatividade.\n\n🔄 Iniciando nova sessão...\n\n🛰️ *CENTRAL YUKON:* Digite \`/menu_cliente\` para ver os comandos.`);
             return;
         } 
         else if (tempoPassado > TEMPO_INATIVIDADE && sessao.etapa === 'ativo') {
-            // Passou de 10 min: Manda o aviso que vai encerrar em breve (5 min) e atualiza a etapa
             sessao.etapa = 'aviso_encerramento';
-            sessao.ultimoContato = agora; // Atualiza para contar os últimos 5 min
+            sessao.ultimoContato = agora;
             
             return msg.reply(`⚠️ *AVISO DE INATIVIDADE*\nNotamos que você está ausente. O seu atendimento será encerrado em breve (5 minutos) caso não haja novas interações.`);
         }
 
-        // Se o cliente continuar conversando dentro do prazo, apenas atualizamos o reloginho dele
         sessao.ultimoContato = agora;
-        return; // Ignora novas mensagens repetidas para não ficar floodando o chat enquanto ele estiver ativo
+        return;
     }
 }
         // No seu arquivo principal, onde você lê as mensagens:
