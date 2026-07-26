@@ -489,11 +489,11 @@ if (!msg.from.endsWith('@g.us')) { // Apenas no Chat Privado (PV)
 ━━━━━━━━━━━━━━━━━━━━━
 Olá! Seja muito bem-vindo(a) à central da YukonBot. Recebi a sua mensagem!
 
-🚀 Para ver todos os recursos disponíveis, gerenciar suas assinaturas, ver os planos ou ver como vincular seus grupos, acesse o painel principal digitando ou clicando no comando abaixo:
+🚀 Para ver todos os recursos disponíveis, gerenciar suas assinaturas, ver os planos ou ver como vincular seus grupos, acesse o menu principal digitando o comando abaixo:
 
 👉 \`/menu_cliente\`
 
-🔧 *Dica:* Se você veio do Instagram para testar ou assinar, digite **/menu_cliente** para ver o passo a passo de ativação.`);
+🔧 *Dica:* Se você veio do Instagram para testar ou assinar, digite */menu_cliente* para ver o passo a passo de ativação.`);
     }
 }
 
