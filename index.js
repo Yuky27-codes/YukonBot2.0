@@ -353,6 +353,52 @@ client.on('error', (err) => {
 });
 
 /**********************************************************
+ * 6A. CONTROLE DE ATENDIMENTO NO PV (SESSÃO / TIMERS)
+ **********************************************************/
+const TEMPO_INATIVIDADE = 10 * 60 * 1000; // 10 minutos
+const TEMPO_AVISO_FIM = 5 * 60 * 1000;    // 5 minutos
+
+const MENSAGEM_PADRAO_ATENDIMENTO = `🛰️ *CENTRAL YUKON — ATENDIMENTO AUTOMATIZADO*
+━━━━━━━━━━━━━━━━━━━━━
+Olá! Seja muito bem-vindo(a) à central da YukonBot. Recebi a sua mensagem!
+
+🚀 Para ver todos os recursos disponíveis, gerenciar suas assinaturas, ver os planos ou ver como vincular seus grupos, acesse o painel principal digitando ou clicando no comando abaixo:
+
+👉 \`/menu_cliente\`
+
+🔧 *Dica:* Se você veio do Instagram para testar ou assinar, digite **/menu_cliente** para ver o passo a passo de ativação.`;
+
+const MENSAGEM_AVISO_INATIVIDADE = `⚠️ *AVISO DE INATIVIDADE*\nNotamos que você está ausente. O seu atendimento será encerrado em breve (5 minutos) caso não haja novas interações.`;
+
+// Verificador periódico: roda sozinho, independente do cliente mandar mensagem.
+// Manda o aviso de inatividade aos 10min e encerra a sessão aos +5min (15min totais),
+// para que a mensagem padrão volte a ser enviada na próxima mensagem do cliente.
+function iniciarVerificadorDeSessoes() {
+    setInterval(async () => {
+        const agora = Date.now();
+        for (const remetente in global.sessoesAtendimento) {
+            const sessao = global.sessoesAtendimento[remetente];
+            if (!sessao || sessao.etapa === 'encerrado') continue;
+
+            const tempoPassado = agora - sessao.ultimoContato;
+
+            if (tempoPassado > (TEMPO_INATIVIDADE + TEMPO_AVISO_FIM)) {
+                // Encerra a sessão. Não precisa mandar mensagem agora:
+                // a mensagem padrão será enviada na próxima mensagem do cliente.
+                sessao.etapa = 'encerrado';
+            } else if (tempoPassado > TEMPO_INATIVIDADE && sessao.etapa === 'ativo') {
+                sessao.etapa = 'aviso_encerramento';
+                try {
+                    await client.sendMessage(remetente, MENSAGEM_AVISO_INATIVIDADE);
+                } catch (e) {
+                    console.error("❌ Erro ao enviar aviso de inatividade:", e.message);
+                }
+            }
+        }
+    }, 30 * 1000); // checa a cada 30 segundos
+}
+
+/**********************************************************
  * 6. FUNÇÕES AUXILIARES GLOBAIS
  **********************************************************/
 function lerSuperUsers() {
@@ -441,6 +487,7 @@ client.on('group_join', async (notification) => {
  **********************************************************/
 console.log("🚀 Iniciando YukonBot...");
 client.initialize();
+iniciarVerificadorDeSessoes();
 
 /**********************************************************
  * 9. EVENTO DE MENSAGEM - COM CARCEREIRA E XP
@@ -492,47 +539,23 @@ if (!msg.from.endsWith('@g.us')) { // Apenas no Chat Privado (PV)
 
         const sessao = global.sessoesAtendimento[remetente];
 
-        // Defina o tempo (use segundos para testar agora, ou minutos depois)
-        const TEMPO_INATIVIDADE = 20 * 1000 ; // 10 minutos
-        const TEMPO_AVISO_FIM = 10 * 1000;    // 5 minutos
-
-        if (!sessao) {
-            // PRIMEIRA MENSAGEM: Cria a sessão e manda a saudação padrão
+        if (!sessao || sessao.etapa === 'encerrado') {
+            // SESSÃO NOVA OU EXPIRADA: (re)inicia e manda a mensagem padrão
             global.sessoesAtendimento[remetente] = {
                 ultimoContato: agora,
                 etapa: 'ativo'
             };
 
-            return msg.reply(`🛰️ *CENTRAL YUKON — ATENDIMENTO AUTOMATIZADO*
-━━━━━━━━━━━━━━━━━━━━━
-Olá! Seja muito bem-vindo(a) à central da YukonBot. Recebi a sua mensagem!
-
-🚀 Para ver todos os recursos disponíveis, gerenciar suas assinaturas, ver os planos ou ver como vincular seus grupos, acesse o painel principal digitando ou clicando no comando abaixo:
-
-👉 \`/menu_cliente\`
-
-🔧 *Dica:* Se você veio do Instagram para testar ou assinar, digite **/menu_cliente** para ver o passo a passo de ativação.`);
-        } 
-        
-        const tempoPassado = agora - sessao.ultimoContato;
-
-        if (tempoPassado > (TEMPO_INATIVIDADE + TEMPO_AVISO_FIM)) {
-            global.sessoesAtendimento[remetente] = {
-                ultimoContato: agora,
-                etapa: 'ativo'
-            };
-
-            await msg.reply(`🔴 *ATENDIMENTO ANTERIOR ENCERRADO* por inatividade.\n\n🔄 Iniciando nova sessão...\n\n🛰️ *CENTRAL YUKON:* Digite \`/menu_cliente\` para ver os comandos.`);
-            return;
-        } 
-        else if (tempoPassado > TEMPO_INATIVIDADE && sessao.etapa === 'ativo') {
-            sessao.etapa = 'aviso_encerramento';
-            sessao.ultimoContato = agora;
-            
-            return msg.reply(`⚠️ *AVISO DE INATIVIDADE*\nNotamos que você está ausente. O seu atendimento será encerrado em breve (5 minutos) caso não haja novas interações.`);
+            return msg.reply(MENSAGEM_PADRAO_ATENDIMENTO);
         }
 
+        // SESSÃO ATIVA (ou em aviso): o cliente respondeu, então só atualizamos
+        // o horário e "reativamos" a sessão, sem responder de novo.
+        // O aviso de 10min e o encerramento de +5min são feitos pelo
+        // verificador periódico (iniciarVerificadorDeSessoes), que roda
+        // independente do cliente mandar mensagem.
         sessao.ultimoContato = agora;
+        sessao.etapa = 'ativo';
         return;
     }
 }
