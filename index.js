@@ -475,16 +475,31 @@ client.on('message_create', async (msg) => {
                 }
             }
         }
-     // --- 🟢 RESPOSTA AUTOMÁTICA NO PV PARA QUALQUER MENSAGEM (EXCETO COMANDOS) ---
+     // --- 🟢 CONTROLE DE SESSÃO DE ATENDIMENTO NO PV ---
+if (!global.sessoesAtendimento) {
+    global.sessoesAtendimento = {};
+}
+
 if (!msg.from.endsWith('@g.us')) { // Apenas no Chat Privado (PV)
     const corpo = msg.body ? msg.body.trim().toLowerCase() : "";
     
-    // Se a mensagem começar com '/', nós NÃO interferimos aqui, 
-    // permitindo que o sistema leia o comando normalmente (como /teste, /menu_cliente, etc.)
-    if (!corpo.startsWith('/')) {
-        
-        // Se for imagem de comprovante, deixa passar para o bloco de comprovantes
-        if (!(msg.hasMedia && msg.type === 'image' && corpo.includes("comprovante"))) {
+    // Se não for comando (não começa com '/') e nem for imagem de comprovante
+    if (!corpo.startsWith('/') && !(msg.hasMedia && msg.type === 'image' && corpo.includes("comprovante"))) {
+        const agora = Date.now();
+        const remetente = msg.from;
+        const sessao = global.sessoesAtendimento[remetente];
+
+        // Tempos em milissegundos
+        const TEMPO_INATIVIDADE = 10 * 60 * 1000; // 10 minutos
+        const TEMPO_AVISO_FIM = 5 * 60 * 1000;    // + 5 minutos para encerrar de vez
+
+        if (!sessao) {
+            // PRIMEIRA MENSAGEM: Cria a sessão e manda a saudação padrão
+            global.sessoesAtendimento[remetente] = {
+                ultimoContato: agora,
+                etapa: 'ativo' // 'ativo', 'aviso_encerramento'
+            };
+
             return msg.reply(`🛰️ *CENTRAL YUKON — ATENDIMENTO AUTOMATIZADO*
 ━━━━━━━━━━━━━━━━━━━━━
 Olá! Seja muito bem-vindo(a) à central da YukonBot. Recebi a sua mensagem!
@@ -493,8 +508,33 @@ Olá! Seja muito bem-vindo(a) à central da YukonBot. Recebi a sua mensagem!
 
 👉 \`/menu_cliente\`
 
-🔧 *Dica:* Se você veio do Instagram para testar ou assinar, digite **/menu_cliente** para ver o passo a passo de ativação.`);
+🔧 *Dica:* Se você veio do Instagram para testar ou assinar, digite */menu_cliente* para ver o passo a passo de ativação.`);
+        } 
+        
+        // SE JÁ EXISTE UMA SESSÃO ATIVA:
+        const tempoPassado = agora - sessao.ultimoContato;
+
+        if (tempoPassado > (TEMPO_INATIVIDADE + TEMPO_AVISO_FIM)) {
+            // Passou do tempo limite total (15 min): Encerra a sessão anterior e reinicia o ciclo
+            global.sessoesAtendimento[remetente] = {
+                ultimoContato: agora,
+                etapa: 'ativo'
+            };
+
+            await msg.reply(`🔴 *ATENDIMENTO ANTERIOR ENCERRADO* por inatividade.\n\n🔄 Iniciando nova sessão de atendimento...\n\n🛰️ *CENTRAL YUKON:* Digite \`/menu_cliente\` para ver os planos e testar a Yukon!`);
+            return;
+        } 
+        else if (tempoPassado > TEMPO_INATIVIDADE && sessao.etapa === 'ativo') {
+            // Passou de 10 min: Manda o aviso que vai encerrar em breve (5 min) e atualiza a etapa
+            sessao.etapa = 'aviso_encerramento';
+            sessao.ultimoContato = agora; // Atualiza para contar os últimos 5 min
+            
+            return msg.reply(`⚠️ *AVISO DE INATIVIDADE*\nNotamos que você está ausente. O seu atendimento será encerrado em breve (5 minutos) caso não haja novas interações.`);
         }
+
+        // Se o cliente continuar conversando dentro do prazo, apenas atualizamos o reloginho dele
+        sessao.ultimoContato = agora;
+        return; // Ignora novas mensagens repetidas para não ficar floodando o chat enquanto ele estiver ativo
     }
 }
         // No seu arquivo principal, onde você lê as mensagens:
