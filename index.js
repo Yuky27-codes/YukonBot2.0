@@ -75,6 +75,7 @@ global.codigosPorGrupo = {};
 global.modoCaosAtivo = {};
 global.desafiosAtivos = {};
 global.antiFlood = {};
+global.sessoesAtendimento = {};
 
 const LISTA_ADMS = [
     '143130204626959@lid'
