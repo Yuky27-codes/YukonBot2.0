@@ -493,8 +493,8 @@ if (!msg.from.endsWith('@g.us')) { // Apenas no Chat Privado (PV)
         const sessao = global.sessoesAtendimento[remetente];
 
         // Defina o tempo (use segundos para testar agora, ou minutos depois)
-        const TEMPO_INATIVIDADE = 10 * 60 * 1000; // 10 minutos
-        const TEMPO_AVISO_FIM = 5 * 60 * 1000;    // 5 minutos
+        const TEMPO_INATIVIDADE = 20 * 1000 ; // 10 minutos
+        const TEMPO_AVISO_FIM = 10 * 1000;    // 5 minutos
 
         if (!sessao) {
             // PRIMEIRA MENSAGEM: Cria a sessão e manda a saudação padrão
