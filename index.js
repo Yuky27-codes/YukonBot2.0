@@ -475,17 +475,17 @@ client.on('message_create', async (msg) => {
                 }
             }
         }
-     // --- 🟢 RESPOSTA AUTOMÁTICA NO PV PARA QUALQUER MENSAGEM ---
+     // --- 🟢 RESPOSTA AUTOMÁTICA NO PV PARA QUALQUER MENSAGEM (EXCETO COMANDOS) ---
 if (!msg.from.endsWith('@g.us')) { // Apenas no Chat Privado (PV)
     const corpo = msg.body ? msg.body.trim().toLowerCase() : "";
     
-    // Se o usuário mandou o comprovante, deixa o outro bloco de comprovante tratar
-    if (msg.hasMedia && msg.type === 'image' && corpo.includes("comprovante")) {
-        // Deixa passar para o bloco de comprovantes mais abaixo no código
-    } 
-    // Se ele mandou qualquer outra coisa (texto aleatório, cumprimento, etc.) e não é o comando /menu_cliente já digitado
-    else if (corpo !== '/menu_cliente') {
-        return msg.reply(`🛰️ *CENTRAL YUKON — ATENDIMENTO AUTOMATIZADO*
+    // Se a mensagem começar com '/', nós NÃO interferimos aqui, 
+    // permitindo que o sistema leia o comando normalmente (como /teste, /menu_cliente, etc.)
+    if (!corpo.startsWith('/')) {
+        
+        // Se for imagem de comprovante, deixa passar para o bloco de comprovantes
+        if (!(msg.hasMedia && msg.type === 'image' && corpo.includes("comprovante"))) {
+            return msg.reply(`🛰️ *CENTRAL YUKON — ATENDIMENTO AUTOMATIZADO*
 ━━━━━━━━━━━━━━━━━━━━━
 Olá! Seja muito bem-vindo(a) à central da YukonBot. Recebi a sua mensagem!
 
@@ -493,10 +493,10 @@ Olá! Seja muito bem-vindo(a) à central da YukonBot. Recebi a sua mensagem!
 
 👉 \`/menu_cliente\`
 
-🔧 *Dica:* Se você veio do Instagram para testar ou assinar, digite */menu_cliente* para ver o passo a passo de ativação.`);
+🔧 *Dica:* Se você veio do Instagram para testar ou assinar, digite **/menu_cliente** para ver o passo a passo de ativação.`);
+        }
     }
 }
-
         // No seu arquivo principal, onde você lê as mensagens:
 if (msg.body.startsWith('/start_')) {
     const partes = msg.body.split('_');
