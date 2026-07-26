@@ -355,14 +355,14 @@ client.on('error', (err) => {
 /**********************************************************
  * 6A. CONTROLE DE ATENDIMENTO NO PV (SESSÃO / TIMERS)
  **********************************************************/
-const TEMPO_INATIVIDADE = 10 * 60 * 1000; // 10 minutos
-const TEMPO_AVISO_FIM = 5 * 60 * 1000;    // 5 minutos
+const TEMPO_INATIVIDADE = 10 * 1000; // TESTE: 10 segundos
+const TEMPO_AVISO_FIM = 10 * 1000;   // TESTE: 10 segundos
 
 const MENSAGEM_PADRAO_ATENDIMENTO = `🛰️ *CENTRAL YUKON — ATENDIMENTO AUTOMATIZADO*
 ━━━━━━━━━━━━━━━━━━━━━
 Olá! Seja muito bem-vindo(a) à central da YukonBot. Recebi a sua mensagem!
 
-🚀 Para ver todos os recursos disponíveis, gerenciar suas assinaturas, ver os planos ou ver como vincular seus grupos, acesse o painel principal digitando ou clicando no comando abaixo:
+🚀 Para ver todos os recursos disponíveis, gerenciar suas assinaturas, ver os planos ou ver como vincular seus grupos, acesse o menu principal digitando o comando abaixo:
 
 👉 \`/menu_cliente\`
 
