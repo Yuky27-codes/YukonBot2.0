@@ -53,7 +53,7 @@ Para continuar utilizando a Yukon sem interrupções, adquira uma de nossas assi
 
             // Tenta avisar lá dentro do grupo que o teste foi ativado com sucesso
             try {
-                await client.sendMessage(idGrupo, `🚀 *ESTAÇÃO LIBERADA VIA TESTE (24H)*\n━━━━━━━━━━━━━━━━━━━━━\nEste grupo acaba de ativar o período de testes da YukonBot!\n\n⏳ O acesso expira em: **${tempoTeste.toLocaleString('pt-BR')}**\nAproveite para explorar todos os comandos!`);
+                await client.sendMessage(idGrupo, `🚀 *ESTAÇÃO LIBERADA VIA TESTE (24H)*\n━━━━━━━━━━━━━━━━━━━━━\nEste grupo acaba de ativar o período de testes da YukonBot, *use /painel para ver todos menus Disponíveis!*\n\n⏳ O acesso expira em: **${tempoTeste.toLocaleString('pt-BR')}**\nAproveite para explorar todos os comandos!`);
             } catch (e) {
                 console.log("Não foi possível enviar aviso no grupo (talvez o bot não esteja lá dentro ainda).");
             }
@@ -65,7 +65,7 @@ Para continuar utilizando a Yukon sem interrupções, adquira uma de nossas assi
 ⏳ *Duração:* 24 Horas
 📅 *Expira em:* ${tempoTeste.toLocaleString('pt-BR')}
 
-O grupo já está liberado e pronto para uso. Divirta-se explorando a Yukon!`);
+O grupo já está liberado e pronto para uso, basta enviar */painel* no grupo. Divirta-se explorando a Yukon!`);
 
         } catch (err) {
             console.error("❌ Erro no comando /teste do cliente:", err);
