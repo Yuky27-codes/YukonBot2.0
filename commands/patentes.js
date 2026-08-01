@@ -35,11 +35,18 @@ const PATENTES = [
     { nivel: 6,  nome: 'Comandante',              preco: 50000,   emblema: '🚀', sorteBonus: 6,  coinBonusPercent: 12, missaoCooldownReducaoMin: 60,  protecaoRoubo: 10, jurosBonusPercent: 4,  usosExtras: { cassino: 0, roubar: 1 } },
     { nivel: 7,  nome: 'Elite Galáctica',         preco: 80000,   emblema: '💠', sorteBonus: 7,  coinBonusPercent: 14, missaoCooldownReducaoMin: 75,  protecaoRoubo: 12, jurosBonusPercent: 5,  usosExtras: { cassino: 1, roubar: 1 } },
     { nivel: 8,  nome: 'Guardião Estelar',        preco: 120000,  emblema: '🛡️', sorteBonus: 9,  coinBonusPercent: 17, missaoCooldownReducaoMin: 90,  protecaoRoubo: 15, jurosBonusPercent: 6,  usosExtras: { cassino: 1, roubar: 1 } },
-    { nivel: 9,  nome: 'Viajante Dimensional',    preco: 180000,  emblema: '🌌', sorteBonus: 11, coinBonusPercent: 20, missaoCooldownReducaoMin: 105, protecaoRoubo: 18, jurosBonusPercent: 8,  usosExtras: { cassino: 1, roubar: 2 } },
-    { nivel: 10, nome: 'Lorde das Estrelas',      preco: 250000,  emblema: '👑', sorteBonus: 13, coinBonusPercent: 23, missaoCooldownReducaoMin: 120, protecaoRoubo: 20, jurosBonusPercent: 10, usosExtras: { cassino: 2, roubar: 2 } },
+    { nivel: 9,  nome: 'Viajante Dimensional',    preco: 180000,  emblema: '🌟', sorteBonus: 11, coinBonusPercent: 20, missaoCooldownReducaoMin: 105, protecaoRoubo: 18, jurosBonusPercent: 8,  usosExtras: { cassino: 1, roubar: 2 } },
+    { nivel: 10, nome: 'Lorde das Estrelas',      preco: 250000,  emblema: '🌠', sorteBonus: 13, coinBonusPercent: 23, missaoCooldownReducaoMin: 120, protecaoRoubo: 20, jurosBonusPercent: 10, usosExtras: { cassino: 2, roubar: 2 } },
     { nivel: 11, nome: 'Almirante de Frota',      preco: 320000,  emblema: '⚓', sorteBonus: 15, coinBonusPercent: 26, missaoCooldownReducaoMin: 150, protecaoRoubo: 22, jurosBonusPercent: 12, usosExtras: { cassino: 2, roubar: 2 } },
     { nivel: 12, nome: 'Governador Planetário',   preco: 400000,  emblema: '🌍', sorteBonus: 17, coinBonusPercent: 30, missaoCooldownReducaoMin: 180, protecaoRoubo: 25, jurosBonusPercent: 15, usosExtras: { cassino: 2, roubar: 3 } },
     { nivel: 13, nome: 'Lenda Estelar',           preco: 500000,  emblema: '🏆', sorteBonus: 20, coinBonusPercent: 35, missaoCooldownReducaoMin: 240, protecaoRoubo: 30, jurosBonusPercent: 20, usosExtras: { cassino: 3, roubar: 3 } },
+    { nivel: 14, nome: 'Guardião do Vácuo',       preco: 750000,  emblema: '🌌', sorteBonus: 23, coinBonusPercent: 40, missaoCooldownReducaoMin: 270, protecaoRoubo: 33, jurosBonusPercent: 22, usosExtras: { cassino: 3, roubar: 4 } },
+    { nivel: 15, nome: 'Senhor da Nebulosa',      preco: 1000000, emblema: '🪐', sorteBonus: 26, coinBonusPercent: 45, missaoCooldownReducaoMin: 300, protecaoRoubo: 36, jurosBonusPercent: 25, usosExtras: { cassino: 4, roubar: 4 } },
+    { nivel: 16, nome: 'Comandante Supremo',      preco: 1500000, emblema: '🚀', sorteBonus: 30, coinBonusPercent: 50, missaoCooldownReducaoMin: 330, protecaoRoubo: 40, jurosBonusPercent: 28, usosExtras: { cassino: 4, roubar: 5 } },
+    { nivel: 17, nome: 'Oráculo Quântico',        preco: 2200000, emblema: '🔮', sorteBonus: 34, coinBonusPercent: 58, missaoCooldownReducaoMin: 360, protecaoRoubo: 44, jurosBonusPercent: 32, usosExtras: { cassino: 5, roubar: 5 } },
+    { nivel: 18, nome: 'Titã das Galáxias',       preco: 3000000, emblema: '☄️', sorteBonus: 38, coinBonusPercent: 66, missaoCooldownReducaoMin: 390, protecaoRoubo: 48, jurosBonusPercent: 36, usosExtras: { cassino: 5, roubar: 6 } },
+    { nivel: 19, nome: 'Divindade Cósmica',       preco: 4500000, emblema: '✨', sorteBonus: 43, coinBonusPercent: 80, missaoCooldownReducaoMin: 420, protecaoRoubo: 53, jurosBonusPercent: 40, usosExtras: { cassino: 6, roubar: 6 } },
+    { nivel: 20, nome: 'Imperador do Fim',        preco: 7000000, emblema: '👑', sorteBonus: 50, coinBonusPercent: 100, missaoCooldownReducaoMin: 480, protecaoRoubo: 60, jurosBonusPercent: 50, usosExtras: { cassino: 8, roubar: 8 } }
 ];
 
 const ATRIBUTOS_PADRAO = {
