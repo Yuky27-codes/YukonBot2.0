@@ -9,8 +9,6 @@ module.exports = {
 ◇ */parceriaCode* ➜ Gerar código de parceria para outro grupo
 ◇ */parcerias* ➜ Ver parcerias do grupo
 ◇ */parceriadel [code] ou [Nome]* ➜ Remover parceria com outro grupo
-◇ */
-◇ */
 ◇ */addsalap* ➜ Definir código da sala parceira
 ◇ */sapap* ➜ Ver sala parceira configurada
 ◇ */fsala* ➜ fecha a sala parceira
