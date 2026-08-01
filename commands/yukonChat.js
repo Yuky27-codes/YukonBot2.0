@@ -21,19 +21,27 @@ module.exports = {
         const foiMarcado = msg.mentionedIds && msg.mentionedIds.includes(meuNumero);
 
         try {
-            // 1. SE FOI MARCADO: Responde obrigatoriamente com a IA usando a personalidade do grupo
+            // Busca a configuração e a personalidade salva para este grupo no banco
+            const GroupConfig = mongoose.model('GroupConfig');
+            const configGrupo = await GroupConfig.findOne({ groupId: chatId });
+
+            // Pega a personalidade customizada ou usa um comportamento padrão 100% humano e informal
+            const personalidadeCustom = configGrupo?.personalidade;
+            
+            const basePersonalidade = (personalidadeCustom && personalidadeCustom !== 'padrao') 
+                ? personalidadeCustom 
+                : "Você é uma pessoa real participando de um grupo de WhatsApp de amigos e colegas. Seja natural, informal, digite como gente normal, use gírias leves quando couber eaja como um membro comum da turma.";
+
+            // Força a quebra total do modo assistente e proíbe emojis
+            const promptSistema = `${basePersonalidade}\n\nREGRAS ABSOLUTAS:\n1. NUNCA utilize emojis em nenhuma circunstância.\n2. NUNCA fale como assistente virtual ou robô.\n3. Responda de forma direta, curta e como um ser humano conversando no chat comum.`;
+
+            // 1. SE FOI MARCADO: Responde obrigatoriamente
             if (foiMarcado) {
                 const chat = await msg.getChat();
                 await chat.sendStateTyping();
 
-                const GroupConfig = mongoose.model('GroupConfig');
-                const configGrupo = await GroupConfig.findOne({ groupId: chatId });
-
-                const promptBase = configGrupo?.personalidade || "Você é uma pessoa real participando de um grupo de WhatsApp. Seja natural, informal, digite como gente normal e NUNCA utilize emojis em nenhuma circunstância.";
-                const promptSistema = `${promptBase}\n\nIMPORTANTE: Escreva apenas texto puro como um ser humano conversando no chat. Proibido o uso de qualquer emoji.`;
-
                 let textoMensagem = msg.body.replace(new RegExp(`@${meuNumero.split('@')[0]}`, 'g'), '').trim();
-                if (!textoMensagem) textoMensagem = "Opa";
+                if (!textoMensagem) textoMensagem = "fala";
 
                 const completion = await groq.chat.completions.create({
                     model: "llama-3.3-70b-versatile",
@@ -42,7 +50,7 @@ module.exports = {
                         { role: "user", content: textoMensagem }
                     ],
                     temperature: 0.9,
-                    max_tokens: 120,
+                    max_tokens: 100,
                 });
 
                 let respostaIA = completion.choices[0]?.message?.content || "fala mano";
@@ -68,12 +76,6 @@ module.exports = {
             const chat = await msg.getChat();
             await chat.sendStateTyping();
 
-            const GroupConfig = mongoose.model('GroupConfig');
-            const configGrupo = await GroupConfig.findOne({ groupId: chatId });
-
-            const promptBase = configGrupo?.personalidade || "Você é uma pessoa real participando de um grupo de WhatsApp. Seja natural, informal, digite como gente normal e NUNCA utilize emojis em nenhuma circunstância.";
-            const promptSistema = `${promptBase}\n\nIMPORTANTE: Escreva apenas texto puro como um ser humano conversando no chat. Proibido o uso de qualquer emoji.`;
-
             const completion = await groq.chat.completions.create({
                 model: "llama-3.3-70b-versatile",
                 messages: [
@@ -81,7 +83,7 @@ module.exports = {
                     { role: "user", content: msg.body }
                 ],
                 temperature: 0.9,
-                max_tokens: 120,
+                max_tokens: 100,
             });
 
             let respostaIA = completion.choices[0]?.message?.content || "fala mano";
