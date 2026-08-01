@@ -1,7 +1,7 @@
 const Evento = require('../models/eventSchema');
 
 module.exports = {
-    name: 'evento_user',
+    name: 'even',
     async execute(client, msg, { chatId, args, command, senderRaw }) {
         const evento = await Evento.findOne({ groupId: chatId, status: { $in: ['criado', 'andamento'] } });
 
