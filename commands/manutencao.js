@@ -61,11 +61,15 @@ module.exports = {
                 manutencao: Boolean
             }));
 
+            // Salva no banco de dados[cite: 6]
             await SystemConfig.updateOne(
                 { chave: 'status_sistema' },
                 { $set: { manutencao: emManutencao } },
                 { upsert: true }
             );
+
+            // Atualiza a variável global para o index.js bloquear na hora
+            global.modoManutencao = emManutencao;
 
             if (emManutencao) {
                 return msg.reply("🛠️ *MODO DE MANUTENÇÃO ATIVADO!*\nA Yukon entrou em silêncio automático nas conversas e só voltará quando o comando `/manutencao off` for acionado.");
@@ -74,8 +78,8 @@ module.exports = {
             }
 
         } catch (err) {
-            console.error("❌ Erro no comando manutencao:", err);
-            return msg.reply("❌ Erro ao alterar o modo de manutenção no banco de dados.");
+            console.error("❌ Erro no comando manutencao:", err); //[cite: 6]
+            return msg.reply("❌ Erro ao alterar o modo de manutenção no banco de dados."); //[cite: 6]
         }
     }
 };
