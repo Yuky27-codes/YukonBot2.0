@@ -5,7 +5,7 @@ const Groq = require('groq-sdk');
 const mongoose = require('mongoose');
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-const CHANCE_RESPOSTA_ALEATORIA = 0.50;
+const CHANCE_RESPOSTA_ALEATORIA = 0.10;
 
 module.exports = {
     name: 'yukonChat',
