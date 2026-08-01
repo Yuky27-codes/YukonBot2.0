@@ -32,8 +32,7 @@ module.exports = {
 • `/monitorar` ❯❯ Informações do grupo
 ▪ `/checar` ❯❯ Ver atividade de membro
 
-🟪 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 🟪
-`;
+🟪 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 🟪`;
 
             // Chama a função global que está no seu index
             if (typeof global.enviarMenuComFoto === 'function') {
