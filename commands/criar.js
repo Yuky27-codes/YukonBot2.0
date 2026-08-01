@@ -2,14 +2,31 @@ const Evento = require('../models/eventSchema');
 
 module.exports = {
     name: 'criar',
-    async execute(client, msg, { chatId, args, senderRaw }) {
+    async execute(client, msg, { chatId, senderRaw }) {
         if (!chatId.endsWith('@g.us')) return msg.reply("❌ Comando exclusivo para grupos.");
         
-        const tipo = args[0]?.toLowerCase();
-        const textoArgs = args.slice(1).join(' ');
+        // Pega o texto bruto da mensagem para preservar quebras de linha e espaços exatos
+        const corpoMensagem = msg.body || '';
+        // Remove o comando inicial (/criar evento) e pega o resto do texto
+        const semComando = corpoMensagem.replace(/^\/criar\s+evento\s*/i, '').trim();
 
-        if (tipo !== 'evento' || !textoArgs) {
-            return msg.reply("⚠️ Use o formato correto:\n`/criar evento [Título e Descrição]`");
+        if (!semComando) {
+            return msg.reply("⚠️ Use o formato correto separando com vírgula:\n`/criar evento [Título] , [Descrição]`");
+        }
+
+        // Divide o texto na primeira vírgula encontrada para separar Título e Descrição
+        const primeiraVirgulaIndex = semComando.indexOf(',');
+        
+        let titulo = semComando;
+        let descricao = '';
+
+        if (primeiraVirgulaIndex !== -1) {
+            titulo = semComando.slice(0, primeiraVirgulaIndex).trim();
+            descricao = semComando.slice(primeiraVirgulaIndex + 1).trim();
+        }
+
+        if (!titulo) {
+            return msg.reply("⚠️ O título do evento não pode estar vazio!\nUse: `/criar evento [Título] , [Descrição]`");
         }
 
         try {
@@ -17,11 +34,17 @@ module.exports = {
 
             await Evento.create({
                 groupId: chatId,
-                titulo: textoArgs,
+                titulo: titulo,
+                descricao: descricao,
                 criadoPor: senderRaw
             });
 
-            return msg.reply(`🚀 *EVENTO CRIADO COM SUCESSO!*\n\n*Título:* ${textoArgs}\n\nConfigure as informações usando:\n\`/infor evento [data] | [hora] | [true/false para adv]\``);
+            return msg.reply(
+                `🚀 *EVENTO CRIADO COM SUCESSO!*\n\n` +
+                `📌 *Título:* ${titulo}\n` +
+                `${descricao ? `📝 *Descrição:*\n${descricao}\n\n` : ''}` +
+                `Configure as informações usando:\n\`/infor evento [data] | [hora] | [true/false para adv]\``
+            );
         } catch (err) {
             console.error("❌ Erro ao criar evento:", err);
             return msg.reply("⚠️ Erro ao criar o evento.");

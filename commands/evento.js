@@ -9,7 +9,18 @@ module.exports = {
             const evento = await Evento.findOne({ groupId: chatId, status: { $in: ['criado', 'andamento'] } });
             if (!evento) return msg.reply("❌ Nenhum evento ativo no momento.");
 
-            return msg.reply(`📋 *PAINEL DO EVENTO* 🚀\n\n📌 *Título:* ${evento.titulo}\n📝 *Descrição:* ${evento.descricao || 'N/A'}\n📅 *Data:* ${evento.data || 'A definir'}\n⏰ *Hora:* ${evento.hora || 'A definir'}\n⚠️ *Punição por falta (ADV):* ${evento.aplicarAdv ? 'Sim 🚨' : 'Não 🟢'}\n👥 *Inscritos:* ${evento.participantes.length}\n\n*Comandos úteis:* \`/participar\`, \`/confirmarp\`, \`/sair\`, \`/listaevento\``);
+            const descFormatada = evento.descricao ? `\n📝 *Descrição:*\n${evento.descricao}\n` : '';
+
+            return msg.reply(
+                `📋 *PAINEL DO EVENTO* 🚀\n\n` +
+                `📌 *Título:* ${evento.titulo}` +
+                `${descFormatada}\n` +
+                `📅 *Data:* ${evento.data || 'A definir'}\n` +
+                `⏰ *Hora:* ${evento.hora || 'A definir'}\n` +
+                `⚠️ *Punição por falta (ADV):* ${evento.aplicarAdv ? 'Sim 🚨' : 'Não 🟢'}\n` +
+                `👥 *Inscritos:* ${evento.participantes.length}\n\n` +
+                `*Comandos úteis:* \`/participar\`, \`/confirmarp\`, \`/sair\`, \`/listaevento\``
+            );
         } catch (err) {
             console.error("❌ Erro no /evento:", err);
             return msg.reply("⚠️ Erro ao buscar painel do evento.");
