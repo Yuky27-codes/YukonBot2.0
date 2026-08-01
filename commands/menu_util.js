@@ -16,6 +16,8 @@ module.exports = {
 ◇ */simbolo* ➜ Envia o símbolo do grupo
 ◇ */simbolo* [símbolo] ➜ ADMs definem o símbolo
 ◇ */simbolo* remover ➜ Remove o símbolo
+◇ */enquete* (pergunta) opção1, opção2, ➜ Cria enquete
+◇ */personalidade* [1-5] ➜ Define a personalidade da IA pelo PV
 ╰━━━━━━━━━━━━━━━━━━━━━━╯
 `;
 
