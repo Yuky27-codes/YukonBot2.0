@@ -19,9 +19,13 @@ module.exports = {
                 }
 
                 const [, horaStr, minutoStr] = match;
-                const alvo = new Date();
+                
+                // 🔧 Correção de Fuso Horário (Força o horário do Brasil - America/Sao_Paulo)
+                const agoraBrasil = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
+                const alvo = new Date(agoraBrasil);
                 alvo.setHours(parseInt(horaStr), parseInt(minutoStr), 0, 0);
-                if (alvo.getTime() <= Date.now()) {
+                
+                if (alvo.getTime() <= agoraBrasil.getTime()) {
                     alvo.setDate(alvo.getDate() + 1); // já passou hoje — agenda pra amanhã
                 }
 
