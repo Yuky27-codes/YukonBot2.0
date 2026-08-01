@@ -560,9 +560,10 @@ client.on('message_create', async (msg) => {
 
     const chatId = msg.from._serialized || msg.from.toString();
 
-    chatId = msg.from._serialized || msg.from.toString();
+  // 🛑 CHECAGEM DO MODO MANUTENÇÃO
+    const chatIdMsg = msg.from._serialized || msg.from.toString();
 
-    if (global.modoManutencao && chatId.endsWith('@g.us')) {
+    if (global.modoManutencao && chatIdMsg.endsWith('@g.us')) {
         if (msg.body && msg.body.trim().startsWith('/')) {
             await msg.reply("🛠️ *Sistema em Manutenção!*\n\nA Yukon está passando por atualizações no momento. Tente novamente mais tarde, Comandante! 🚀");
         }
