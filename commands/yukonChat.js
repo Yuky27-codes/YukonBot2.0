@@ -25,15 +25,15 @@ module.exports = {
             const GroupConfig = mongoose.model('GroupConfig');
             const configGrupo = await GroupConfig.findOne({ groupId: chatId });
 
-            // Pega a personalidade customizada ou usa um comportamento padrão 100% humano e informal
+            // Pega a personalidade customizada ou define um fallback padrão feminino e informal
             const personalidadeCustom = configGrupo?.personalidade;
             
             const basePersonalidade = (personalidadeCustom && personalidadeCustom !== 'padrao') 
                 ? personalidadeCustom 
-                : "Você é uma pessoa real participando de um grupo de WhatsApp de amigos e colegas. Seja natural, informal, digite como gente normal, use gírias leves quando couber eaja como um membro comum da turma.";
+                : "Você é a Yukon, uma garota participando de um grupo de WhatsApp de amigos. Você digita igual uma pessoa real no celular, usando abreviações (vc, tbm, pq, pra), gírias atuais e tom totalmente informal.";
 
-            // Força a quebra total do modo assistente e proíbe emojis
-            const promptSistema = `${basePersonalidade}\n\nREGRAS ABSOLUTAS:\n1. NUNCA utilize emojis em nenhuma circunstância.\n2. NUNCA fale como assistente virtual ou robô.\n3. Responda de forma direta, curta e como um ser humano conversando no chat comum.`;
+            // Força diretrizes absolutas para cortar qualquer tom de robô/atendente
+            const promptSistema = `${basePersonalidade}\n\nDIRETRIZES OBRIGATÓRIAS:\n1. Você é uma MULHER/GAROTA (use concordância feminina se referindo a si mesma se necessário).\n2. Escreva casualmente com abreviações de internet e gírias atuais.\n3. NUNCA use frases de assistente ou robô (como 'como posso ajudar?', 'tá tudo bem por aí?', 'estou aqui para o que precisar'). Responda igual a um membro comum conversando na resenha.`;
 
             // 1. SE FOI MARCADO: Responde obrigatoriamente
             if (foiMarcado) {
@@ -49,7 +49,7 @@ module.exports = {
                         { role: "system", content: promptSistema },
                         { role: "user", content: textoMensagem }
                     ],
-                    temperature: 0.9,
+                    temperature: 0.95,
                     max_tokens: 100,
                 });
 
@@ -64,7 +64,7 @@ module.exports = {
                 const saudacoes = ['bom dia', 'boa tarde', 'boa noite'];
                 if (saudacoes.includes(textoLimpo)) {
                     const contato = await msg.getContact();
-                    const respostaSaudacao = `${textoLimpo.charAt(0).toUpperCase() + textoLimpo.slice(1)}, @${contato.id.user}! Tudo bem por aí?`;
+                    const respostaSaudacao = `salve @${contato.id.user}, blz?`;
                     return await msg.reply(respostaSaudacao, chatId, { mentions: [contato.id._serialized] });
                 }
             }
@@ -82,11 +82,11 @@ module.exports = {
                     { role: "system", content: promptSistema },
                     { role: "user", content: msg.body }
                 ],
-                temperature: 0.9,
+                temperature: 0.95,
                 max_tokens: 100,
             });
 
-            let respostaIA = completion.choices[0]?.message?.content || "fala mano";
+            let respostaIA = completion.choices[0]?.message?.content || "vixi";
             respostaIA = respostaIA.replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, '').trim();
 
             await msg.reply(respostaIA);
