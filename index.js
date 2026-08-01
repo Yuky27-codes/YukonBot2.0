@@ -827,7 +827,16 @@ const prefixoUsado = (prefixoCustomFinal && body.startsWith(prefixoCustomFinal) 
     ? prefixoCustomFinal
     : prefix;
 
-if (!body.startsWith(prefix) && !(prefixoCustomFinal && body.startsWith(prefixoCustomFinal))) return;
+if (!body.startsWith(prefix) && !(prefixoCustomFinal && body.startsWith(prefixoCustomFinal))) {
+    // 🛑 É AQUI QUE VOCÊ COLA O CHAMADO DO YUKONCHAT!
+    try {
+        const yukonChatModule = require('./commands/yukonChat');
+        await yukonChatModule.execute(client, msg);
+    } catch (e) {
+        console.error("Erro ao executar yukonChat:", e);
+    }
+    return;
+}
 
 const args = body.slice(prefixoUsado.length).trim().split(/\s+/);
 const commandName = args.shift()?.toLowerCase(); // Adicionamos ? para evitar erro se args estiver vazio

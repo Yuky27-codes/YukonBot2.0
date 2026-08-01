@@ -5,7 +5,7 @@ const Groq = require('groq-sdk');
 const mongoose = require('mongoose');
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-const CHANCE_RESPOSTA_ALEATORIA = 0.05; 
+const CHANCE_RESPOSTA_ALEATORIA = 0.50; // 50% de chance de responder mensagens soltas
 
 module.exports = {
     name: 'yukonChat',
@@ -14,27 +14,44 @@ module.exports = {
 
         const chatId = msg.from;
         const ehGrupo = chatId.endsWith('@g.us');
-        if (!ehGrupo) return; // Responde apenas em grupos por essa rota
+        if (!ehGrupo) return; // Funciona apenas em grupos
 
         const meuNumero = client.info.wid._serialized;
+        const textoLimpo = msg.body.trim().toLowerCase();
         const foiMarcado = msg.mentionedIds && msg.mentionedIds.includes(meuNumero);
-        const deveResponderAleatorio = Math.random() < CHANCE_RESPOSTA_ALEATORIA;
 
+        // 1. REGRAS DE SAUDAÇÃO EXATA (Somente se não estiver respondendo ninguém)
+        if (!msg.hasQuotedMsg && !foiMarcado) {
+            const saudacoes = ['bom dia', 'boa tarde', 'boa noite'];
+            if (saudacoes.includes(textoLimpo)) {
+                const contato = await msg.getContact();
+                const nomeUser = contato.pushname || "recruta";
+                
+                // Formata a saudação natural sem emojis
+                const respostaSaudacao = `${textoLimpo.charAt(0).toUpperCase() + textoLimpo.slice(1)}, @${contato.id.user}! Tudo bem por aí?`;
+                return await msg.reply(respostaSaudacao, chatId, { mentions: [contato.id._serialized] });
+            }
+        }
+
+        // 2. FILTRAGEM DE CHANCE (50%) OU MENÇÃO DIRETA
+        const deveResponderAleatorio = Math.random() < CHANCE_RESPOSTA_ALEATORIA;
         if (!foiMarcado && !deveResponderAleatorio) return;
 
         try {
             const chat = await msg.getChat();
             await chat.sendStateTyping();
 
-            // 🔍 BUSCA A PERSONALIDADE CONFIGURADA PARA ESTE GRUPO ESPECÍFICO
-            const GroupConfig = mongoose.model('AuthorizedGroup'); // Use o model correto do seu projeto
+            // Busca a personalidade configurada para este grupo específico
+            const GroupConfig = mongoose.model('AuthorizedGroup');
             const configGrupo = await GroupConfig.findOne({ groupId: chatId });
 
-            // Prompt padrão caso o grupo não tenha configurado nada ainda
-            const promptSistema = configGrupo?.personalidade || "Você é a Yukon, uma inteligência artificial espacial, amigável e descolada que participa de um grupo de WhatsApp como membra.";
+            // Base de prompt proibindo estritamente emojis e forçando tom humano real
+            const promptBase = configGrupo?.personalidade || "Você é uma pessoa real participando de um grupo de WhatsApp. Seja natural, informal, digite como gente normal e **NUNCA utilize emojis** em nenhuma circunstância.";
+            
+            const promptSistema = `${promptBase}\n\nIMPORTANTE: Escreva apenas texto puro como um ser humano conversando no chat. Proibido o uso de qualquer emoji.`;
 
             let textoMensagem = msg.body.replace(new RegExp(`@${meuNumero.split('@')[0]}`, 'g'), '').trim();
-            if (!textoMensagem) textoMensagem = "Opa!";
+            if (!textoMensagem) textoMensagem = "Opa";
 
             const completion = await groq.chat.completions.create({
                 model: "llama-3.3-70b-versatile",
@@ -42,27 +59,16 @@ module.exports = {
                     { role: "system", content: promptSistema },
                     { role: "user", content: textoMensagem }
                 ],
-                temperature: 0.85,
-                max_tokens: 150,
+                temperature: 0.9,
+                max_tokens: 120,
             });
 
-            const respostaIA = completion.choices[0]?.message?.content || "Sinal instável por aqui... 🛰️";
-            await msg.reply(respostaIA);
+            let respostaIA = completion.choices[0]?.message?.content || "fala mano";
+            
+            // Garantia de segurança final contra emojis caso a IA ouse mandar
+            respostaIA = respostaIA.replace(/[\p{Emoji_Presentation}\p{Extended_Pictographic}]/gu, '').trim();
 
-            // Envio opcional de figurinha do pack
-            if (Math.random() < 0.4) {
-                const pastaStickers = path.resolve(__dirname, '..', 'stickers');
-                if (fs.existsSync(pastaStickers)) {
-                    const figurinhas = fs.readdirSync(pastaStickers).filter(file => file.endsWith('.webp') || file.endsWith('.png'));
-                    if (figurinhas.length > 0) {
-                        const figAleatoria = figurinhas[Math.floor(Math.random() * figurinhas.length)];
-                        const mediaSticker = MessageMedia.fromFilePath(path.resolve(pastaStickers, figAleatoria));
-                        setTimeout(async () => {
-                            await client.sendMessage(chatId, mediaSticker, { sendMediaAsSticker: true });
-                        }, 1500);
-                    }
-                }
-            }
+            await msg.reply(respostaIA);
 
         } catch (err) {
             console.error("❌ Erro no yukonChat:", err);
