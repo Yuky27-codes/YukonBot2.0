@@ -3,7 +3,7 @@ const Partnership = require('../models/partnershipSchema');
 module.exports = {
     name: 'parceria',
     async execute(client, msg, { chatId, args, isGroup }) {
-        if (!isGroup) return msg.reply("❌ Este comando só pode ser usado em grupos.");
+        if (!chatId.endsWith('@g.us')) return msg.reply("❌ Este comando só pode ser usado em grupos.");
 
         const tipoVinculo = args[0]?.toLowerCase(); // 'code' ou 'manual' (ou direto se preferir)
 

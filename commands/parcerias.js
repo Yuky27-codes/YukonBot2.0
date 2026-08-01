@@ -3,7 +3,7 @@ const Partnership = require('../models/partnershipSchema');
 module.exports = {
     name: 'parcerias',
     async execute(client, msg, { chatId, isGroup }) {
-        if (!isGroup) return msg.reply("❌ Apenas em grupos.");
+        if (!chatId.endsWith('@g.us')) return msg.reply("❌ Apenas em grupos.");
 
         try {
             const listaParcerias = await Partnership.find({ groupId: chatId });

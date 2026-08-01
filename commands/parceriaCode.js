@@ -4,7 +4,7 @@ const crypto = require('crypto');
 module.exports = {
     name: 'parceria_code',
     async execute(client, msg, { chatId, isGroup }) {
-        if (!isGroup) return msg.reply("❌ Este comando só pode ser usado dentro de grupos.");
+        if (!chatId.endsWith('@g.us')) return msg.reply("❌ Este comando só pode ser usado dentro de grupos.");
 
         try {
             // Verifica se o grupo já tem um código gerado
