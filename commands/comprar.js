@@ -10,7 +10,7 @@ module.exports = {
             // — preço e bônus da loja sempre batem com o que os comandos aplicam de verdade)
             const produto = PATENTES.find(p => String(p.nivel) === item);
             if (!produto) {
-                return await msg.reply("❗ *SETOR DE VENDAS:* Item inválido! Use um número de 1 a 13.");
+                return await msg.reply("❗ *SETOR DE VENDAS:* Item inválido! Use um número de 1 a 20.");
             }
 
             const userComprador = await User.findOne({ userId: senderRaw, groupId: chatId });
