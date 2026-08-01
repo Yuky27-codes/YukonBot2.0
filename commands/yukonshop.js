@@ -15,20 +15,16 @@ module.exports = {
 
                 shopMsg += `${p.emblema} *${numero}. ${p.nome}* — 💰 ${precoFormatado}\n`;
 
-                // Monta a linha de bônus só com o que essa patente realmente dá
-                const bonus = [];
-                if (p.sorteBonus > 0) bonus.push(`🍀 +${p.sorteBonus}% sorte`);
-                if (p.coinBonusPercent > 0) bonus.push(`💰 +${p.coinBonusPercent}% ganhos`);
-                if (p.usosExtras.cassino > 0) bonus.push(`🎰 +${p.usosExtras.cassino} uso(s) cassino/dia`);
-                if (p.usosExtras.roubar > 0) bonus.push(`🥷 +${p.usosExtras.roubar} uso(s) roubo/dia`);
-                if (p.missaoCooldownReducaoMin > 0) bonus.push(`⏳ -${p.missaoCooldownReducaoMin}min cooldown missão`);
-                if (p.protecaoRoubo > 0) bonus.push(`🛡️ -${p.protecaoRoubo}% chance de ser roubado`);
-                if (p.jurosBonusPercent > 0) bonus.push(`🏦 +${p.jurosBonusPercent}% juros no banco`);
+                // Adiciona cada bônus em sua própria linha com o bullet point (•)
+                if (p.sorteBonus > 0) shopMsg += `• 🍀 +${p.sorteBonus}% sorte\n`;
+                if (p.coinBonusPercent > 0) shopMsg += `• 💰 +${p.coinBonusPercent}% ganhos\n`;
+                if (p.usosExtras && p.usosExtras.cassino > 0) shopMsg += `• 🎰 +${p.usosExtras.cassino} uso(s) cassino/dia\n`;
+                if (p.usosExtras && p.usosExtras.roubar > 0) shopMsg += `• 🥷 +${p.usosExtras.roubar} uso(s) roubo/dia\n`;
+                if (p.missaoCooldownReducaoMin > 0) shopMsg += `• ⏳ -${p.missaoCooldownReducaoMin}min cooldown missão\n`;
+                if (p.protecaoRoubo > 0) shopMsg += `• 🛡️ -${p.protecaoRoubo}% chance de ser roubado\n`;
+                if (p.jurosBonusPercent > 0) shopMsg += `• 🏦 +${p.jurosBonusPercent}% juros no banco\n`;
 
-                if (bonus.length > 0) {
-                    shopMsg += `   _${bonus.join(' • ')}_\n`;
-                }
-                shopMsg += `\n`;
+                shopMsg += `\n`; // Linha em branco entre as patentes
             });
 
             shopMsg += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
