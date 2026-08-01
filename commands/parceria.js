@@ -1,23 +1,46 @@
 const Partnership = require('../models/partnershipSchema');
+const crypto = require('crypto');
 
 module.exports = {
     name: 'parceria',
-    async execute(client, msg, { chatId, args, isGroup }) {
+    async execute(client, msg, { chatId, args }) {
         if (!chatId.endsWith('@g.us')) return msg.reply("❌ Este comando só pode ser usado em grupos.");
 
-        const tipoVinculo = args[0]?.toLowerCase(); // 'code' ou 'manual' (ou direto se preferir)
+        const tipoVinculo = args[0]?.toLowerCase(); // 'code' ou nome manual
 
+        // 1. SE O ARGUMENTO FOR 'CODE'
         if (tipoVinculo === 'code') {
             const codigoParceiro = args[1];
-            if (!codigoParceiro) return msg.reply("⚠️ Uso correto: `/parceria code [CÓDIGO_DO_OUTRO_GRUPO]`");
 
-            // Busca se existe um grupo com esse código gerado no bot
+            // 🟢 SE NÃO PASSOU O CÓDIGO NA FRENTE: Gera ou exibe o código do próprio grupo
+            if (!codigoParceiro) {
+                try {
+                    let parceriaExistente = await Partnership.findOne({ groupId: chatId, partnerGroupId: null, partnerCode: { $regex: /^YK-/ } });
+
+                    if (!parceriaExistente) {
+                        const randomStr = crypto.randomBytes(3).toString('hex').toUpperCase();
+                        const code = `YK-${randomStr}`;
+
+                        parceriaExistente = await Partnership.create({
+                            groupId: chatId,
+                            partnerCode: code,
+                            partnerName: "Aguardando Vínculo"
+                        });
+                    }
+
+                    return msg.reply(`🤝 *CÓDIGO DE PARCERIA DO GRUPO*\n\nO código fixo para este grupo é:\n\`${parceriaExistente.partnerCode}\`\n\nCompartilhe este código com o ADM de outro grupo para fecharem uma parceria oficial! 🚀`);
+                } catch (err) {
+                    console.error("❌ Erro ao gerar código de parceria:", err);
+                    return msg.reply("⚠️ Erro interno ao gerar o código de parceria.");
+                }
+            }
+
+            // 🔵 SE PASSOU O CÓDIGO NA FRENTE: Tenta fechar o vínculo com o outro grupo
             const parceiroAlvo = await Partnership.findOne({ partnerCode: codigoParceiro.toUpperCase() });
             if (!parceiroAlvo) return msg.reply("❌ Código de parceria inválido ou não encontrado na base da Yukon.");
 
             if (parceiroAlvo.groupId === chatId) return msg.reply("⚠️ Você não pode fechar parceria com o seu próprio grupo!");
 
-            // Cria o vínculo cruzado para o grupo atual
             await Partnership.create({
                 groupId: chatId,
                 partnerCode: `VINCULO-${Date.now()}`,
@@ -28,7 +51,7 @@ module.exports = {
             return msg.reply(`✅ *PARCERIA FECHADA COM SUCESSO!* 🤝\n\nEste grupo agora está oficialmente aliado ao grupo do código \`${codigoParceiro}\`. As estatísticas de salas conjuntas já estão ativas!`);
         } 
         
-        // Modo manual (Caso o outro grupo não use a YukonBot)
+        // 2. MODO MANUAL (Caso o outro grupo não use a YukonBot)
         else {
             const nomeParceiro = args.join(' ');
             if (!nomeParceiro) {
