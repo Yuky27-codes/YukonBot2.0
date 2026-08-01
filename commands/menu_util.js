@@ -32,6 +32,12 @@ module.exports = {
 ◇ */enquete* (pergunta) opção1, opção2, ➜ Cria enquete
 
 ◇ */personalidade* [1-5] ➜ Define a personalidade da IA pelo PV
+
+◇ */chatconfig off* ➜ Desativa respostas automáticas
+
+◇ */chatconfig on* ➜ Ativa respostas automáticas
+
+◇ */chatconfig chance <0-100> ➜ Define a chance de respostas automáticas
 ╰━━━━━━━━━━━━━━━━━━━━━━╯
 `;
 
