@@ -1,8 +1,8 @@
 const yts = require('yt-search');
+const ytdl = require('@distube/ytdl-core');
 const { MessageMedia } = require('whatsapp-web.js');
 const fs = require('fs-extra');
 const path = require('path');
-const axios = require('axios');
 
 module.exports = {
     name: 'play',
@@ -37,54 +37,29 @@ module.exports = {
             if (video.seconds > 600) return await client.sendMessage(chatId, "⏳ Limite de 10 minutos.");
 
             const { title, timestamp, url } = video;
-
-            // Usando uma API de conversão pública e estável para burlar o bloqueio de bot do YouTube
-            const apiUrl = `https://api.siputzx.my.id/api/d/youtube?url=${encodeURIComponent(url)}`;
             
             await client.sendMessage(chatId, `📥 *YUKON RÁDIO:* Baixando "${title}"...`);
 
-            const response = await axios.get(apiUrl);
-            const resData = response.data;
-
-            let audioDownloadUrl = null;
-            if (resData && resData.status && resData.data && resData.data.dl) {
-                audioDownloadUrl = resData.data.dl;
-            } else if (resData && resData.dl) {
-                audioDownloadUrl = resData.dl;
-            }
-
-            if (!audioDownloadUrl) {
-                // Tenta uma rota alternativa caso a primeira falhe
-                const altApi = `https://deliriusapi-oficial.vercel.app/download/ytdl?url=${encodeURIComponent(url)}`;
-                const altRes = await axios.get(altApi);
-                if (altRes.data && altRes.data.data && altRes.data.data.audio) {
-                    audioDownloadUrl = altRes.data.data.audio;
-                }
-            }
-
-            if (!audioDownloadUrl) {
-                limparTemp();
-                return await client.sendMessage(chatId, "❌ Erro: O YouTube bloqueou a extração desta faixa no momento.");
-            }
-
-            // Baixa o arquivo de áudio para a pasta temp
-            const audioStream = await axios({
-                method: 'get',
-                url: audioDownloadUrl,
-                responseType: 'stream'
+            // Baixa o áudio diretamente do YouTube usando o ytdl-core (sem depender de APIs externas instáveis)
+            const stream = ytdl(url, {
+                quality: 'highestaudio',
+                filter: 'audioonly',
+                highWaterMark: 1 << 25 // Buffer de 32MB para garantir estabilidade
             });
 
             const writer = fs.createWriteStream(tempFile);
-            audioStream.data.pipe(writer);
+            stream.pipe(writer);
 
             await new Promise((resolve, reject) => {
                 writer.on('finish', resolve);
                 writer.on('error', reject);
+                stream.on('error', reject);
             });
 
-            const media = MessageMedia.fromFilePath(tempFile);
+            // Desconta as moedas do usuário após o sucesso do download
             await User.updateOne({ userId: autorId, groupId: chatId }, { $inc: { coins: -custoMusica } });
             
+            const media = MessageMedia.fromFilePath(tempFile);
             await client.sendMessage(chatId, media, {
                 sendAudioAsVoice: true,
                 caption: `🎵 *${title}*\n⏱️ ${timestamp}\n💰 -${custoMusica} YC`
@@ -95,7 +70,7 @@ module.exports = {
         } catch (e) {
             console.error("❌ Erro no Play:", e.message);
             limparTemp();
-            await client.sendMessage(chatId, `❌ Falha ao processar a música: ${e.message}`);
+            await client.sendMessage(chatId, `❌ Falha ao processar a música. O YouTube pode estar bloqueando a conexão temporariamente.`);
         }
     }
 };
