@@ -7,15 +7,22 @@ module.exports = {
                 return msg.reply("❌ Este comando só pode ser utilizado dentro de grupos.");
             }
 
-            // Verifica se quem enviou é administrador do grupo
             const chat = await msg.getChat();
-            const participants = chat.participants;
-            const authorId = msg.author || msg.from;
             
-            const participantInfo = participants.find(p => p.id._serialized === authorId);
-            const isAdmin = participantInfo?.isAdmin || participantInfo?.isSuperAdmin;
+            // Descobre o ID real de quem mandou a mensagem (funciona tanto para msg.author quanto msg.from em grupos)
+            const authorId = msg.author || msg.from;
 
-            if (!isAdmin) {
+            // Busca o participante na lista do chat
+            const participant = chat.participants.find(p => p.id._serialized === authorId);
+
+            // Verifica se é admin ou superadmin
+            const isAdmin = participant ? (participant.isAdmin || participant.isSuperAdmin) : false;
+
+            // REGRA EXTRA DE SEGURANÇA: Se você for o dono do bot (o número conectado), libera sempre para testes
+            const meuNumero = client.info.wid._serialized;
+            const souEuDono = authorId === meuNumero;
+
+            if (!isAdmin && !souEuDono) {
                 return msg.reply("⚠️ Apenas administradores do grupo podem criar enquetes.");
             }
 
@@ -63,7 +70,7 @@ Use o formato abaixo (com a pergunta entre parênteses e as opções separadas p
 
             // Apaga imediatamente a mensagem com o comando que o ADM enviou
             await msg.delete(true).catch(err => {
-                console.log("⚠️ Não foi possível apagar a mensagem do comando (talvez o bot precise ser admin):", err.message);
+                console.log("⚠️ Não foi possível apagar a mensagem do comando:", err.message);
             });
 
         } catch (err) {
