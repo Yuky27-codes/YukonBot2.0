@@ -1,25 +1,14 @@
+const { PATENTES } = require('./patentes');
+
 module.exports = {
     name: 'comprar',
     async execute(client, msg, { args, chatId, senderRaw, User }) {
         try {
             const item = args[0];
-            const produtos = {
-                '1': { nome: 'Impostor', preco: 500 },
-                '2': { nome: 'Cientista', preco: 1000 },
-                '3': { nome: 'Capitão', preco: 5000 },
-                '4': { nome: 'Especialista', preco: 10000 },
-                '5': { nome: 'Veterano', preco: 25000 },
-                '6': { nome: 'Comandante', preco: 50000 },
-                '7': { nome: 'Elite Galáctica', preco: 80000 },
-                '8': { nome: 'Guardião Estelar', preco: 120000 },
-                '9': { nome: 'Viajante Dimensional', preco: 180000 },
-                '10': { nome: 'Lorde das Estrelas', preco: 250000 },
-                '11': { nome: 'Almirante de Frota', preco: 320000 },
-                '12': { nome: 'Governador Planetário', preco: 400000 },
-                '13': { nome: 'Lenda Estelar', preco: 500000 }
-            };
 
-            const produto = produtos[item];
+            // Monta a lista de produtos direto do patentes.js (fonte única de verdade
+            // — preço e bônus da loja sempre batem com o que os comandos aplicam de verdade)
+            const produto = PATENTES.find(p => String(p.nivel) === item);
             if (!produto) {
                 return await msg.reply("❗ *SETOR DE VENDAS:* Item inválido! Use um número de 1 a 13.");
             }
@@ -66,12 +55,27 @@ module.exports = {
                 { returnDocument: 'after', upsert: true }
             );
 
+            // Monta a lista de bônus que essa patente concede, só com o que ela realmente tem
+            const bonus = [];
+            if (produto.sorteBonus > 0) bonus.push(`🍀 +${produto.sorteBonus}% de sorte (cassino e roubo)`);
+            if (produto.coinBonusPercent > 0) bonus.push(`💰 +${produto.coinBonusPercent}% em todos os ganhos de coins`);
+            if (produto.usosExtras.cassino > 0) bonus.push(`🎰 +${produto.usosExtras.cassino} uso(s) extra(s) de /cassino por dia`);
+            if (produto.usosExtras.roubar > 0) bonus.push(`🥷 +${produto.usosExtras.roubar} uso(s) extra(s) de /roubar por dia`);
+            if (produto.missaoCooldownReducaoMin > 0) bonus.push(`⏳ -${produto.missaoCooldownReducaoMin}min no cooldown da /missão`);
+            if (produto.protecaoRoubo > 0) bonus.push(`🛡️ -${produto.protecaoRoubo}% de chance de ser roubado`);
+            if (produto.jurosBonusPercent > 0) bonus.push(`🏦 +${produto.jurosBonusPercent}% de juros no banco`);
+
+            const listaBonus = bonus.length > 0
+                ? `\n🎁 *VANTAGENS DESBLOQUEADAS:*\n${bonus.map(b => `• ${b}`).join('\n')}\n`
+                : '';
+
             const msgSucesso = `
 🎊 *AQUISIÇÃO CONCLUÍDA* 🎊
 ━━━━━━━━━━━━━━━━━━━━━━━
-🚀 *PATENTE:* ${produto.nome.toUpperCase()}
+🚀 *PATENTE:* ${produto.nome.toUpperCase()} ${produto.emblema}
 📉 *SALDO ATUAL:* ${finalUser.coins.toLocaleString('pt-BR')} YC
-━━━━━━━━━━━━━━━━━━━━━━━`.trim();
+${listaBonus}━━━━━━━━━━━━━━━━━━━━━━━
+⚠️ _Se você já tinha outra patente, só a mais alta conta pra valer os bônus._`.trim();
 
             await msg.reply(msgSucesso);
 

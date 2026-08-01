@@ -1,11 +1,49 @@
+const mongoose = require('mongoose');
+
 module.exports = {
     name: 'desmute',
-    async execute(client, msg, { chatId, isAdmin, iAmAdmin, chat: chatFromIndex }) {
+    async execute(client, msg, { args, chatId, isAdmin, iAmAdmin, chat: chatFromIndex }) {
         try {
             // 1. Verificação de Permissão (Admin do Bot)
             if (!isAdmin) {
                 return msg.reply('❌ Você não tem autorização para liberar as comunicações do setor.');
             }
+
+            const horarioArg = args[0];
+
+            // --- 🟢 MODO AGENDADO: /desmute HH:MM ---
+            if (horarioArg) {
+                const match = horarioArg.match(/^([01]\d|2[0-3]):([0-5]\d)$/);
+                if (!match) {
+                    return msg.reply('❌ Horário inválido. Use o formato HH:MM (ex: /desmute 17:00).');
+                }
+
+                const [, horaStr, minutoStr] = match;
+                const alvo = new Date();
+                alvo.setHours(parseInt(horaStr), parseInt(minutoStr), 0, 0);
+                if (alvo.getTime() <= Date.now()) {
+                    alvo.setDate(alvo.getDate() + 1); // já passou hoje — agenda pra amanhã
+                }
+
+                const GroupSchedule = mongoose.model('GroupSchedule');
+                await GroupSchedule.findOneAndUpdate(
+                    { groupId: chatId, action: 'desmute' },
+                    {
+                        $set: {
+                            targetTime: alvo,
+                            createdBy: msg._data?.notifyName || 'admin',
+                            createdAt: new Date()
+                        }
+                    },
+                    { upsert: true }
+                );
+
+                return msg.reply(
+                    `🔊 *AGENDAMENTO CONFIRMADO*\n\nO grupo será liberado automaticamente às *${horaStr}:${minutoStr}*.\n\n_Se um /mute ou /desmute manual (sem horário) for enviado antes disso, esse agendamento é cancelado._`
+                );
+            }
+
+            // --- MODO IMEDIATO (comportamento original) ---
 
             // 🔧 Reaproveita o "chat" que o index.js já buscou. Se não vier (ou vier
             // nulo por falha lá), tenta buscar de novo aqui — às vezes o erro
@@ -35,11 +73,20 @@ module.exports = {
                 return msg.reply('⚠️ Eu preciso de privilégios de Admin para abrir as comportas de áudio do grupo.');
             }
 
+            // --- 🟢 Cancela qualquer agendamento pendente (mute OU desmute) — comando manual tem prioridade ---
+            const GroupSchedule = mongoose.model('GroupSchedule');
+            const canceladas = await GroupSchedule.deleteMany({ groupId: chatId, action: { $in: ['mute', 'desmute'] } });
+
             // 3. Abre o grupo (Todos os participantes podem enviar mensagens)
             await chat.setMessagesAdminsOnly(false);
 
             // 4. Feedback Visual
-            await client.sendMessage(chatId, "🔊 *COMUNICAÇÕES REESTABELECIDAS*\n\nO setor foi liberado pela administração da Yukon. A tripulação já pode enviar mensagens novamente.", {
+            let textoFinal = "🔊 *COMUNICAÇÕES REESTABELECIDAS*\n\nO setor foi liberado pela administração da Yukon. A tripulação já pode enviar mensagens novamente.";
+            if (canceladas.deletedCount > 0) {
+                textoFinal += "\n\n_⚠️ Agendamento(s) automático(s) pendente(s) foram cancelados._";
+            }
+
+            await client.sendMessage(chatId, textoFinal, {
                 sendSeen: false
             });
 

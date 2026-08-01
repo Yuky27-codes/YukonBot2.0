@@ -1,3 +1,5 @@
+const { getAtributos } = require('./patentes');
+
 module.exports = {
     name: 'caixasurpresa',
     async execute(client, msg, { chatId, senderRaw, User }) {
@@ -21,6 +23,10 @@ module.exports = {
                 return await client.sendMessage(chatId, `⏳ *AGUARDE!*\nVocê já abriu uma Caixa Surpresa recentemente!\n\nPróxima disponível em: *${minutos}min ${segundos}s*`);
             }
 
+            // --- 🟢 ATRIBUTOS DE PATENTE ---
+            const atributos = getAtributos(user.inventory);
+            const aplicarBonusCoins = (valor) => Math.round(valor * (1 + atributos.coinBonusPercent / 100));
+
             // Debita o custo e registra o cooldown
             await User.updateOne(
                 { userId: autorId, groupId: chatId },
@@ -38,13 +44,13 @@ module.exports = {
                 mensagem = `💸 *CAIXA VAZIA!*\n\nVocê abriu a caixa e... não tinha nada!\n❌ Perdeu: *${CUSTO} YC*`;
 
             } else if (sorteio < 75) {
-                const ganho = Math.floor(Math.random() * (500 - 100 + 1)) + 100;
+                const ganho = aplicarBonusCoins(Math.floor(Math.random() * (500 - 100 + 1)) + 100);
                 await User.updateOne({ userId: autorId, groupId: chatId }, { $inc: { coins: ganho } });
                 mensagem = `💰 *BOA SURPRESA!*\n\nVocê abriu a caixa e encontrou moedas!\n✅ Ganhou: *${ganho.toLocaleString('pt-BR')} YC*`;
 
             } else {
                 const mult = Math.floor(Math.random() * (10 - 2 + 1)) + 2;
-                const ganho = CUSTO * mult;
+                const ganho = aplicarBonusCoins(CUSTO * mult);
                 await User.updateOne({ userId: autorId, groupId: chatId }, { $inc: { coins: ganho } });
                 mensagem = `🎰 *MULTIPLICADOR ${mult}x!*\n\nVocê abriu a caixa e ativou um multiplicador!\n✅ Ganhou: *${ganho.toLocaleString('pt-BR')} YC* (${mult}x)`;
             }

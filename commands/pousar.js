@@ -1,3 +1,5 @@
+const { getAtributos } = require('./patentes');
+
 module.exports = {
     name: 'pousar',
     async execute(client, msg, { chatId, senderRaw, User }) {
@@ -21,6 +23,9 @@ module.exports = {
             const user = await User.findOne({ userId: autorId, groupId: chatId });
             if (!user) return;
 
+            // --- 🟢 ATRIBUTOS DE PATENTE ---
+            const atributos = getAtributos(user.inventory);
+
             const agora = new Date();
             const tempoEspera = 24 * 60 * 60 * 1000;
 
@@ -35,8 +40,8 @@ module.exports = {
             const planeta = planetas[Math.floor(Math.random() * planetas.length)];
             const msgPlaneta = planeta.msgs[Math.floor(Math.random() * planeta.msgs.length)];
 
-            // Valor aleatório
-            const lucro = Math.floor(Math.random() * (800 - 200 + 1)) + 200;
+            // Valor aleatório (bônus da patente só entra no lucro, não na perda)
+            const lucro = Math.round((Math.floor(Math.random() * (800 - 200 + 1)) + 200) * (1 + atributos.coinBonusPercent / 100));
             const perda = Math.floor(Math.random() * (400 - 100 + 1)) + 100;
 
             // Atualiza lastPousar

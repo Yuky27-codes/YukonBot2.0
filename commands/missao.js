@@ -1,3 +1,5 @@
+const { getAtributos } = require('./patentes');
+
 module.exports = {
     name: 'missão',
     aliases: ['daily', 'mis'], // Apelidos para facilitar o uso
@@ -17,8 +19,12 @@ module.exports = {
                 });
             }
 
+            // --- 🟢 ATRIBUTOS DE PATENTE ---
+            const atributos = getAtributos(userD.inventory);
+
             const agora = new Date();
-            const tempoEspera = 24 * 60 * 60 * 1000; // 24 horas
+            const reducaoMs = (atributos.missaoCooldownReducaoMin || 0) * 60 * 1000;
+            const tempoEspera = Math.max(0, (24 * 60 * 60 * 1000) - reducaoMs); // 24h menos a redução da patente
 
             // 2. Verificação de Cooldown (Tempo de Espera)
             if (userD.lastDaily && (agora - new Date(userD.lastDaily) < tempoEspera)) {
@@ -32,8 +38,9 @@ module.exports = {
                 });
             }
 
-            // 3. Cálculo de Recompensa (200 a 500 YukonCoins)
-            const ganho = Math.floor(Math.random() * (500 - 200 + 1)) + 200;
+            // 3. Cálculo de Recompensa (200 a 500 YukonCoins) + bônus da patente
+            const ganhoBase = Math.floor(Math.random() * (500 - 200 + 1)) + 200;
+            const ganho = Math.round(ganhoBase * (1 + atributos.coinBonusPercent / 100));
 
             // 4. Atualização Atômica (Segurança total contra spam)
             await User.updateOne(

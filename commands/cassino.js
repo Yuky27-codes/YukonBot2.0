@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const { getAtributos } = require('./patentes');
 
 module.exports = {
     name: 'cassino',
@@ -29,11 +30,15 @@ module.exports = {
             const player = await User.findOne({ userId: senderId, groupId: chatId });
             if (!player) return;
 
+            // --- 🟢 ATRIBUTOS DE PATENTE ---
+            const atributos = getAtributos(player.inventory);
+            const limiteApostas = 3 + (atributos.usosExtras.cassino || 0);
+
             // 3. VERIFICA O LIMITE ANTES DE QUALQUER COISA
-            if (!isComandante && player.casinoCount >= 3) {
+            if (!isComandante && player.casinoCount >= limiteApostas) {
                 return await client.sendMessage(
                     chatId,
-                    `🚫 @${senderId.split('@')[0]}, você já atingiu seu limite de 3 apostas hoje! Volte amanhã.`,
+                    `🚫 @${senderId.split('@')[0]}, você já atingiu seu limite de ${limiteApostas} apostas hoje! Volte amanhã.`,
                     { mentions: [senderId] }
                 );
             }
@@ -83,13 +88,17 @@ module.exports = {
                 { upsert: true }
             );
 
+            // Helper: aplica o bônus de ganho de coins da patente em cima de um valor positivo
+            const aplicarBonusCoins = (valor) => Math.round(valor * (1 + atributos.coinBonusPercent / 100));
+
             // --- PROCESSAMENTO DOS JOGOS ---
             switch (jogo) {
                 case 'apostar': {
                     const mult = parseInt(parametroExtra) || 2;
-                    const win = isComandante ? true : Math.random() < (1 / mult - 0.05);
+                    const chanceBase = (1 / mult - 0.05);
+                    const win = isComandante ? true : Math.random() < (chanceBase + atributos.sorteBonus / 100);
                     if (win) {
-                        const lucro = (valorAp * mult) - valorAp;
+                        const lucro = aplicarBonusCoins((valorAp * mult) - valorAp);
                         await User.updateOne({ userId: senderId, groupId: chatId }, { $inc: { coins: lucro } });
                         await client.sendMessage(chatId, `🎉 *GANHOU!* +${lucro.toLocaleString()} YC!`);
                     } else {
@@ -99,13 +108,15 @@ module.exports = {
                     break;
                 }
                 case 'roleta': {
-                    const roletaResultado = isComandante ? 1 : Math.floor(Math.random() * 6);
-                    if (roletaResultado === 0) {
+                    // Base: 1 em 6 chances de perder. sorteBonus reduz essa chance (mínimo 2%).
+                    const chancePerda = Math.max(0.02, (1 / 6) - atributos.sorteBonus / 100);
+                    const perdeu = isComandante ? false : Math.random() < chancePerda;
+                    if (perdeu) {
                         const perda = Math.floor(player.coins * 0.8);
                         await User.updateOne({ userId: senderId, groupId: chatId }, { $inc: { coins: -perda } });
                         await client.sendMessage(chatId, `💀 *POW!* Perdeu 80%: -${perda.toLocaleString()} YC.`);
                     } else {
-                        const lucroR = Math.floor(valorAp * 0.5);
+                        const lucroR = aplicarBonusCoins(Math.floor(valorAp * 0.5));
                         await User.updateOne({ userId: senderId, groupId: chatId }, { $inc: { coins: lucroR } });
                         await client.sendMessage(chatId, `🔫 *CLACK!* Ganhou ${lucroR.toLocaleString()} YC!`);
                     }
@@ -114,10 +125,13 @@ module.exports = {
                 case '21': {
                     const alvo = parseInt(parametroExtra);
                     const seuPonto = isComandante ? alvo : (Math.floor(Math.random() * 11) + 1) + (Math.floor(Math.random() * 11) + 1);
-                    if (seuPonto === alvo) {
-                        const premio = valorAp * 5;
+                    // Acerto exato OU "salvamento de sorte" proporcional ao sorteBonus da patente
+                    const salvouPelaSorte = !isComandante && seuPonto !== alvo && Math.random() < (atributos.sorteBonus / 100);
+                    if (seuPonto === alvo || salvouPelaSorte) {
+                        const premio = aplicarBonusCoins(valorAp * 5);
                         await User.updateOne({ userId: senderId, groupId: chatId }, { $inc: { coins: premio } });
-                        await client.sendMessage(chatId, `🃏 *NA MOSCA!* Tirou ${seuPonto}: +${premio.toLocaleString()} YC!`);
+                        const textoResultado = salvouPelaSorte ? `Tirou ${seuPonto}, mas sua sorte estelar salvou a jogada!` : `Tirou ${seuPonto}!`;
+                        await client.sendMessage(chatId, `🃏 *NA MOSCA!* ${textoResultado} +${premio.toLocaleString()} YC!`);
                     } else {
                         await User.updateOne({ userId: senderId, groupId: chatId }, { $inc: { coins: -valorAp } });
                         await client.sendMessage(chatId, `🃏 *PERDEU!* Tirou ${seuPonto}: -${valorAp.toLocaleString()} YC.`);
@@ -131,10 +145,12 @@ module.exports = {
                     setTimeout(async () => {
                         const podio = [...naves].sort(() => Math.random() - 0.5);
                         let msgF = `🏁 1º: ${podio[0]} | 2º: ${podio[1]} | 3º: ${podio[2]}\n`;
-                        if (isComandante || minhaNave === podio[0]) {
-                            const winC = valorAp * 3;
+                        // Se não bateu na cara, ainda tem chance de vitória proporcional ao sorteBonus
+                        const venceuPelaSorte = minhaNave !== podio[0] && Math.random() < (atributos.sorteBonus / 100);
+                        if (isComandante || minhaNave === podio[0] || venceuPelaSorte) {
+                            const winC = aplicarBonusCoins(valorAp * 3);
                             await User.updateOne({ userId: senderId, groupId: chatId }, { $inc: { coins: winC } });
-                            msgF += `🏆 Ganhou +${winC.toLocaleString()} YC!`;
+                            msgF += venceuPelaSorte ? `🍀 Sorte estelar! Ganhou +${winC.toLocaleString()} YC!` : `🏆 Ganhou +${winC.toLocaleString()} YC!`;
                         } else {
                             await User.updateOne({ userId: senderId, groupId: chatId }, { $inc: { coins: -valorAp } });
                             msgF += `❌ Perdeu -${valorAp.toLocaleString()} YC.`;

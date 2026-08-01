@@ -1,74 +1,69 @@
 module.exports = {
     name: 'cupomp',
     async execute(client, msg, { args, chatId }) {
-        // Garante que o uso seja no privado
         if (chatId.endsWith('@g.us')) {
             return msg.reply("❌ Por segurança, resgate seu cupom apenas no *Privado do Bot*.");
         }
 
         const codigoInput = args[0]?.toUpperCase();
-        const idGrupoAlvo = args[1]; // ID do grupo que receberá o desconto
 
-        if (!codigoInput || !idGrupoAlvo) {
-            return msg.reply("⚠️ *COMO RESGATAR:*\nUse: `/cupomp [CÓDIGO] [ID_DO_GRUPO]`\n\n_Exemplo: /cupomp YUKON-PROMO 120363... @g.us_");
-        }
-
-        if (!idGrupoAlvo.includes('@g.us')) {
-            return msg.reply("⚠️ O ID do grupo deve terminar com `@g.us`.");
+        if (!codigoInput) {
+            return msg.reply("⚠️ *COMO RESGATAR:*\nUse: `/cupomp [CÓDIGO]`\n\n_Exemplo: /cupomp YUKON-ABC12_");
         }
 
         try {
             const mongoose = require('mongoose');
             const Coupon = mongoose.model('Coupon');
+            const UserProfile = mongoose.model('UserProfile');
 
-            const cupom = await Coupon.findOne({ code: codigoInput, isUsed: false });
+            const cupom = await Coupon.findOne({ code: codigoInput });
 
-            // Verifica validade e expiração
-            if (!cupom || (cupom.expiresAt && new Date() > cupom.expiresAt)) {
-                return msg.reply("❌ Cupom inválido, já utilizado ou expirado.");
+            // Validações de existência, expiração por data e limite de usos
+            if (!cupom) {
+                return msg.reply("❌ Cupom não encontrado.");
+            }
+            if (cupom.expiresAt && new Date() > cupom.expiresAt) {
+                return msg.reply("❌ Este cupom já expirou o prazo de resgate.");
+            }
+            if (cupom.usesCount >= (cupom.maxUses || 1)) {
+                return msg.reply("❌ Este cupom já esgotou o limite máximo de pessoas que podiam resgatá-lo.");
             }
 
-            // --- LÓGICA UNIVERSAL ---
-
-            // Se for um cupom de INDICAÇÃO (tem um grupo por trás)
-            if (cupom.referrerGroupId) {
-                // Impede auto-indicação
-                if (cupom.referrerGroupId === idGrupoAlvo) {
-                    return msg.reply("⚠️ *SISTEMA ANTI-FRAUDE*\nVocê não pode usar um cupom gerado pelo seu próprio grupo.");
-                }
-                
-                await Coupon.updateOne({ code: codigoInput }, { 
-                    isUsed: true, 
-                    usedByGroup: idGrupoAlvo 
-                });
-
-                return msg.reply(`🎉 *CUPOM DE INDICAÇÃO ATIVADO!*
-━━━━━━━━━━━━━━━━━━━━━
-📍 Grupo: \`${idGrupoAlvo}\`
-📉 Desconto: **${cupom.discountPercent}%**
-🎁 Bônus: **+5 dias grátis** na sua 1ª assinatura.
-
-🛒 Use **/assinar** para ver os preços.`);
-            } 
-            
-            // Se for um cupom PROMOCIONAL (gerado por você sem grupo vinculado)
-            else {
-                await Coupon.updateOne({ code: codigoInput }, { 
-                    isUsed: true, 
-                    usedByGroup: idGrupoAlvo 
-                });
-
-                return msg.reply(`🎟️ *CUPOM PROMOCIONAL ATIVADO!*
-━━━━━━━━━━━━━━━━━━━━━
-📍 Grupo: \`${idGrupoAlvo}\`
-📉 Desconto: **${cupom.discountPercent}%**
-
-🛒 Use **/assinar** para ver os preços com desconto!`);
+            // Verifica se o usuário já tem um cupom ativo
+            const perfil = await UserProfile.findOne({ userId: msg.from });
+            if (perfil && perfil.cupomExpiraEm && new Date() < perfil.cupomExpiraEm) {
+                return msg.reply(`⚠️ Você já possui um cupom ativo vinculado à sua conta!\nAproveite o seu desconto atual antes de resgatar outro.`);
             }
+
+            // Incrementa o uso do cupom globalmente
+            await Coupon.updateOne({ code: codigoInput }, { $inc: { usesCount: 1 } });
+
+            // Define o prazo de 24 horas corridas a partir de agora para o cliente usar o desconto
+            const expiraCupomCliente = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+            // Salva o desconto e o prazo de validade de 24h no perfil do usuário
+            await UserProfile.updateOne(
+                { userId: msg.from },
+                { 
+                    $set: { 
+                        descontoAtivo: cupom.discountPercent,
+                        cupomExpiraEm: expiraCupomCliente
+                    } 
+                },
+                { upsert: true }
+            );
+
+            return msg.reply(`🎉 *CUPOM RESGATADO COM SUCESSO!*
+━━━━━━━━━━━━━━━━━━━━━
+📉 Desconto: **${cupom.discountPercent}%**
+⏳ Validade: Você tem **24 horas corridas** para utilizar este desconto.
+⏰ Expira em: *${expiraCupomCliente.toLocaleString('pt-BR')}*
+
+🛒 Digite **/assinar** agora mesmo para ver os valores com desconto!`);
 
         } catch (err) {
-            console.error(err);
-            return msg.reply("⚠️ Erro ao validar cupom.");
+            console.error("❌ Erro ao resgatar cupom:", err);
+            return msg.reply("⚠️ Erro interno ao processar o resgate do cupom.");
         }
     }
 };

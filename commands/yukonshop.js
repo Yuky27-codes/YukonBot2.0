@@ -1,35 +1,40 @@
+const { PATENTES } = require('./patentes');
+
 module.exports = {
     name: 'yukonshop',
     aliases: ['loja', 'shop'],
     async execute(client, msg, { chatId }) {
         try {
             let shopMsg = `🛒 *YUKON STATION - SHOP* ❄️\n`;
-            shopMsg += `_Suba na hierarquia da nave agora!_\n`;
+            shopMsg += `_Suba na hierarquia da nave agora e desbloqueie vantagens reais!_\n`;
             shopMsg += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n`;
 
-            const patentes = [
-                { n: "01", nome: "Impostor", preco: "500" },
-                { n: "02", nome: "Cientista", preco: "1.000" },
-                { n: "03", nome: "Capitão", preco: "5.000" },
-                { n: "04", nome: "Especialista", preco: "10.000" },
-                { n: "05", nome: "Veterano", preco: "25.000" },
-                { n: "06", nome: "Comandante", preco: "50.000" },
-                { n: "07", nome: "Elite Galáctica", preco: "80.000" },
-                { n: "08", nome: "Guardião Estelar", preco: "120.000" },
-                { n: "09", nome: "Viajante Dimensional", preco: "180.000" },
-                { n: "10", nome: "Lorde das Estrelas", preco: "250.000" },
-                { n: "11", nome: "Almirante de Frota", preco: "320.000" },
-                { n: "12", nome: "Governador Planetário", preco: "400.000" },
-                { n: "13", nome: "Lenda Estelar", preco: "500.000" }
-            ];
+            PATENTES.forEach(p => {
+                const numero = String(p.nivel).padStart(2, '0');
+                const precoFormatado = p.preco.toLocaleString('pt-BR');
 
-            patentes.forEach(p => {
-                shopMsg += `*${p.n}.* ${p.nome} — 💰 ${p.preco}\n`;
+                shopMsg += `${p.emblema} *${numero}. ${p.nome}* — 💰 ${precoFormatado}\n`;
+
+                // Monta a linha de bônus só com o que essa patente realmente dá
+                const bonus = [];
+                if (p.sorteBonus > 0) bonus.push(`🍀 +${p.sorteBonus}% sorte`);
+                if (p.coinBonusPercent > 0) bonus.push(`💰 +${p.coinBonusPercent}% ganhos`);
+                if (p.usosExtras.cassino > 0) bonus.push(`🎰 +${p.usosExtras.cassino} uso(s) cassino/dia`);
+                if (p.usosExtras.roubar > 0) bonus.push(`🥷 +${p.usosExtras.roubar} uso(s) roubo/dia`);
+                if (p.missaoCooldownReducaoMin > 0) bonus.push(`⏳ -${p.missaoCooldownReducaoMin}min cooldown missão`);
+                if (p.protecaoRoubo > 0) bonus.push(`🛡️ -${p.protecaoRoubo}% chance de ser roubado`);
+                if (p.jurosBonusPercent > 0) bonus.push(`🏦 +${p.jurosBonusPercent}% juros no banco`);
+
+                if (bonus.length > 0) {
+                    shopMsg += `   _${bonus.join(' • ')}_\n`;
+                }
+                shopMsg += `\n`;
             });
 
-            shopMsg += `\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+            shopMsg += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
             shopMsg += `> 🛠️ *COMO ADQUIRIR:* Use o comando */comprar [número]*\n`;
-            shopMsg += `> _Exemplo: /comprar 3 para Capitão_`;
+            shopMsg += `> _Exemplo: /comprar 3 para Capitão_\n`;
+            shopMsg += `> ⚠️ _Só a patente mais alta que você possui conta pra valer os bônus._`;
 
             // Enviando com a imagem padrão de loja da Yukon
             await global.enviarMenuComFoto(msg, 'loja.jpg', shopMsg);

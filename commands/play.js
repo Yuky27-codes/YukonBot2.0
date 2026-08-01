@@ -1,8 +1,8 @@
 const yts = require('yt-search');
-const ytdl = require('@distube/ytdl-core');
 const { MessageMedia } = require('whatsapp-web.js');
 const fs = require('fs-extra');
 const path = require('path');
+const axios = require('axios');
 
 module.exports = {
     name: 'play',
@@ -38,79 +38,64 @@ module.exports = {
 
             const { title, timestamp, url } = video;
 
-            // Monta o agent com cookies no formato correto do @distube/ytdl-core
-            const cookiePath = path.resolve(__dirname, '..', 'cookies.txt');
-            let agent = undefined;
+            // Usando uma API de conversão pública e estável para burlar o bloqueio de bot do YouTube
+            const apiUrl = `https://api.siputzx.my.id/api/d/youtube?url=${encodeURIComponent(url)}`;
+            
+            await client.sendMessage(chatId, `📥 *YUKON RÁDIO:* Baixando "${title}"...`);
 
-            if (fs.existsSync(cookiePath)) {
-                try {
-                    const raw = fs.readFileSync(cookiePath, 'utf8');
-                    const cookies = [];
+            const response = await axios.get(apiUrl);
+            const resData = response.data;
 
-                    for (const linha of raw.split('\n')) {
-                        if (linha.startsWith('#') || !linha.trim()) continue;
-                        const cols = linha.split('\t');
-                        if (cols.length < 7) continue;
-                        cookies.push({
-                            domain:   cols[0].replace(/^\./, ''),
-                            path:     cols[2],
-                            secure:   cols[3] === 'TRUE',
-                            expires:  parseInt(cols[4]) || 0,
-                            name:     cols[5].trim(),
-                            value:    cols[6].trim(),
-                            httpOnly: false,
-                            sameSite: 'None'
-                        });
-                    }
-
-                    if (cookies.length > 0) {
-                        agent = ytdl.createAgent(cookies);
-                        console.log(`✅ [PLAY] ${cookies.length} cookies carregados.`);
-                    }
-                } catch (e) {
-                    console.error("⚠️ Erro ao ler cookies.txt:", e.message);
-                }
-            } else {
-                console.warn("⚠️ [PLAY] cookies.txt não encontrado em:", cookiePath);
+            let audioDownloadUrl = null;
+            if (resData && resData.status && resData.data && resData.data.dl) {
+                audioDownloadUrl = resData.data.dl;
+            } else if (resData && resData.dl) {
+                audioDownloadUrl = resData.dl;
             }
 
-            const ytdlOptions = {
-                filter: 'audioonly',
-                quality: 'lowestaudio',
-                highWaterMark: 1 << 25,
-                ...(agent ? { agent } : {})
-            };
-
-            const stream = ytdl(url, ytdlOptions);
-            const fileStream = fs.createWriteStream(tempFile);
-            stream.pipe(fileStream);
-
-            stream.on('error', async (err) => {
-                console.error("❌ Erro no Stream:", err.message);
-                limparTemp();
-                await client.sendMessage(chatId, `❌ Erro no YouTube: ${err.message}`);
-            });
-
-            fileStream.on('finish', async () => {
-                try {
-                    const media = MessageMedia.fromFilePath(tempFile);
-                    await User.updateOne({ userId: autorId, groupId: chatId }, { $inc: { coins: -custoMusica } });
-                    await client.sendMessage(chatId, media, {
-                        sendAudioAsVoice: true,
-                        caption: `🎵 *${title}*\n⏱️ ${timestamp}\n💰 -${custoMusica} YC`
-                    });
-                } catch (err) {
-                    console.error("❌ Erro ao enviar áudio:", err.message);
-                    await client.sendMessage(chatId, "❌ Erro ao enviar o áudio.");
-                } finally {
-                    limparTemp();
+            if (!audioDownloadUrl) {
+                // Tenta uma rota alternativa caso a primeira falhe
+                const altApi = `https://deliriusapi-oficial.vercel.app/download/ytdl?url=${encodeURIComponent(url)}`;
+                const altRes = await axios.get(altApi);
+                if (altRes.data && altRes.data.data && altRes.data.data.audio) {
+                    audioDownloadUrl = altRes.data.data.audio;
                 }
+            }
+
+            if (!audioDownloadUrl) {
+                limparTemp();
+                return await client.sendMessage(chatId, "❌ Erro: O YouTube bloqueou a extração desta faixa no momento.");
+            }
+
+            // Baixa o arquivo de áudio para a pasta temp
+            const audioStream = await axios({
+                method: 'get',
+                url: audioDownloadUrl,
+                responseType: 'stream'
             });
+
+            const writer = fs.createWriteStream(tempFile);
+            audioStream.data.pipe(writer);
+
+            await new Promise((resolve, reject) => {
+                writer.on('finish', resolve);
+                writer.on('error', reject);
+            });
+
+            const media = MessageMedia.fromFilePath(tempFile);
+            await User.updateOne({ userId: autorId, groupId: chatId }, { $inc: { coins: -custoMusica } });
+            
+            await client.sendMessage(chatId, media, {
+                sendAudioAsVoice: true,
+                caption: `🎵 *${title}*\n⏱️ ${timestamp}\n💰 -${custoMusica} YC`
+            });
+
+            limparTemp();
 
         } catch (e) {
             console.error("❌ Erro no Play:", e.message);
             limparTemp();
-            await client.sendMessage(chatId, `❌ Falha: ${e.message}`);
+            await client.sendMessage(chatId, `❌ Falha ao processar a música: ${e.message}`);
         }
     }
 };

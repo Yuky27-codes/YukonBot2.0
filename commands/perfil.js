@@ -1,3 +1,5 @@
+const { getPatenteAtual } = require('./patentes');
+
 module.exports = {
     name: 'perfil',
     async execute(client, msg, { chatId, senderRaw, User }) {
@@ -37,6 +39,18 @@ module.exports = {
             if (lvl >= 30) patente = "👨‍✈️ Comandante Glacial";
             if (lvl >= 50) patente = "👑 Lenda de Yukon";
 
+            // --- 🟢 CARGO COMPRADO NA LOJA (/comprar) — diferente da patente por nível acima ---
+            const cargoComprado = getPatenteAtual(userProfile.inventory);
+            let displayCargo = "— Nenhum (veja /yukonshop)";
+            if (cargoComprado) {
+                displayCargo = `${cargoComprado.emblema} ${cargoComprado.nome}`;
+                const bonusAtivos = [];
+                if (cargoComprado.sorteBonus > 0) bonusAtivos.push(`🍀+${cargoComprado.sorteBonus}%`);
+                if (cargoComprado.coinBonusPercent > 0) bonusAtivos.push(`💰+${cargoComprado.coinBonusPercent}%`);
+                if (cargoComprado.protecaoRoubo > 0) bonusAtivos.push(`🛡️-${cargoComprado.protecaoRoubo}%`);
+                if (bonusAtivos.length > 0) displayCargo += ` (${bonusAtivos.join(' ')})`;
+            }
+
             const xpAtual = userProfile.xp || 0;
             const barra = "▓".repeat(Math.min(10, Math.floor(xpAtual / 10))) + "░".repeat(Math.max(0, 10 - Math.floor(xpAtual / 10)));
 
@@ -57,6 +71,7 @@ module.exports = {
 ┃🎂 *ANIVER:* ${displayAniversario}
 ┃🛡️ *ESCUDO:* ${statusEscudo}
 ┃🎖️ *PATENTE:* ${patente}
+┃🚀 *CARGO:* ${displayCargo}
 ┃🆙 *NÍVEL:* ${lvl}
 ┃💰 *CRÉDITOS:* ${moedas} YC
 ┃📊 *XP:* [${barra}] ${xpAtual}%

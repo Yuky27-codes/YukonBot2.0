@@ -1,3 +1,5 @@
+const { getAtributos } = require('./patentes');
+
 module.exports = {
     name: 'roubar',
     async execute(client, msg, { chatId, senderRaw, User }) {
@@ -26,20 +28,24 @@ module.exports = {
 
             if (!autorData) return;
 
+            // --- 🟢 ATRIBUTOS DE PATENTE (ataque do autor e defesa do alvo) ---
+            const atributosAutor = getAtributos(autorData.inventory);
+            const atributosAlvo = alvoData ? getAtributos(alvoData.inventory) : null;
+
             // Verifica se o modo caos está ativo — define uma vez e usa em todas as verificações
             const agora = Date.now();
-const caosAtivo = global.modoCaosAtivo?.[chatId] > agora;
+            const caosAtivo = global.modoCaosAtivo?.[chatId] > agora;
 
-// DEFINE O LIMITE DINAMICAMENTE
-const limiteDiario = caosAtivo ? 10 : 3;
+            // DEFINE O LIMITE DINAMICAMENTE + usos extras da patente
+            const limiteDiario = (caosAtivo ? 10 : 3) + (atributosAutor.usosExtras.roubar || 0);
 
-if (!isComandante && autorData.robberyCount >= limiteDiario) {
-    return await client.sendMessage(
-        chatId,
-        `🚫 @${autorId.split('@')[0]}, você já atingiu seu limite de *${limiteDiario}* assaltos hoje! Volte amanhã.`,
-        { mentions: [autorId] }
-    );
-}
+            if (!isComandante && autorData.robberyCount >= limiteDiario) {
+                return await client.sendMessage(
+                    chatId,
+                    `🚫 @${autorId.split('@')[0]}, você já atingiu seu limite de *${limiteDiario}* assaltos hoje! Volte amanhã.`,
+                    { mentions: [autorId] }
+                );
+            }
 
             // ✅ CORRIGIDO: isPassive só bloqueia se o modo caos NÃO estiver ativo
             if (!caosAtivo && autorData.isPassive) {
@@ -70,10 +76,14 @@ if (!isComandante && autorData.robberyCount >= limiteDiario) {
                 );
             }
 
-            const sucesso = Math.random() < 0.40;
+            // Chance base 40% + sorte do atacante - proteção do alvo (limitada entre 5% e 95%)
+            const chanceBruta = 0.40 + (atributosAutor.sorteBonus / 100) - ((atributosAlvo?.protecaoRoubo || 0) / 100);
+            const chanceFinal = Math.min(0.95, Math.max(0.05, chanceBruta));
+            const sucesso = isComandante ? true : Math.random() < chanceFinal;
 
             if (sucesso) {
-                const valorRoubado = Math.floor(alvoData.coins * 0.20);
+                const valorBase = Math.floor(alvoData.coins * 0.20);
+                const valorRoubado = Math.round(valorBase * (1 + atributosAutor.coinBonusPercent / 100));
                 await User.updateOne({ userId: autorId, groupId: chatId }, { $inc: { coins: valorRoubado } });
                 await User.updateOne({ userId: alvoId, groupId: chatId }, { $inc: { coins: -valorRoubado } });
                 await client.sendMessage(

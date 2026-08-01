@@ -7,18 +7,23 @@ module.exports = {
 
         try {
             const mongoose = require('mongoose');
-            const Coupon = mongoose.model('Coupon');
             const UserProfile = mongoose.model('UserProfile');
 
             const escolha = parseInt(args[0]);
-
             const perfil = await UserProfile.findOne({ userId: msg.from });
+
             let desc = 0;
 
-            if (perfil?.gruposVinculados?.length > 0) {
-                for (const gId of perfil.gruposVinculados) {
-                    const cupom = await Coupon.findOne({ usedByGroup: gId, isUsed: true }).sort({ _id: -1 }).lean();
-                    if (cupom) { desc = cupom.discountPercent; break; }
+            // Verifica se o usuário tem desconto e se o prazo de 24 horas ainda está valendo
+            if (perfil && perfil.descontoAtivo && perfil.cupomExpiraEm) {
+                if (new Date() < new Date(perfil.cupomExpiraEm)) {
+                    desc = perfil.descontoAtivo; // Cupom válido dentro das 24h!
+                } else {
+                    // Se o prazo expirou, limpa o cupom do perfil automaticamente
+                    await UserProfile.updateOne(
+                        { userId: msg.from },
+                        { $set: { descontoAtivo: 0, cupomExpiraEm: null } }
+                    );
                 }
             }
 
@@ -31,7 +36,7 @@ module.exports = {
 
                 return client.sendMessage(msg.from, `🛰️ *CATÁLOGO DE ASSINATURAS YUKON*
 ━━━━━━━━━━━━━━━━━━━━━
-${desc > 0 ? `🔥 *CUPOM APLICADO:* Você está economizando ${desc}%!\n` : ""}
+${desc > 0 ? `🔥 *CUPOM DE ${desc}% APLICADO!* (Válido por tempo limitado)\n` : ""}
 1️⃣ *PLANO RECRUTA*
 💰 Valor: ${v10}
 📍 Limite: *1 Grupo* vinculado
@@ -58,7 +63,6 @@ ${desc > 0 ? `🔥 *CUPOM APLICADO:* Você está economizando ${desc}%!\n` : ""}
             const precoEscolhido = escolha === 1 ? 10 : escolha === 2 ? 30 : 75;
             const nomePlano = escolha === 1 ? "RECRUTA" : escolha === 2 ? "ASTRONAUTA" : "INTERGALÁCTICO";
             const limiteGrupos = escolha === 1 ? 1 : escolha === 2 ? 2 : 3;
-            // ✅ Dias corretos por plano
             const diasPlano = escolha === 1 ? 10 : escolha === 2 ? 30 : 90;
 
             const gruposAtuais = perfil?.gruposVinculados || [];
@@ -67,15 +71,18 @@ ${desc > 0 ? `🔥 *CUPOM APLICADO:* Você está economizando ${desc}%!\n` : ""}
                 return client.sendMessage(msg.from, `⚠️ *ATENÇÃO:* Você já tem *${gruposAtuais.length} grupo(s)* vinculados.\nO plano *${nomePlano}* permite apenas *${limiteGrupos} grupo(s)*.\n\nEscolha um plano maior ou remova grupos antes de mudar.`);
             }
 
+            // Calcula o valor final com base no desconto ativo (se houver)
+            const valorFinalCalculado = precoEscolhido * (1 - desc / 100);
+
             await UserProfile.updateOne(
                 { userId: msg.from },
-                { $set: { planoPreco: precoEscolhido } },
+                { $set: { planoPreco: valorFinalCalculado } },
                 { upsert: true }
             );
 
             return client.sendMessage(msg.from, `✅ *PLANO ${nomePlano} SELECIONADO!*
 ━━━━━━━━━━━━━━━━━━━━━
-💰 *Valor:* ${calc(precoEscolhido)}
+💰 *Valor final:* ${calc(precoEscolhido)} ${desc > 0 ? `(Com ${desc}% de desconto)` : ""}
 📍 *Limite:* ${limiteGrupos} grupo(s)
 📅 *Duração:* ${diasPlano} dias
 

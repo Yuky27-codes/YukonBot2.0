@@ -56,6 +56,7 @@ const groupConfigSchema = new mongoose.Schema({
     onlyAdms:    { type: Boolean, default: false },
     prefixo: { type: String, default: null },
     simbolo: { type: String, default: null },
+    personalidade: { type: String, default: 'padrao' },
     admLocked:   { type: Boolean, default: false },
     jogosLocked: { type: Boolean, default: false },
     ecoLocked:   { type: Boolean, default: false },
@@ -182,6 +183,49 @@ const modoSchema = new mongoose.Schema({
 
 const Modo = mongoose.model('Modo', modoSchema);
 
+// --- NOVO SCHEMA PARA PARCERIAS ---
+
+const mongoose = require('mongoose');
+
+const partnershipSchema = new mongoose.Schema({
+    groupId: { type: String, required: true }, 
+    partnerCode: { type: String, required: true, unique: true },
+    partnerGroupId: { type: String, default: null }, 
+    partnerName: { type: String, required: true },
+    partidasJogadas: { type: Number, default: 0 },
+    salaPAtiva: { type: String, default: null }, 
+    criadoEm: { type: Date, default: Date.now }
+}, { timestamps: true });
+
+const Partnership = mongoose.models.Partnership || mongoose.model('Partnership', partnershipSchema);
+module.exports = Partnership;
+
+// --- NOVO SCHEMA PARA OS EVENTOS ---
+const mongoose = require('mongoose');
+
+const eventSchema = new mongoose.Schema({
+    groupId: { type: String, required: true }, // Grupo onde o evento pertence
+    titulo: { type: String, default: 'Evento Among Us' },
+    descricao: { type: String, default: 'Sem descrição definida.' },
+    data: { type: String, default: null }, // Ex: "05/08/2026"
+    hora: { type: String, default: null }, // Ex: "20:00"
+    aplicarAdv: { type: Boolean, default: false }, // Se true, aplica adv em quem faltar
+    status: { type: String, enum: ['criado', 'andamento', 'finalizado'], default: 'criado' },
+    
+    // Lista de participantes
+    participantes: [{
+        userId: { type: String, required: true }, // Número do WhatsApp
+        nome: { type: String }, // Nome do usuário
+        confirmado: { type: Boolean, default: false }, // True se usou o /confirmarP (ganha a estrela ⭐)
+        inscritoEm: { type: Date, default: Date.now }
+    }],
+
+    criadoPor: { type: String }, // Quem criou
+}, { timestamps: true });
+
+const Evento = mongoose.models.Evento || mongoose.model('Evento', eventSchema);
+module.exports = Evento;
+
 // --- NOVO SCHEMA PARA ESTATÍSTICAS DE FLUXO ---
 const groupStatsSchema = new mongoose.Schema({
     groupId: { type: String, required: true, unique: true },
@@ -238,7 +282,9 @@ const couponSchema = new mongoose.Schema({
     expiresAt: { type: Date },
     isUsed: { type: Boolean, default: false },
     usedByGroup: { type: String },
-    referrerGroupId: { type: String }
+    referrerGroupId: { type: String },
+    maxUses: { type: Number, default: 1 },
+    usesCount: { type: Number, default: 0 }
 });
 const Coupon = mongoose.models.Coupon || mongoose.model('Coupon', couponSchema);
 
@@ -257,7 +303,9 @@ const userProfileSchema = new mongoose.Schema({
     userId: { type: String, unique: true }, // WhatsApp do Dono
     planoPreco: { type: Number }, // 10, 30 ou 75
     gruposVinculados: [{ type: String }], // Array com os IDs (@g.us)
-    createdAt: { type: Date, default: Date.now }
+    createdAt: { type: Date, default: Date.now },
+    descontoAtivo: { type: Number, default: 0 },
+    cupomExpiraEm: { type: Date, default: null },
 });
 
 mongoose.model('UserProfile', userProfileSchema);
@@ -312,6 +360,17 @@ const groupMetricsSchema = new mongoose.Schema({
     calculatedAt: { type: Date, default: Date.now }
 }, { timestamps: true });
 const GroupMetrics = mongoose.model('GroupMetrics', groupMetricsSchema);
+
+// --- ADIÇÃO: SCHEMA DE AGENDAMENTO DE MUTE/DESMUTE ---
+const groupScheduleSchema = new mongoose.Schema({
+    groupId: { type: String, required: true },
+    action: { type: String, enum: ['mute', 'desmute'], required: true },
+    targetTime: { type: Date, required: true },
+    createdBy: { type: String },
+    createdAt: { type: Date, default: Date.now }
+});
+groupScheduleSchema.index({ groupId: 1, action: 1 }, { unique: true });
+const GroupSchedule = mongoose.models.GroupSchedule || mongoose.model('GroupSchedule', groupScheduleSchema);
 
 /**********************************************************
  * 5. CLIENT WHATSAPP - ESTRUTURA BLINDADA (ATUALIZADA)
@@ -502,6 +561,16 @@ client.on('message_create', async (msg) => {
     if (msg.fromMe) return; // Ignorar mensagens do próprio bot para evitar competição nos registros
 
     const chatId = msg.from._serialized || msg.from.toString();
+
+    const chatId = msg.from._serialized || msg.from.toString();
+
+    if (global.modoManutencao && chatId.endsWith('@g.us')) {
+        if (msg.body && msg.body.trim().startsWith('/')) {
+            await msg.reply("🛠️ *Sistema em Manutenção!*\n\nA Yukon está passando por atualizações no momento. Tente novamente mais tarde, Comandante! 🚀");
+        }
+        return; 
+    }
+
     const senderRaw = (msg.author || msg.from)._serialized || (msg.author || msg.from).toString();
     const groupId = chatId;
     const prefix = '/';
@@ -1124,6 +1193,36 @@ cron.schedule('0 * * * *', async () => {
         }
     } catch (e) {
         console.error("❌ Erro no cron de pets:", e);
+    }
+});
+
+// ============================================================
+// AGENDAMENTO DE MUTE/DESMUTE (/mute HH:MM e /desmute HH:MM)
+// ============================================================
+
+cron.schedule('* * * * *', async () => {
+    try {
+        const agora = new Date();
+        const pendentes = await GroupSchedule.find({ targetTime: { $lte: agora } });
+
+        for (const item of pendentes) {
+            try {
+                const chat = await client.getChatById(item.groupId);
+                if (chat && chat.isGroup) {
+                    await chat.setMessagesAdminsOnly(item.action === 'mute');
+                    const textoAuto = item.action === 'mute'
+                        ? "🔇 *COMUNICAÇÕES INTERROMPIDAS (AGENDADO)*\n\nO setor foi silenciado automaticamente no horário programado."
+                        : "🔊 *COMUNICAÇÕES REESTABELECIDAS (AGENDADO)*\n\nO setor foi liberado automaticamente no horário programado.";
+                    await client.sendMessage(item.groupId, textoAuto, { sendSeen: false });
+                }
+            } catch (e) {
+                console.error(`❌ Erro ao executar agendamento de ${item.action} pro grupo ${item.groupId}:`, e.message);
+            } finally {
+                await GroupSchedule.deleteOne({ _id: item._id });
+            }
+        }
+    } catch (e) {
+        console.error("❌ Erro no cron de agendamento mute/desmute:", e);
     }
 });
 
