@@ -560,7 +560,7 @@ client.on('message_create', async (msg) => {
 
     const chatId = msg.from._serialized || msg.from.toString();
 
-    const chatId = msg.from._serialized || msg.from.toString();
+    chatId = msg.from._serialized || msg.from.toString();
 
     if (global.modoManutencao && chatId.endsWith('@g.us')) {
         if (msg.body && msg.body.trim().startsWith('/')) {
