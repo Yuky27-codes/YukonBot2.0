@@ -2,8 +2,8 @@ const Partnership = require('../models/partnershipSchema');
 
 module.exports = {
     name: 'addsalap',
-    async execute(client, msg, { chatId, args, isGroup }) {
-        if (!isGroup) return msg.reply("❌ Comando exclusivo para grupos.");
+    async execute(client, msg, { chatId, args }) {
+        if (!chatId.endsWith('@g.us')) return msg.reply("❌ Comando exclusivo para grupos.");
         const codigoSalaP = args[0];
 
         if (!codigoSalaP) return msg.reply("⚠️ Digite o código da sala de parceria!\nExemplo: `/addsalap PARC123`");

@@ -2,8 +2,8 @@ const Partnership = require('../models/partnershipSchema');
 
 module.exports = {
     name: 'fsala',
-    async execute(client, msg, { chatId, isGroup }) {
-        if (!isGroup) return msg.reply("❌ Apenas em grupos.");
+    async execute(client, msg, { chatId }) {
+        if (!chatId.endsWith('@g.us')) return msg.reply("❌ Apenas em grupos.");
 
         try {
             // Encontra a parceria ativa que possui sala aberta

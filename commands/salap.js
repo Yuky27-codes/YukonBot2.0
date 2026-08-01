@@ -2,8 +2,8 @@ const Partnership = require('../models/partnershipSchema');
 
 module.exports = {
     name: 'salap',
-    async execute(client, msg, { chatId, isGroup, chat: chatFromIndex, GroupConfig }) {
-        if (!isGroup) return msg.reply("❌ Apenas em grupos.");
+    async execute(client, msg, { chatId, chat: chatFromIndex, GroupConfig }) {
+        if (!chatId.endsWith('@g.us')) return msg.reply("❌ Apenas em grupos.");
 
         try {
             const parceria = await Partnership.findOne({ groupId: chatId, salaPAtiva: { $ne: null } });
