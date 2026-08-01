@@ -5,7 +5,6 @@ const Groq = require('groq-sdk');
 const mongoose = require('mongoose');
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-const CHANCE_RESPOSTA_ALEATORIA = 0.10;
 
 module.exports = {
     name: 'yukonChat',
@@ -17,7 +16,7 @@ module.exports = {
         if (!ehGrupo) return;
 
         try {
-            // 🛑 VERIFICA SE O MODO DE MANUTENÇÃO ESTÁ ATIVO NO BANCO
+            // 🛑 1. VERIFICA SE O MODO DE MANUTENÇÃO ESTÁ ATIVO NO BANCO
             const SystemConfig = mongoose.models.SystemConfig || mongoose.model('SystemConfig', new mongoose.Schema({
                 chave: { type: String, unique: true },
                 manutencao: Boolean
@@ -25,15 +24,24 @@ module.exports = {
             
             const statusSistema = await SystemConfig.findOne({ chave: 'status_sistema' });
             if (statusSistema && statusSistema.manutencao === true) {
-                return; // Se estiver em manutenção, silencia totalmente as respostas automáticas da IA!
+                return; // Silencia totalmente se estiver em manutenção
             }
+
+            // 🛑 2. BUSCA AS CONFIGURAÇÕES DO GRUPO NO BANCO
+            const GroupConfig = mongoose.model('GroupConfig');
+            const configGrupo = await GroupConfig.findOne({ groupId: chatId });
+
+            // Se o chat foi desativado via /chat off, ela SÓ responde se for marcada (@)
+            const chatEstaAtivo = configGrupo?.chatAtivo !== false; // Padrão é true se não existir
 
             const meuNumero = client.info.wid._serialized;
             const textoLimpo = msg.body.trim().toLowerCase();
             const foiMarcado = msg.mentionedIds && msg.mentionedIds.includes(meuNumero);
 
-            const GroupConfig = mongoose.model('GroupConfig');
-            const configGrupo = await GroupConfig.findOne({ groupId: chatId });
+            // Se o chat estiver desativado e ela NÃO foi marcada, encerra aqui
+            if (!chatEstaAtivo && !foiMarcado) {
+                return;
+            }
 
             const personalidadeCustom = configGrupo?.personalidade;
             const basePersonalidade = (personalidadeCustom && personalidadeCustom !== 'padrao') 
@@ -42,7 +50,7 @@ module.exports = {
 
             const promptSistema = `${basePersonalidade}\n\nDIRETRIZES OBRIGATÓRIAS:\n1. Você é uma MULHER/GAROTA (use concordância feminina se referindo a si mesma se necessário).\n2. Escreva casualmente com abreviações de internet e gírias atuais.\n3. NUNCA use frases de assistente ou robô (como 'como posso ajudar?', 'tá tudo bem por aí?', 'estou aqui para o que precisar'). Responda igual a um membro comum conversando na resenha.`;
 
-            // 1. SE FOI MARCADO: Responde obrigatoriamente
+            // 1. SE FOI MARCADO: Responde obrigatoriamente (mesmo com o chat off)
             if (foiMarcado) {
                 const chat = await msg.getChat();
                 await chat.sendStateTyping();
@@ -66,6 +74,11 @@ module.exports = {
                 return await msg.reply(respostaIA);
             }
 
+            // Se o chat estiver desligado, não prossegue para mensagens aleatórias
+            if (!chatEstaAtivo) {
+                return;
+            }
+
             // 2. REGRAS DE SAUDAÇÃO EXATA
             if (!msg.hasQuotedMsg) {
                 const saudacoes = ['bom dia', 'boa tarde', 'boa noite'];
@@ -76,8 +89,9 @@ module.exports = {
                 }
             }
 
-            // 3. CHANCE DE 50% PARA MENSAGENS SOLTAS COMUNS
-            const deveResponderAleatorio = Math.random() < CHANCE_RESPOSTA_ALEATORIA;
+            // 3. CHANCE DE RESPOSTA ALEATÓRIA (Lê do banco ou assume 10% / 0.10 por padrão)
+            const chanceAtual = configGrupo?.chanceChat !== undefined ? configGrupo.chanceChat : 0.10;
+            const deveResponderAleatorio = Math.random() < chanceAtual;
             if (!deveResponderAleatorio) return;
 
             const chat = await msg.getChat();
