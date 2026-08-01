@@ -1,27 +1,52 @@
+const mongoose = require('mongoose');
+
 module.exports = {
     name: 'manutencao',
-    async execute(client, msg, { args, chatId }) {
-        // Garante que o comando seja executado estritamente no PV do Dono
-        if (chatId.endsWith('@g.us')) {
-            return msg.reply("❌ Por segurança, o comando de manutenção global deve ser usado apenas no meu *Privado*.");
-        }
+    async execute(client, msg, { args, chatId, User }) {
+        try {
+            const authorId = (msg.author || msg.from).toString();
+            const meuNumero = client.info.wid._serialized;
+            const souEuDono = authorId === meuNumero;
 
-        const acao = args[0]?.toLowerCase();
+            let temPermissao = souEuDono;
+            if (!temPermissao && User) {
+                const userData = await User.findOne({ userId: authorId, groupId: chatId });
+                if (userData && userData.isBotAdmin) temPermissao = true;
+            }
 
-        if (!acao || (acao !== 'on' && acao !== 'off')) {
-            return msg.reply(`⚠️ *MODO DE MANUTENÇÃO GLOBAL*\n\nStatus atual: *${global.modoManutencao ? 'LIGADO (Travada 🔒)' : 'DESLIGADO (Normal 🟢)'}*\n\n*Como usar:*
-- \`/manutencao on\` -> Trava a Yukon em todos os grupos (Modo Teste).
-- \`/manutencao off\` -> Libera o bot para funcionamento normal.`);
-        }
+            if (!temPermissao) {
+                return msg.reply("❌ *ACESSO NEGADO:* Apenas administradores podem alterar o modo de manutenção.");
+            }
 
-        if (!global.modoManutencao) global.modoManutencao = false;
+            const acao = args[0] ? args[0].toLowerCase() : '';
+            if (acao !== 'on' && acao !== 'off') {
+                return msg.reply("⚠️ Use: `/manutencao on` para ativar ou `/manutencao off` para desativar.");
+            }
 
-        if (acao === 'on') {
-            global.modoManutencao = true;
-            return msg.reply("🔒 *Modo de Manutenção ATIVADO com sucesso!*\nA Yukon agora está travada e ignorando comandos externos em todos os grupos. Boa sessão de testes, Comandante! 🚀");
-        } else {
-            global.modoManutencao = false;
-            return msg.reply("🟢 *Modo de Manutenção DESATIVADO!*\nA Yukon voltou a operar normalmente em todos os grupos. 🛰️");
+            // Define se o modo de manutenção está ligado
+            const emManutencao = acao === 'on';
+
+            // Salva o estado global de manutenção no banco (vamos usar uma collection de Config geral)
+            const SystemConfig = mongoose.model('SystemConfig', new mongoose.Schema({
+                chave: { type: String, unique: true },
+                manutencao: Boolean
+            }));
+
+            await SystemConfig.updateOne(
+                { chave: 'status_sistema' },
+                { $set: { manutencao: emManutencao } },
+                { upsert: true }
+            );
+
+            if (emManutencao) {
+                return msg.reply("🛠️ *MODO DE MANUTENÇÃO ATIVADO!*\nA Yukon entrou em silêncio automático nas conversas aleatórias e chats até que o comando `/manutencao off` seja acionado.");
+            } else {
+                return msg.reply("✅ *MODO DE MANUTENÇÃO DESATIVADO!*\nA Yukon voltou a operar normalmente em todas as frentes.");
+            }
+
+        } catch (err) {
+            console.error("❌ Erro no comando manutencao:", err);
+            return msg.reply("❌ Erro ao alterar o modo de manutenção no banco de dados.");
         }
     }
 };
