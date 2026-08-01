@@ -185,7 +185,6 @@ const Modo = mongoose.model('Modo', modoSchema);
 
 // --- NOVO SCHEMA PARA PARCERIAS ---
 
-const mongoose = require('mongoose');
 
 const partnershipSchema = new mongoose.Schema({
     groupId: { type: String, required: true }, 
