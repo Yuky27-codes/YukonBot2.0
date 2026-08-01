@@ -1,7 +1,7 @@
 const Evento = require('../models/eventSchema'); // Ajuste o caminho do seu model se necessário
 
 module.exports = {
-    name: 'evento', // Gerenciador de comandos administrativos do evento
+    name: 'evento_admin', // Gerenciador de comandos administrativos do evento
     async execute(client, msg, { chatId, args, senderRaw }) {
         const subComando = args[0]?.toLowerCase();
         const textoArgs = args.slice(1).join(' ');
