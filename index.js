@@ -200,7 +200,6 @@ const Partnership = mongoose.models.Partnership || mongoose.model('Partnership',
 module.exports = Partnership;
 
 // --- NOVO SCHEMA PARA OS EVENTOS ---
-const mongoose = require('mongoose');
 
 const eventSchema = new mongoose.Schema({
     groupId: { type: String, required: true }, // Grupo onde o evento pertence
