@@ -11,7 +11,7 @@ module.exports = {
 
 ◇ */rankglobal* ➜ Ranking global da Yukon
 
-◇ */missão* ➜ Resgatar recompensa diária
+◇ */missao* ➜ Resgatar recompensa diária
 
 ◇ */yukonshop* ➜ Abrir loja da Yukon
 

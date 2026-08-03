@@ -19,7 +19,7 @@ module.exports = {
 
 ◇ */chutar* ➜ Chutar alguém
 
-◇ */abraçar* ➜ Abraçar alguém
+◇ */abracar* ➜ Abraçar alguém
 
 ◇ */criar_familia* ➜ Criar uma família
 

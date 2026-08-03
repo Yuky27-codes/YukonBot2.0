@@ -29,6 +29,8 @@ module.exports = {
 
 ◇ */participar* ➜ Entrar pra lista de participantes do evento
 
+◇ */sair* ➜ Sair da lista de participantes do evento
+
 ◇ */confirmarp* ➜ Confirmar presença no evento
 
 ◇ */listaevento* ➜ Ver lista de participantes do evento

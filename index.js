@@ -415,15 +415,8 @@ client.on('error', (err) => {
 const TEMPO_INATIVIDADE = 10 * 60 * 1000; // 10 minutos
 const TEMPO_AVISO_FIM = 5 * 60 * 1000;    // 5 minutos
 
-const MENSAGEM_PADRAO_ATENDIMENTO = `🛰️ *CENTRAL YUKON — ATENDIMENTO AUTOMATIZADO*
-━━━━━━━━━━━━━━━━━━━━━
-Olá! Seja muito bem-vindo(a) à central da YukonBot. Recebi a sua mensagem!
-
-🚀 Para ver todos os recursos disponíveis, gerenciar suas assinaturas, ver os planos ou ver como vincular seus grupos, acesse o painel principal digitando ou clicando no comando abaixo:
-
-👉 \`/menu_cliente\`
-
-🔧 *Dica:* Se você veio do Instagram para testar ou assinar, digite **/menu_cliente** para ver o passo a passo de ativação.`;
+// A mensagem padrão de boas-vindas do atendimento agora mora em
+// commands/atendimento.js, já que é lá que a sessão é iniciada (opt-in).
 
 const MENSAGEM_AVISO_INATIVIDADE = `Oi! 😊 Notamos que você ficou um tempinho sem responder por aqui.\n\nAinda precisa de alguma coisa? Se não mandar mais nenhuma mensagem nos próximos 5 minutinhos, esse atendimento vai se encerrar automaticamente — mas fica tranquilo(a), é só um probleminha de rotina! 💙`;
 
@@ -597,39 +590,34 @@ client.on('message_create', async (msg) => {
                 }
             }
         }
-     // --- 🟢 CONTROLE DE SESSÃO DE ATENDIMENTO NO PV ---
+     // --- 🟢 CONTROLE DE SESSÃO DE ATENDIMENTO NO PV (OPT-IN — só existe se o usuário rodou /atendimento) ---
 if (!msg.from.endsWith('@g.us')) { // Apenas no Chat Privado (PV)
     const corpo = msg.body ? msg.body.trim().toLowerCase() : "";
-    
+
     // Se não for comando (não começa com '/') e nem for imagem de comprovante
     if (!corpo.startsWith('/') && !(msg.hasMedia && msg.type === 'image' && corpo.includes("comprovante"))) {
-        const agora = Date.now();
         const remetente = msg.from;
-        
-        // Garante segurança caso por algum motivo venha vazio
+
         if (!global.sessoesAtendimento) {
             global.sessoesAtendimento = {};
         }
 
         const sessao = global.sessoesAtendimento[remetente];
 
-        if (!sessao || sessao.etapa === 'encerrado') {
-            // SESSÃO NOVA OU EXPIRADA: (re)inicia e manda a mensagem padrão
-            global.sessoesAtendimento[remetente] = {
-                ultimoContato: agora,
-                etapa: 'ativo'
-            };
-
-            return msg.reply(MENSAGEM_PADRAO_ATENDIMENTO);
+        // ⚠️ IMPORTANTE: NUNCA mais criamos sessão nem respondemos automaticamente aqui.
+        // O atendimento só é iniciado quando o usuário digita explicitamente "/atendimento"
+        // (ver commands/atendimento.js). Isso elimina o disparo em massa de respostas
+        // automáticas para qualquer mensagem genérica recebida no PV, que foi o gatilho
+        // identificado nos banimentos.
+        if (sessao && sessao.etapa !== 'encerrado') {
+            // Sessão já foi iniciada via /atendimento anteriormente: só atualizamos
+            // o "último contato" (sem enviar nenhuma mensagem nova) para manter o
+            // timeout de inatividade coerente com o verificador periódico.
+            sessao.ultimoContato = Date.now();
+            sessao.etapa = 'ativo';
         }
-
-        // SESSÃO ATIVA (ou em aviso): o cliente respondeu, então só atualizamos
-        // o horário e "reativamos" a sessão, sem responder de novo.
-        // O aviso de 10min e o encerramento de +5min são feitos pelo
-        // verificador periódico (iniciarVerificadorDeSessoes), que roda
-        // independente do cliente mandar mensagem.
-        sessao.ultimoContato = agora;
-        sessao.etapa = 'ativo';
+        // Se não existe sessão ativa, a mensagem simplesmente não recebe nenhuma
+        // resposta automática — é ignorada, ponto final.
         return;
     }
 }

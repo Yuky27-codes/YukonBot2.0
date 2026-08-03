@@ -6,13 +6,19 @@ module.exports = {
         if (!chatId.endsWith('@g.us')) return msg.reply("❌ Apenas em grupos.");
 
         try {
+            // Busca a parceria ativa que possui sala aberta neste grupo
             const parceria = await Partnership.findOne({ groupId: chatId, salaPAtiva: { $ne: null } });
-            const codigoSalaP = parceria ? parceria.salaPAtiva : "🛰️ Nenhuma sala de parceria aberta no momento.";
+            
+            if (!parceria || !parceria.salaPAtiva) {
+                return msg.reply("❌ Não há nenhuma sala de parceria ativa no momento. Use `/addsalap [número] [código]` para abrir uma.");
+            }
 
-            // Mensagem 1: O código da sala de parceria
-            await client.sendMessage(chatId, `🤝 *SALA DE PARCERIA ATIVA*\nCódigo: \`${codigoSalaP}\``, { sendSeen: false });
+            const codigoSalaP = parceria.salaPAtiva;
 
-            // Mensagem 2: Menção geral (reaproveitando a estrutura segura)
+            // 1. MENSAGEM 1: Apenas o código da sala limpo e isolado (para cópia rápida)
+            await client.sendMessage(chatId, codigoSalaP, { sendSeen: false });
+
+            // 2. MENSAGEM 2: Logo abaixo, avisando que a sala foi gerada com a parceria
             let chat = chatFromIndex || await msg.getChat().catch(() => null);
             let mencoesGeral = chat?.participants?.map(p => p.id._serialized) || [];
 
@@ -21,8 +27,12 @@ module.exports = {
                 mencoesGeral = configGrupo?.cachedParticipants || [];
             }
 
+            const textoAviso = `📢 *Sala conjunta gerada com a parceria:* ${parceria.partnerName}! 🤝`;
+            
             if (mencoesGeral.length > 0) {
-                await client.sendMessage(chatId, "📢 *A sala conjunta com o parceiro foi aberta acima!*", { mentions: mencoesGeral });
+                await client.sendMessage(chatId, textoAviso, { mentions: mencoesGeral });
+            } else {
+                await client.sendMessage(chatId, textoAviso);
             }
 
         } catch (err) {
