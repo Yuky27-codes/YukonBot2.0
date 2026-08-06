@@ -19,14 +19,22 @@ module.exports = {
                 }
 
                 const [, horaStr, minutoStr] = match;
-                
-                // 🔧 Correção de Fuso Horário (Força o horário do Brasil - America/Sao_Paulo)
-                const agoraBrasil = new Date(new Date().toLocaleString("en-US", { timeZone: "America/Sao_Paulo" }));
-                const alvo = new Date(agoraBrasil);
-                alvo.setHours(parseInt(horaStr), parseInt(minutoStr), 0, 0);
-                
-                if (alvo.getTime() <= agoraBrasil.getTime()) {
-                    alvo.setDate(alvo.getDate() + 1); // já passou hoje — agenda pra amanhã
+
+                // 🔧 Correção de Fuso Horário (Brasil - America/Sao_Paulo, offset fixo -03:00,
+                // sem horário de verão desde 2019). Montamos uma string ISO com o offset
+                // explícito, que o JS converte corretamente para o epoch real (UTC),
+                // independente do fuso horário configurado no servidor.
+                const agora = new Date();
+
+                const dataSP = new Intl.DateTimeFormat('en-CA', {
+                    timeZone: 'America/Sao_Paulo',
+                    year: 'numeric', month: '2-digit', day: '2-digit'
+                }).format(agora); // ex: "2026-08-05"
+
+                let alvo = new Date(`${dataSP}T${horaStr}:${minutoStr}:00-03:00`);
+
+                if (alvo.getTime() <= agora.getTime()) {
+                    alvo = new Date(alvo.getTime() + 24 * 60 * 60 * 1000); // já passou hoje — agenda pra amanhã
                 }
 
                 const GroupSchedule = mongoose.model('GroupSchedule');

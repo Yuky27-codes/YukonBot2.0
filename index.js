@@ -144,7 +144,7 @@ const userSchema = new mongoose.Schema({
     isMuted: { type: Boolean, default: false },
     isPassive: { type: Boolean, default: false },
     muteExpires: { type: Number, default: null }, 
-    bankCoins: { type: Number, default: 0 }, // Saldo no banco do bot (total depositado via /depositar)
+    bankCoins: { type: Number, default: 0 }, 
     lastModoCaosDate: { type: String, default: null },
     blacklistReason: { type: String, default: null },
     lastPousar: { type: Date, default: null },
