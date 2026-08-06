@@ -107,7 +107,7 @@ _"Seu dinheiro seguro, sob a proteção da Yukon."_ 🛡️`;
 ${barraProgresso(totalDepositadoHoje, 100000)}
 ━━━━━━━━━━━━━━━━━━━━━${aviso}`;
 
-                return await global.enviarMenuComFoto(msg, banco.png, texto, [autorId]);
+                return await global.enviarMenuComFoto(msg, FOTO_BANCO, texto, [autorId]);
             }
 
             // --- SACAR ---
@@ -143,7 +143,7 @@ ${barraProgresso(totalDepositadoHoje, 100000)}
 ━━━━━━━━━━━━━━━━━━━━━
 _Saque processado sem taxas._ ✔️`;
 
-                return await global.enviarMenuComFoto(msg, banco.png, texto, [autorId]);
+                return await global.enviarMenuComFoto(msg, FOTO_BANCO, texto, [autorId]);
             }
 
             // --- EXTRATO ---
@@ -170,7 +170,7 @@ _Saque processado sem taxas._ ✔️`;
 　${barraProgresso(depositoHojeReal, 100000)}
 ━━━━━━━━━━━━━━━━━━━━━`;
 
-                return await global.enviarMenuComFoto(msg, banco.png, texto, [autorId]);
+                return await global.enviarMenuComFoto(msg, FOTO_BANCO, texto, [autorId]);
             }
 
             return await client.sendMessage(chatId, "❓ Ação inválida! Use: *depositar*, *sacar* ou *extrato*.");
