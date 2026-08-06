@@ -1,5 +1,16 @@
 const mongoose = require('mongoose');
 
+// 🖼️ Nome do arquivo de imagem dentro da pasta /assets do projeto.
+// Troque aqui se você salvar a imagem com outro nome.
+const FOTO_BANCO = 'banco.png';
+
+// Gera uma barrinha de progresso visual (ex: ▰▰▰▰▱▱▱▱▱▱)
+function barraProgresso(atual, max, tamanho = 10) {
+    const pct = Math.max(0, Math.min(1, atual / max));
+    const preenchido = Math.round(pct * tamanho);
+    return '▰'.repeat(preenchido) + '▱'.repeat(tamanho - preenchido);
+}
+
 module.exports = {
     name: 'banco',
     async execute(client, msg, { chatId, senderRaw, args, User }) {
@@ -14,22 +25,27 @@ module.exports = {
                 const saldoBanco = user?.bankCoins || 0;
                 const saldoCarteira = user?.coins || 0;
 
-                return await client.sendMessage(chatId, `🏦 *BANCO YUKON — CENTRAL FINANCEIRA*
+                const texto = `🏦✨ *BANCO CENTRAL YUKON* ✨🏦
+━━━━━━━━━━━━━━━━━━━━━
+👤 *Titular:* @${autorId.split('@')[0]}
 ━━━━━━━━━━━━━━━━━━━━━
 💰 *Carteira:* ${saldoCarteira.toLocaleString('pt-BR')} YC
-🏦 *Banco:* ${saldoBanco.toLocaleString('pt-BR')} YC
+🏛️ *Cofre (Banco):* ${saldoBanco.toLocaleString('pt-BR')} YC
+━━━━━━━━━━━━━━━━━━━━━
+📜 *SERVIÇOS DISPONÍVEIS*
+　💳 */banco depositar [valor]*
+　💸 */banco sacar [valor]*
+　📊 */banco extrato*
+━━━━━━━━━━━━━━━━━━━━━
+⚙️ *REGULAMENTO*
+　▸ Depósito máx.: *100.000 YC/dia*
+　▸ Saque máx.: *300.000 YC/operação*
+　▸ Rendimento: *1% a 3% ao dia*
+　▸ Saque sem taxas
+━━━━━━━━━━━━━━━━━━━━━
+_"Seu dinheiro seguro, sob a proteção da Yukon."_ 🛡️`;
 
-📋 *COMANDOS:*
-💳 */banco depositar [valor]* — Deposita YC no banco
-💸 */banco sacar [valor]* — Saca YC do banco
-📊 */banco extrato* — Vê seu histórico
-
-⚙️ *REGRAS:*
-• Depósito máximo: *100.000 YC/dia*
-• Saque máximo: *300.000 YC*
-• Rendimento: *1% a 3% ao dia* (aleatório)
-• Sem taxas de saque
-━━━━━━━━━━━━━━━━━━━━━`);
+                return await global.enviarMenuComFoto(msg, FOTO_BANCO, texto, [autorId]);
             }
 
             const user = await User.findOne({ userId: autorId, groupId: chatId });
@@ -76,17 +92,22 @@ module.exports = {
                     }
                 );
 
+                const totalDepositadoHoje = depositadoHoje + valorReal;
                 const aviso = valorReal < valor
-                    ? `\n⚠️ Limite diário: depositado apenas *${valorReal.toLocaleString('pt-BR')} YC* (restante do limite).`
+                    ? `\n\n⚠️ _Limite diário atingido: depositado apenas *${valorReal.toLocaleString('pt-BR')} YC* (restante do limite)._`
                     : '';
 
-                return await client.sendMessage(chatId, `✅ *DEPÓSITO REALIZADO*
+                const texto = `✅💳 *DEPÓSITO CONFIRMADO*
 ━━━━━━━━━━━━━━━━━━━━━
-💳 *Depositado:* ${valorReal.toLocaleString('pt-BR')} YC
-🏦 *Saldo no banco:* ${(user.bankCoins + valorReal).toLocaleString('pt-BR')} YC
-💰 *Carteira:* ${(user.coins - valorReal).toLocaleString('pt-BR')} YC
-📅 *Depositado hoje:* ${(depositadoHoje + valorReal).toLocaleString('pt-BR')}/100.000 YC${aviso}
-━━━━━━━━━━━━━━━━━━━━━`);
+📥 *Valor depositado:* +${valorReal.toLocaleString('pt-BR')} YC
+🏛️ *Novo saldo no cofre:* ${(user.bankCoins + valorReal).toLocaleString('pt-BR')} YC
+💰 *Carteira restante:* ${(user.coins - valorReal).toLocaleString('pt-BR')} YC
+━━━━━━━━━━━━━━━━━━━━━
+📅 *Limite diário:* ${totalDepositadoHoje.toLocaleString('pt-BR')}/100.000 YC
+${barraProgresso(totalDepositadoHoje, 100000)}
+━━━━━━━━━━━━━━━━━━━━━${aviso}`;
+
+                return await global.enviarMenuComFoto(msg, banco.png, texto, [autorId]);
             }
 
             // --- SACAR ---
@@ -114,12 +135,15 @@ module.exports = {
                     { $inc: { coins: valor, bankCoins: -valor } }
                 );
 
-                return await client.sendMessage(chatId, `✅ *SAQUE REALIZADO*
+                const texto = `✅💸 *SAQUE CONFIRMADO*
 ━━━━━━━━━━━━━━━━━━━━━
-💸 *Sacado:* ${valor.toLocaleString('pt-BR')} YC
-🏦 *Saldo no banco:* ${(saldoBanco - valor).toLocaleString('pt-BR')} YC
-💰 *Carteira:* ${(user.coins + valor).toLocaleString('pt-BR')} YC
-━━━━━━━━━━━━━━━━━━━━━`);
+📤 *Valor sacado:* -${valor.toLocaleString('pt-BR')} YC
+🏛️ *Novo saldo no cofre:* ${(saldoBanco - valor).toLocaleString('pt-BR')} YC
+💰 *Carteira atual:* ${(user.coins + valor).toLocaleString('pt-BR')} YC
+━━━━━━━━━━━━━━━━━━━━━
+_Saque processado sem taxas._ ✔️`;
+
+                return await global.enviarMenuComFoto(msg, banco.png, texto, [autorId]);
             }
 
             // --- EXTRATO ---
@@ -131,19 +155,22 @@ module.exports = {
                 const hoje = new Date().toLocaleDateString('pt-BR');
                 const depositoHojeReal = user.lastBankDepositDate === hoje ? depositadoHoje : 0;
 
-                return await client.sendMessage(chatId, `📊 *EXTRATO BANCÁRIO — YUKON*
+                const texto = `📊🏦 *EXTRATO — BANCO CENTRAL YUKON*
 ━━━━━━━━━━━━━━━━━━━━━
 👤 *Titular:* @${autorId.split('@')[0]}
-🏦 *Saldo no banco:* ${saldoBanco.toLocaleString('pt-BR')} YC
+━━━━━━━━━━━━━━━━━━━━━
+🏛️ *Saldo no cofre:* ${saldoBanco.toLocaleString('pt-BR')} YC
 💰 *Carteira:* ${user.coins.toLocaleString('pt-BR')} YC
+━━━━━━━━━━━━━━━━━━━━━
+📈 *ÚLTIMO RENDIMENTO*
+　+${rendimento.toLocaleString('pt-BR')} YC em ${dataRendimento}
+━━━━━━━━━━━━━━━━━━━━━
+📅 *DEPÓSITO DE HOJE*
+　${depositoHojeReal.toLocaleString('pt-BR')}/100.000 YC
+　${barraProgresso(depositoHojeReal, 100000)}
+━━━━━━━━━━━━━━━━━━━━━`;
 
-📈 *ÚLTIMO RENDIMENTO:*
-• Valor: *+${rendimento.toLocaleString('pt-BR')} YC*
-• Data: *${dataRendimento}*
-
-📅 *HOJE:*
-• Depositado: *${depositoHojeReal.toLocaleString('pt-BR')}/100.000 YC*
-━━━━━━━━━━━━━━━━━━━━━`, { mentions: [autorId] });
+                return await global.enviarMenuComFoto(msg, banco.png, texto, [autorId]);
             }
 
             return await client.sendMessage(chatId, "❓ Ação inválida! Use: *depositar*, *sacar* ou *extrato*.");
