@@ -2,7 +2,7 @@ const mongoose = require('mongoose');
 
 // 🖼️ Nome do arquivo de imagem dentro da pasta /assets do projeto.
 // Troque aqui se você salvar a imagem com outro nome.
-const FOTO_BANCO = 'dinheito.png';
+const FOTO_BANCO = 'dinheiro.png';
 
 // Gera uma barrinha de progresso visual (ex: ▰▰▰▰▱▱▱▱▱▱)
 function barraProgresso(atual, max, tamanho = 10) {
