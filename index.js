@@ -136,6 +136,14 @@ const userSchema = new mongoose.Schema({
     marriedWith: { type: String, default: null },
     friends: { type: Object, default: {} },
     advs: { type: Number, default: 0 },
+    advHistory: {
+        type: [{
+            motivo: { type: String, default: 'Motivo não especificado' },
+            appliedBy: { type: String },
+            date: { type: Date, default: Date.now }
+        }],
+        default: []
+    },
     inventory: { type: Array, default: [] },
     casinoCount: { type: Number, default: 0 },
     lastCasinoDate: { type: String, default: null },
