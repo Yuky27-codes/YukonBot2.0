@@ -22,7 +22,7 @@ module.exports = {
             });
             await evento.save();
 
-            return msg.reply(`✅ *Inscrição realizada com sucesso!* Você entrou na lista da nave. Lembre-se de confirmar sua presença com \`/confirmarp\` quando estiver pronto.`);
+            return msg.reply(`✅ *Inscrição realizada com sucesso!* Você entrou na lista da nave. Aguarde o início do evento — sua presença será confirmada pelos administradores.`);
         } catch (err) {
             console.error("❌ Erro no /participar:", err);
             return msg.reply("⚠️ Erro ao processar inscrição.");

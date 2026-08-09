@@ -20,7 +20,7 @@ module.exports = {
                 textoLista += `${index + 1}. ${estrela}*${p.nome}* ${p.confirmado ? '(Confirmado)' : '(Pendente)'}\n`;
             });
 
-            textoLista += `\n_Legenda: O símbolo ⭐ indica quem já usou o /confirmarp._`;
+            textoLista += `\n_Legenda: O símbolo ⭐ indica quem já teve a presença confirmada pelos administradores._`;
             return msg.reply(textoLista);
 
         } catch (err) {
