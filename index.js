@@ -818,7 +818,6 @@ Para reativar a licença, fale com o suporte.`);
                     ).lean();
 
                     // Capturar coins gerados (recompensa de mensagem)
-                    const today = getCurrentDateSP();
                     await GroupDailyStats.findOneAndUpdate(
                         { groupId: chatId, date: today },
                         { $inc: { coinsGenerated: coinGanho } },
