@@ -4,6 +4,9 @@ module.exports = {
         if (!isAdmin) return await msg.reply("❌ *ACESSO NEGADO:* Apenas oficiais de alta patente (ADMs) podem emitir moedas.");
 
         try {
+            const mongoose = require('mongoose');
+            const GroupDailyStats = mongoose.model('GroupDailyStats');
+            
             const mencoes = msg.mentionedIds;
             const autorId = String(senderRaw).trim();
             
@@ -23,6 +26,14 @@ module.exports = {
                 { userId: alvoId, groupId: chatId },
                 { $inc: { coins: valor } },
                 { upsert: true, new: true }
+            );
+
+            // Capturar coins gerados (injeção do Banco Central)
+            const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
+            await GroupDailyStats.findOneAndUpdate(
+                { groupId: chatId, date: today },
+                { $inc: { coinsGenerated: valor } },
+                { upsert: true }
             );
 
             const nomeAlvo = ehParaSiMesmo ? "sua própria conta" : `@${alvoId.split('@')[0]}`;

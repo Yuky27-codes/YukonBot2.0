@@ -806,15 +806,24 @@ Para reativar a licença, fale com o suporte.`);
                     );
 
                     const xpGanho = 1; 
+                    const coinGanho = 1; // 1 coin por mensagem
                     const userUpdate = await User.findOneAndUpdate(
                         { userId: senderRaw, groupId: groupId },
                         { 
-                            $inc: { xp: xpGanho },
+                            $inc: { xp: xpGanho, coins: coinGanho },
                             $set: { lastMessageAt: new Date() },
                             $setOnInsert: { level: 1, coins: 0, roles: ["Tripulante"] } 
                         },
                         { upsert: true, returnDocument: 'after' }
                     ).lean();
+
+                    // Capturar coins gerados (recompensa de mensagem)
+                    const today = getCurrentDateSP();
+                    await GroupDailyStats.findOneAndUpdate(
+                        { groupId: chatId, date: today },
+                        { $inc: { coinsGenerated: coinGanho } },
+                        { upsert: true }
+                    );
 
                     if (userUpdate.xp >= 100) {
                         await User.updateOne(
