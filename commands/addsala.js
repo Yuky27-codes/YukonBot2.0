@@ -1,3 +1,5 @@
+const GroupStats = require('../index').GroupStats || require('mongoose').model('GroupStats');
+
 module.exports = {
     name: 'addsala',
     async execute(client, msg, { args, chatId, groupId }) {
@@ -14,6 +16,13 @@ module.exports = {
             if (!global.codigosPorGrupo) global.codigosPorGrupo = {}; 
             
             global.codigosPorGrupo[groupId] = novoCodigo.toUpperCase();
+
+            // Incrementar contador de salas criadas
+            await GroupStats.findOneAndUpdate(
+                { groupId: chatId },
+                { $inc: { salasCreated: 1 } },
+                { upsert: true }
+            );
 
             // 3. Feedback: Confirma para o usuário
             await client.sendMessage(chatId, `✅ Sala *${novoCodigo.toUpperCase()}* definida com sucesso para este grupo!`, { sendSeen: false });

@@ -1,4 +1,5 @@
 const Evento = require('../models/eventSchema');
+const GroupStats = require('../index').GroupStats || require('mongoose').model('GroupStats');
 
 module.exports = {
     name: 'criar',
@@ -38,6 +39,13 @@ module.exports = {
                 descricao: descricao,
                 criadoPor: senderRaw
             });
+
+            // Incrementar contador de eventos criados
+            await GroupStats.findOneAndUpdate(
+                { groupId: chatId },
+                { $inc: { eventsCreated: 1 } },
+                { upsert: true }
+            );
 
             return msg.reply(
                 `🚀 *EVENTO CRIADO COM SUCESSO!*\n\n` +

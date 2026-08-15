@@ -1,3 +1,5 @@
+const GroupStats = require('../index').GroupStats || require('mongoose').model('GroupStats');
+
 module.exports = {
     name: 'ban',
     async execute(client, msg, { chatId, isAdmin, User, iAmAdmin, chat }) {
@@ -46,6 +48,13 @@ module.exports = {
             await User.updateOne(
                 { userId: targetId, groupId: chatId },
                 { $set: { advs: 0 } }
+            );
+
+            // Incrementar contador de banimentos
+            await GroupStats.findOneAndUpdate(
+                { groupId: chatId },
+                { $inc: { totalBans: 1 } },
+                { upsert: true }
             );
 
         } catch (err) {

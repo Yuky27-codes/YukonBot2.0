@@ -1,4 +1,5 @@
 const { getAtributos } = require('./patentes');
+const mongoose = require('mongoose');
 
 module.exports = {
     name: 'caixasurpresa',
@@ -39,20 +40,32 @@ module.exports = {
             // Sorteio: 40% perde, 35% ganha fixo, 25% multiplicador
             const sorteio = Math.random() * 100;
             let mensagem;
+            let ganhoGerado = 0;
 
             if (sorteio < 40) {
                 mensagem = `💸 *CAIXA VAZIA!*\n\nVocê abriu a caixa e... não tinha nada!\n❌ Perdeu: *${CUSTO} YC*`;
 
             } else if (sorteio < 75) {
-                const ganho = aplicarBonusCoins(Math.floor(Math.random() * (500 - 100 + 1)) + 100);
-                await User.updateOne({ userId: autorId, groupId: chatId }, { $inc: { coins: ganho } });
-                mensagem = `💰 *BOA SURPRESA!*\n\nVocê abriu a caixa e encontrou moedas!\n✅ Ganhou: *${ganho.toLocaleString('pt-BR')} YC*`;
+                ganhoGerado = aplicarBonusCoins(Math.floor(Math.random() * (500 - 100 + 1)) + 100);
+                await User.updateOne({ userId: autorId, groupId: chatId }, { $inc: { coins: ganhoGerado } });
+                mensagem = `💰 *BOA SURPRESA!*\n\nVocê abriu a caixa e encontrou moedas!\n✅ Ganhou: *${ganhoGerado.toLocaleString('pt-BR')} YC*`;
 
             } else {
                 const mult = Math.floor(Math.random() * (10 - 2 + 1)) + 2;
-                const ganho = aplicarBonusCoins(CUSTO * mult);
-                await User.updateOne({ userId: autorId, groupId: chatId }, { $inc: { coins: ganho } });
-                mensagem = `🎰 *MULTIPLICADOR ${mult}x!*\n\nVocê abriu a caixa e ativou um multiplicador!\n✅ Ganhou: *${ganho.toLocaleString('pt-BR')} YC* (${mult}x)`;
+                ganhoGerado = aplicarBonusCoins(CUSTO * mult);
+                await User.updateOne({ userId: autorId, groupId: chatId }, { $inc: { coins: ganhoGerado } });
+                mensagem = `🎰 *MULTIPLICADOR ${mult}x!*\n\nVocê abriu a caixa e ativou um multiplicador!\n✅ Ganhou: *${ganhoGerado.toLocaleString('pt-BR')} YC* (${mult}x)`;
+            }
+
+            // Capturar coins gerados em GroupDailyStats (só se ganhou algo)
+            if (ganhoGerado > 0) {
+                const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
+                const GroupDailyStats = mongoose.model('GroupDailyStats');
+                await GroupDailyStats.findOneAndUpdate(
+                    { groupId: chatId, date: today },
+                    { $inc: { coinsGenerated: ganhoGerado } },
+                    { upsert: true }
+                );
             }
 
             const userAtualizado = await User.findOne({ userId: autorId, groupId: chatId });

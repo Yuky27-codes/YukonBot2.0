@@ -91,6 +91,17 @@ module.exports = {
             // Helper: aplica o bônus de ganho de coins da patente em cima de um valor positivo
             const aplicarBonusCoins = (valor) => Math.round(valor * (1 + atributos.coinBonusPercent / 100));
 
+            // Helper: capturar coins gerados (prêmios do sistema)
+            const capturarCoinsGerados = async (valor) => {
+                if (valor > 0) {
+                    await GroupDailyStats.findOneAndUpdate(
+                        { groupId: chatId, date: today },
+                        { $inc: { coinsGenerated: valor } },
+                        { upsert: true }
+                    );
+                }
+            };
+
             // --- PROCESSAMENTO DOS JOGOS ---
             switch (jogo) {
                 case 'apostar': {
@@ -100,6 +111,7 @@ module.exports = {
                     if (win) {
                         const lucro = aplicarBonusCoins((valorAp * mult) - valorAp);
                         await User.updateOne({ userId: senderId, groupId: chatId }, { $inc: { coins: lucro } });
+                        await capturarCoinsGerados(lucro);
                         await client.sendMessage(chatId, `🎉 *GANHOU!* +${lucro.toLocaleString()} YC!`);
                     } else {
                         await User.updateOne({ userId: senderId, groupId: chatId }, { $inc: { coins: -valorAp } });
@@ -118,6 +130,7 @@ module.exports = {
                     } else {
                         const lucroR = aplicarBonusCoins(Math.floor(valorAp * 0.5));
                         await User.updateOne({ userId: senderId, groupId: chatId }, { $inc: { coins: lucroR } });
+                        await capturarCoinsGerados(lucroR);
                         await client.sendMessage(chatId, `🔫 *CLACK!* Ganhou ${lucroR.toLocaleString()} YC!`);
                     }
                     break;
@@ -130,6 +143,7 @@ module.exports = {
                     if (seuPonto === alvo || salvouPelaSorte) {
                         const premio = aplicarBonusCoins(valorAp * 5);
                         await User.updateOne({ userId: senderId, groupId: chatId }, { $inc: { coins: premio } });
+                        await capturarCoinsGerados(premio);
                         const textoResultado = salvouPelaSorte ? `Tirou ${seuPonto}, mas sua sorte estelar salvou a jogada!` : `Tirou ${seuPonto}!`;
                         await client.sendMessage(chatId, `🃏 *NA MOSCA!* ${textoResultado} +${premio.toLocaleString()} YC!`);
                     } else {
@@ -150,6 +164,7 @@ module.exports = {
                         if (isComandante || minhaNave === podio[0] || venceuPelaSorte) {
                             const winC = aplicarBonusCoins(valorAp * 3);
                             await User.updateOne({ userId: senderId, groupId: chatId }, { $inc: { coins: winC } });
+                            await capturarCoinsGerados(winC);
                             msgF += venceuPelaSorte ? `🍀 Sorte estelar! Ganhou +${winC.toLocaleString()} YC!` : `🏆 Ganhou +${winC.toLocaleString()} YC!`;
                         } else {
                             await User.updateOne({ userId: senderId, groupId: chatId }, { $inc: { coins: -valorAp } });

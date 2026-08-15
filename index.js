@@ -236,7 +236,13 @@ module.exports = Evento;
 const groupStatsSchema = new mongoose.Schema({
     groupId: { type: String, required: true, unique: true },
     entradas: { type: Number, default: 0 },
-    saidas: { type: Number, default: 0 }
+    saidas: { type: Number, default: 0 },
+    eventsCreated: { type: Number, default: 0 }, // Eventos criados (acumulado)
+    salasCreated: { type: Number, default: 0 }, // Salas criadas (acumulado)
+    totalBans: { type: Number, default: 0 }, // Banimentos totais (acumulado)
+    totalParticipants: { type: Number, default: 0 }, // Total de participantes reais no grupo
+    onlineParticipants: { type: Number, default: 0 }, // Participantes online agora
+    lastParticipantsUpdate: { type: Date, default: null } // Quando foi atualizado pela última vez
 });
 const GroupStats = mongoose.model('GroupStats', groupStatsSchema);
 
@@ -519,7 +525,54 @@ client.on('qr', qr => {
 
 client.on('ready', () => {
     console.log("✅ YukonBot está online e operante!");
+    
+    // Iniciar job de captura de participantes dos grupos
+    iniciarCapturaParticipantes();
 });
+
+// --- JOB DE CAPTURA DE PARTICIPANTES (ATIVOS/INATIVOS) ---
+async function iniciarCapturaParticipantes() {
+    // Executa a cada 5 minutos
+    setInterval(async () => {
+        try {
+            const chats = await client.getChats();
+            const groupChats = chats.filter(chat => chat.isGroup);
+            
+            for (const chat of groupChats) {
+                try {
+                    const chatId = chat.id._serialized;
+                    const chatData = await client.getChatById(chatId);
+                    
+                    if (chatData && chatData.participants) {
+                        const participants = chatData.participants;
+                        const totalParticipants = participants.length;
+                        
+                        // Contar participantes online (presença real)
+                        const onlineParticipants = participants.filter(p => p.isOnline).length;
+                        
+                        await GroupStats.findOneAndUpdate(
+                            { groupId: chatId },
+                            { 
+                                $set: { 
+                                    totalParticipants,
+                                    onlineParticipants,
+                                    lastParticipantsUpdate: new Date()
+                                } 
+                            },
+                            { upsert: true }
+                        );
+                        
+                        console.log(`📊 [${chatId}] Participantes: ${totalParticipants} total, ${onlineParticipants} online`);
+                    }
+                } catch (e) {
+                    console.warn(`⚠️ Erro ao capturar participantes do grupo ${chat.id._serialized}:`, e.message);
+                }
+            }
+        } catch (e) {
+            console.error("❌ Erro no job de captura de participantes:", e.message);
+        }
+    }, 5 * 60 * 1000); // 5 minutos
+}
 
 // --- EVENTO DE BOAS-VINDAS (NOVOS MEMBROS) ---
 client.on('group_join', async (notification) => {
@@ -770,6 +823,14 @@ Para reativar a licença, fale com o suporte.`);
                                 $set: { level: userUpdate.level + 1, xp: 0 }, 
                                 $inc: { coins: 150 } 
                             }
+                        );
+
+                        // Capturar coins gerados (bônus de level-up)
+                        const today = getCurrentDateSP();
+                        await GroupDailyStats.findOneAndUpdate(
+                            { groupId: chatId, date: today },
+                            { $inc: { coinsGenerated: 150 } },
+                            { upsert: true }
                         );
 
                         await client.sendMessage(chatId, `🆙 *LEVEL UP - YUKON*\n\n@${senderRaw.split('@')[0]}, você enviou mais 100 mensagens e subiu para o **Nível ${userUpdate.level + 1}**!\n💰 Bônus: *150 YukonCoins*`, {

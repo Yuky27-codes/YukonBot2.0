@@ -1,4 +1,5 @@
 const { getAtributos } = require('./patentes');
+const mongoose = require('mongoose');
 
 module.exports = {
     name: 'missão',
@@ -49,6 +50,15 @@ module.exports = {
                     $inc: { coins: ganho },
                     $set: { lastDaily: agora } 
                 }
+            );
+
+            // Capturar coins gerados em GroupDailyStats
+            const today = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
+            const GroupDailyStats = mongoose.model('GroupDailyStats');
+            await GroupDailyStats.findOneAndUpdate(
+                { groupId: chatId, date: today },
+                { $inc: { coinsGenerated: ganho } },
+                { upsert: true }
             );
 
             // 5. Confirmação Visual
