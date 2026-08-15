@@ -812,7 +812,7 @@ Para reativar a licença, fale com o suporte.`);
                         { 
                             $inc: { xp: xpGanho, coins: coinGanho },
                             $set: { lastMessageAt: new Date() },
-                            $setOnInsert: { level: 1, coins: 0, roles: ["Tripulante"] } 
+                            $setOnInsert: { level: 1, roles: ["Tripulante"] } 
                         },
                         { upsert: true, returnDocument: 'after' }
                     ).lean();
