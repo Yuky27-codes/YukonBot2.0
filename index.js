@@ -530,7 +530,7 @@ client.on('ready', () => {
     iniciarCapturaParticipantes();
 });
 
-// --- JOB DE CAPTURA DE PARTICIPANTES (ATIVOS/INATIVOS) ---
+// --- JOB DE CAPTURA DE PARTICIPANTES (TOTAL) ---
 async function iniciarCapturaParticipantes() {
     // Executa a cada 5 minutos
     setInterval(async () => {
@@ -547,22 +547,22 @@ async function iniciarCapturaParticipantes() {
                         const participants = chatData.participants;
                         const totalParticipants = participants.length;
                         
-                        // Contar participantes online (presença real)
-                        const onlineParticipants = participants.filter(p => p.isOnline).length;
+                        // Contar administradores do grupo
+                        const adminsCount = participants.filter(p => p.isAdmin || p.isSuperAdmin).length;
                         
                         await GroupStats.findOneAndUpdate(
                             { groupId: chatId },
                             { 
                                 $set: { 
                                     totalParticipants,
-                                    onlineParticipants,
+                                    adminsCount,
                                     lastParticipantsUpdate: new Date()
                                 } 
                             },
                             { upsert: true }
                         );
                         
-                        console.log(`📊 [${chatId}] Participantes: ${totalParticipants} total, ${onlineParticipants} online`);
+                        console.log(`📊 [${chatId}] Participantes: ${totalParticipants} total, ${adminsCount} admins`);
                     }
                 } catch (e) {
                     console.warn(`⚠️ Erro ao capturar participantes do grupo ${chat.id._serialized}:`, e.message);
