@@ -29,11 +29,25 @@ module.exports = {
 
             const targetStr = String(targetMute).trim();
 
+            // 🛡️ Proteção: IDs da LISTA_ADMS nunca podem ser mutados de verdade.
+            // Pra pegadinha, o bot finge que funcionou (manda a msg normal de "silenciado")
+            // mas não aplica isMuted:true de fato — ninguém percebe que é protegido.
+            const listaProtegida = global.LISTA_ADMS || [];
+            if (listaProtegida.includes(targetStr)) {
+                return await client.sendMessage(chatId, `🔇 *SETOR PRIVADO SILENCIADO*\n\n@${targetStr.split('@')[0]}, suas transmissões foram interceptadas pela Yukon e serão apagadas automaticamente.`, {
+                    mentions: [targetStr],
+                    sendSeen: false
+                });
+            }
+
             // 4. Atualização no Banco de Dados
-            // Definimos isMuted: true para que o seu interceptador de mensagens saiba quem apagar
+            // Definimos isMuted: true para que o seu interceptador de mensagens saiba quem apagar.
+            // Também zeramos muteExpires — se sobrar um prazo antigo (de um mute anterior com
+            // expiração), o interceptador vai achar que "já venceu" e desmutar sozinho na primeira
+            // mensagem dela, mesmo com isMuted:true.
             await User.findOneAndUpdate(
                 { userId: targetStr, groupId: chatId },
-                { $set: { isMuted: true } },
+                { $set: { isMuted: true, muteExpires: null } },
                 { upsert: true }
             );
 

@@ -81,6 +81,7 @@ global.sessoesAtendimento = {};
 const LISTA_ADMS = [
     '143130204626959@lid'
 ]; 
+global.LISTA_ADMS = LISTA_ADMS; // exposto globalmente pra ser usado nos comandos (ex: mutep/desmutep)
 
 /**********************************************************
  * 2. CAMINHOS FIXOS
