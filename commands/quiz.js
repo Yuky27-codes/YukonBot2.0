@@ -17,7 +17,7 @@ async function gerarEEnviar(groq, prompt) { //[cite: 5]
             { role: "system", content: prompt }, //[cite: 5]
             { role: "user", content: `Gere agora. (seed: ${seed})` } //[cite: 5]
         ],
-        model: "llama-3.3-70b-versatile", //[cite: 5]
+        model: "openai/gpt-oss-120b", // llama-3.3-70b-versatile foi descontinuado pela Groq em 17/06/2026
         temperature: 0.9, // Reduzido levemente de 1.0 para manter criativo mas sem quebrar JSON[cite: 5]
         max_tokens: 300 //[cite: 5]
     });
