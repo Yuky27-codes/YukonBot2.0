@@ -123,11 +123,11 @@ Responda APENAS em JSON puro sem blocos de código markdown:`
                         },
                         { role: "user", content: `Gere agora uma palavra única do tema. Seed: ${seed + tentativas}` } //[cite: 8]
                     ],
-                    model: "openai/gpt-oss-120b", 
-                    temperature: 0.8, 
-                    reasoning_effort: "low",  final
-                    max_tokens: 600, 
-                    response_format: { type: "json_object" } 
+                    model: "openai/gpt-oss-120b", // llama-3.3-70b-versatile foi descontinuado pela Groq em 17/06/2026
+                    temperature: 0.8, // Reduzido levemente para obedecer mais as regras estruturais[cite: 8]
+                    reasoning_effort: "low", // gpt-oss "pensa" antes de responder — baixa o esforço pra sobrar tokens pro JSON final
+                    max_tokens: 600, // era 150 — com raciocínio ativo isso não dava nem pro "pensamento", vinha vazio
+                    response_format: { type: "json_object" } // força a Groq a devolver JSON válido
                 });
 
                 const raw = completion.choices[0]?.message?.content?.trim(); //[cite: 8]
