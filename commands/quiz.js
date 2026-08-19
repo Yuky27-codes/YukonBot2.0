@@ -20,14 +20,24 @@ async function gerarEEnviar(groq, prompt) { //[cite: 5]
         model: "openai/gpt-oss-120b", 
         temperature: 0.9, 
         reasoning_effort: "low", 
-        max_tokens: 1024 
+        max_tokens: 1024,
+        response_format: { type: "json_object" } // força a Groq a devolver SÓ o JSON, sem texto extra depois
     });
 
     const raw = completion.choices[0]?.message?.content?.trim(); //[cite: 5]
     if (!raw) {
         throw new Error("A IA retornou uma resposta vazia (provavelmente estourou o max_tokens durante o raciocínio).");
     }
-    const dados = JSON.parse(raw.replace(/```json|```/g, '').trim()); //[cite: 5]
+
+    let dados; //[cite: 5]
+    try {
+        dados = JSON.parse(raw.replace(/```json|```/g, '').trim()); //[cite: 5]
+    } catch (parseErr) {
+        // Rede de segurança: se sobrou texto antes/depois do JSON, extrai só o trecho { ... }
+        const match = raw.match(/\{[\s\S]*\}/);
+        if (!match) throw parseErr;
+        dados = JSON.parse(match[0]);
+    }
     return dados; //[cite: 5]
 }
 
