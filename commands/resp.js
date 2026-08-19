@@ -47,12 +47,15 @@ Aceite sinônimos, variações e pequenos erros de digitação.` //[cite: 6]
                                 content: `Contexto do Quiz: ${sessao.tipo}\nPergunta/Pista original: "${sessao.enunciado}"\nResposta Esperada Exata: "${respostaCorreta}"\nO que o usuário respondeu: "${resposta}"\nAnalise se o usuário digitou o sinônimo correto ou a resposta esperada de forma válida. Responda apenas o JSON.`
                             }
                         ],
-                        model: "llama-3.3-70b-versatile", //[cite: 6]
-                        temperature: 0, //[cite: 6]
-                        max_tokens: 20 //[cite: 6]
+                        model: "openai/gpt-oss-120b", 
+                        temperature: 0, 
+                        reasoning_effort: "low", 
+                        max_tokens: 300, 
+                        response_format: { type: "json_object" } 
                     });
 
                     const raw = validacao.choices[0]?.message?.content?.trim(); //[cite: 6]
+                    if (!raw) throw new Error("A IA retornou uma resposta vazia na validação da resposta.");
                     const resultado = JSON.parse(raw.replace(/```json|```/g, '').trim()); //[cite: 6]
                     if (resultado.correto === true) return await acertarQuiz(client, chatId, autorId, sessao, User); //[cite: 6]
                 } catch (e) {

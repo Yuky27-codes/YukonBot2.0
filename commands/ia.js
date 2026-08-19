@@ -20,8 +20,9 @@ module.exports = {
                     },
                     { role: "user", content: pergunta }
                 ],
-                model: "llama-3.3-70b-versatile",
+                model: "openai/gpt-oss-120b", 
                 temperature: 0.7,
+                reasoning_effort: "low", 
             });
 
             const respostaIA = completion.choices[0]?.message?.content;

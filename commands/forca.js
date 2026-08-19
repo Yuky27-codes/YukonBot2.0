@@ -123,12 +123,18 @@ Responda APENAS em JSON puro sem blocos de código markdown:`
                         },
                         { role: "user", content: `Gere agora uma palavra única do tema. Seed: ${seed + tentativas}` } //[cite: 8]
                     ],
-                    model: "llama-3.3-70b-versatile", //[cite: 8]
-                    temperature: 0.8, // Reduzido levemente para obedecer mais as regras estruturais[cite: 8]
-                    max_tokens: 150 //[cite: 8]
+                    model: "openai/gpt-oss-120b", 
+                    temperature: 0.8, 
+                    reasoning_effort: "low",  final
+                    max_tokens: 600, 
+                    response_format: { type: "json_object" } 
                 });
 
                 const raw = completion.choices[0]?.message?.content?.trim(); //[cite: 8]
+                if (!raw) {
+                    console.warn(`⚠️ [FORCA] Tentativa ${tentativas}: resposta vazia da IA.`);
+                    continue;
+                }
                 const dados = JSON.parse(raw.replace(/```json|```/g, '').trim()); //[cite: 8]
 
                 const palavraLimpa = limparPalavra(dados.palavra || ''); //[cite: 8]

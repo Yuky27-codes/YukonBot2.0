@@ -53,12 +53,15 @@ Responda APENAS em JSON puro sem markdown:
                     },
                     { role: "user", content: `Escolha agora. Seed: ${seed}` }
                 ],
-                model: "llama-3.3-70b-versatile",
+                model: "openai/gpt-oss-120b", 
                 temperature: 1.0,
-                max_tokens: 100
+                reasoning_effort: "low", 
+                max_tokens: 500, 
+                response_format: { type: "json_object" } 
             });
 
             const raw = completion.choices[0]?.message?.content?.trim();
+            if (!raw) throw new Error("A IA retornou uma resposta vazia ao gerar o personagem.");
             const dados = JSON.parse(raw.replace(/```json|```/g, '').trim());
 
             if (!dados.personagem) throw new Error("Personagem não gerado");

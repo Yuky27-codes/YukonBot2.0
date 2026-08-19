@@ -60,12 +60,15 @@ Considere correto se o usuário acertou o personagem, mesmo com variações de n
                         },
                         { role: "user", content: `O usuário disse: "${tentativa}". Está correto?` }
                     ],
-                    model: "llama-3.3-70b-versatile",
+                    model: "openai/gpt-oss-120b", 
                     temperature: 0,
-                    max_tokens: 20
+                    reasoning_effort: "low", 
+                    max_tokens: 300, 
+                    response_format: { type: "json_object" } 
                 });
 
                 const raw = validacao.choices[0]?.message?.content?.trim();
+                if (!raw) throw new Error("A IA retornou uma resposta vazia na validação do Quem Sou Eu.");
                 const resultado = JSON.parse(raw.replace(/```json|```/g, '').trim());
 
                 if (resultado.correto) {

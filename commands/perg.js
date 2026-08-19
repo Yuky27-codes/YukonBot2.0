@@ -29,12 +29,13 @@ Não revele o nome do personagem em hipótese alguma.`
                     },
                     { role: "user", content: pergunta }
                 ],
-                model: "llama-3.3-70b-versatile",
+                model: "openai/gpt-oss-120b", 
                 temperature: 0,
-                max_tokens: 20
+                reasoning_effort: "low", 
+                max_tokens: 300 
             });
 
-            const resposta = completion.choices[0]?.message?.content?.trim();
+            const resposta = completion.choices[0]?.message?.content?.trim() || "🤖 Não consegui processar essa pergunta, tenta reformular!";
 
             await client.sendMessage(chatId, `🎭 *QUEM SOU EU?*
 ━━━━━━━━━━━━━━━━━━━━━

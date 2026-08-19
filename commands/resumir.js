@@ -40,7 +40,9 @@ module.exports = {
                         content: `Aqui está o log das últimas mensagens da tripulação. Faça um resumo executivo:\n\n${historico}`
                     }
                 ],
-                model: "llama-3.3-70b-versatile",
+                model: "openai/gpt-oss-120b", 
+                reasoning_effort: "low", 
+                max_tokens: 2048, 
             });
 
             let respostaIA = completion.choices?.[0]?.message?.content;
