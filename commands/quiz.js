@@ -19,10 +19,14 @@ async function gerarEEnviar(groq, prompt) { //[cite: 5]
         ],
         model: "openai/gpt-oss-120b", // llama-3.3-70b-versatile foi descontinuado pela Groq em 17/06/2026
         temperature: 0.9, // Reduzido levemente de 1.0 para manter criativo mas sem quebrar JSON[cite: 5]
-        max_tokens: 300 //[cite: 5]
+        reasoning_effort: "low", // gpt-oss "pensa" antes de responder e isso consome tokens do max_tokens — baixamos o esforço pra sobrar espaço pro JSON final
+        max_tokens: 1024 // Aumentado de 300: com raciocínio ativado, 300 tokens não sobravam nem pro "pensamento", ficando o content vazio
     });
 
     const raw = completion.choices[0]?.message?.content?.trim(); //[cite: 5]
+    if (!raw) {
+        throw new Error("A IA retornou uma resposta vazia (provavelmente estourou o max_tokens durante o raciocínio).");
+    }
     const dados = JSON.parse(raw.replace(/```json|```/g, '').trim()); //[cite: 5]
     return dados; //[cite: 5]
 }
