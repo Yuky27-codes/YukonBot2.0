@@ -81,7 +81,7 @@ global.sessoesAtendimento = {};
 const LISTA_ADMS = [
     '143130204626959@lid'
 ]; 
-global.LISTA_ADMS = LISTA_ADMS; // exposto globalmente pra ser usado nos comandos (ex: mutep/desmutep)
+global.LISTA_ADMS = LISTA_ADMS;
 
 /**********************************************************
  * 2. CAMINHOS FIXOS
@@ -136,12 +136,16 @@ const userSchema = new mongoose.Schema({
     roles: { type: Array, default: ["Tripulante"] },
     marriedWith: { type: String, default: null },
     friends: { type: Object, default: {} },
-    advs: { type: Number, default: 0 },
+    advs: { type: Number, default: 0 }, 
+    advsNivel1: { type: Number, default: 0 }, 
+    advsNivel2: { type: Number, default: 0 }, 
+    advsNivel3: { type: Number, default: 0 }, 
     advHistory: {
         type: [{
             motivo: { type: String, default: 'Motivo não especificado' },
             appliedBy: { type: String },
-            date: { type: Date, default: Date.now }
+            date: { type: Date, default: Date.now },
+            nivel: { type: Number }
         }],
         default: []
     },

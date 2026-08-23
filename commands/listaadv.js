@@ -1,12 +1,21 @@
+const NIVEIS = {
+    1: { nome: 'Leve', emoji: '🟡', limite: 5 },
+    2: { nome: 'Moderada', emoji: '🟠', limite: 3 },
+    3: { nome: 'Pesada', emoji: '🔴', limite: 3 }
+};
+
 module.exports = {
     name: 'listaadv',
     async execute(client, msg, { chatId, User }) {
         try {
-            // 1. Busca usuários com advertências (advs > 0) apenas no grupo atual
-            // O uso do .lean() aqui deixa a busca muito mais rápida!
-            const advertidos = await User.find({ 
-                groupId: chatId, 
-                advs: { $gt: 0 } 
+            // 1. Busca usuários com pelo menos uma advertência ativa (em qualquer nível) no grupo atual
+            const advertidos = await User.find({
+                groupId: chatId,
+                $or: [
+                    { advsNivel1: { $gt: 0 } },
+                    { advsNivel2: { $gt: 0 } },
+                    { advsNivel3: { $gt: 0 } }
+                ]
             }).lean();
 
             if (!advertidos || advertidos.length === 0) {
@@ -16,31 +25,35 @@ module.exports = {
             let listaMsg = "📋 *LISTA DE ADVERTÊNCIAS - YUKON*\n\n";
             let targets = [];
 
-            const numerosEmoji = ['1️⃣', '2️⃣', '3️⃣'];
-
-            // 2. Monta a lista, com os motivos, e prepara as menções
+            // 2. Monta a lista, com os níveis e motivos, e prepara as menções
             advertidos.forEach((u) => {
-                const userIdStr = String(u.userId).trim(); 
+                const userIdStr = String(u.userId).trim();
                 const numeroExibicao = userIdStr.split('@')[0];
-
-                listaMsg += `👤 @${numeroExibicao} ➔ *${u.advs}/3*\n`;
-
-                // O contador "advs" reseta pra 0 quando a pessoa é ejetada, mas o
-                // "advHistory" continua crescendo pra sempre (histórico completo).
-                // Então as advertências ATIVAS de cada pessoa são sempre as últimas
-                // "advs" entradas do histórico — pegamos só essas pra exibir aqui.
                 const historico = Array.isArray(u.advHistory) ? u.advHistory : [];
-                const ativas = historico.slice(-u.advs);
 
-                if (ativas.length > 0) {
-                    ativas.forEach((h, i) => {
-                        const numero = numerosEmoji[i] || `${i + 1}.`;
-                        const motivo = h?.motivo || 'Motivo não especificado';
-                        listaMsg += `   ${numero} ${motivo}\n`;
-                    });
-                } else {
-                    listaMsg += `   _Motivo não registrado_\n`;
-                }
+                listaMsg += `👤 @${numeroExibicao}\n`;
+
+                [1, 2, 3].forEach((nivel) => {
+                    const count = u[`advsNivel${nivel}`] || 0;
+                    if (count === 0) return;
+
+                    const { nome, emoji, limite } = NIVEIS[nivel];
+                    listaMsg += `   ${emoji} *${nome}:* ${count}/${limite}\n`;
+
+                    // Igual antes: as advertências ATIVAS desse nível são sempre as últimas
+                    // "count" entradas do histórico filtradas por esse nível específico.
+                    const doNivel = historico.filter(h => h?.nivel === nivel);
+                    const ativas = doNivel.slice(-count);
+
+                    if (ativas.length > 0) {
+                        ativas.forEach((h) => {
+                            const motivo = h?.motivo || 'Motivo não especificado';
+                            listaMsg += `      • ${motivo}\n`;
+                        });
+                    } else {
+                        listaMsg += `      • _Motivo não registrado_\n`;
+                    }
+                });
 
                 listaMsg += "\n";
                 targets.push(userIdStr);
@@ -49,9 +62,9 @@ module.exports = {
             listaMsg += "_Fique atento às regras da tripulação!_ 🛰️";
 
             // 3. Envio com menções para os números ficarem azuis/clicáveis
-            await client.sendMessage(chatId, listaMsg, { 
-                mentions: targets, 
-                sendSeen: false 
+            await client.sendMessage(chatId, listaMsg, {
+                mentions: targets,
+                sendSeen: false
             });
 
         } catch (error) {
