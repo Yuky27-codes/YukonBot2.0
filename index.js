@@ -81,7 +81,7 @@ global.sessoesAtendimento = {};
 const LISTA_ADMS = [
     '143130204626959@lid'
 ]; 
-global.LISTA_ADMS = LISTA_ADMS;
+global.LISTA_ADMS = LISTA_ADMS;i
 
 /**********************************************************
  * 2. CAMINHOS FIXOS
@@ -999,7 +999,7 @@ const MAPA_BLOQUEIOS = {
     iaLocked: ['ia', 'resumir'],
     salaLocked: ['addsala', 'sala'],
     socLocked: ['ship', 'amizade', 'casar', 'casais', 'divorciar', 'beijar', 'tapa', 'chutar', 'abraçar', 'criar_familia', 'adotar', 'parentesco', 'heranca', 'mesada', 'deserdar', 'amante', 'meu_amante', 'dar_flores', 'meu_aniver', 'aceitarp', 'aceitard', 'lista_aniver'],
-    utilLocked: ['iniciar', 'painel', 'id_grupo', 'prefixo', 'simbolo']
+    utilLocked: ['iniciar', 'painel', 'id_grupo', 'prefixo', 'simbolo', 'play']
 };
 
 // --- 🟢 BARREIRA DE SEGURANÇA INTEGRADA ---
