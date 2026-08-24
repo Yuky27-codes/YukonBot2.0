@@ -1,13 +1,13 @@
 const path = require('path');
 const fs = require('fs-extra');
-const { v4: uuidv4 } = require('uuid');
+const crypto = require('crypto');
 const youtubedl = require('yt-dlp-exec');
 const ffmpeg = require('fluent-ffmpeg');
 const ffmpegStatic = require('ffmpeg-static');
 
 ffmpeg.setFfmpegPath(ffmpegStatic);
 
-// Sistema simples de cooldown por usuário para evitar spam
+// Sistema de cooldown por usuário
 const userCooldowns = new Map();
 const COOLDOWN_TIME = 10 * 1000; // 10 segundos
 
@@ -15,7 +15,6 @@ module.exports = {
     async execute(client, msg, { args, chatId, senderRaw, isAdmin, MessageMedia }) {
         const query = args.join(' ').trim();
 
-        // Etapa 1: Instrução de uso se vier vazio
         if (!query) {
             return await client.sendMessage(chatId, 
                 "🎵 *Como usar o /play*\n\n" +
@@ -25,7 +24,6 @@ module.exports = {
             );
         }
 
-        // Rate Limit / Cooldown
         if (!isAdmin) {
             const lastRequest = userCooldowns.get(senderRaw);
             const now = Date.now();
@@ -36,7 +34,6 @@ module.exports = {
             userCooldowns.set(senderRaw, now);
         }
 
-        // Mensagem inicial de processamento
         const statusMsg = await client.sendMessage(chatId, 
             "🎵 *YukonBot Music*\n" +
             "🔎 *Procurando sua música...*\n" +
@@ -44,8 +41,8 @@ module.exports = {
             { sendSeen: false }
         );
 
-        // Diretório temporário isolado por UUID para evitar concorrência
-        const requestId = uuidv4();
+        // Usa o crypto nativo do Node.js em vez do pacote uuid
+        const requestId = crypto.randomUUID();
         const tempDir = path.resolve(__dirname, '..', 'temp', 'play', requestId);
         await fs.ensureDir(tempDir);
 
@@ -53,10 +50,8 @@ module.exports = {
         const finalOutputPath = path.join(tempDir, `audio.mp3`);
 
         try {
-            // Se não for URL, utiliza o mecanismo de busca do yt-dlp
             const searchTarget = query.startsWith('http') ? query : `ytsearch1:${query}`;
 
-            // Executa o download usando yt-dlp-exec
             await youtubedl(searchTarget, {
                 extractAudio: true,
                 audioFormat: 'mp3',
@@ -68,7 +63,6 @@ module.exports = {
                 addMetadata: true
             });
 
-            // Como o arquivo baixado pode vir com extensão variável dependendo do formato bruto, procuramos o arquivo na pasta
             const files = await fs.readdir(tempDir);
             const downloadedFile = files.find(f => f.startsWith('source'));
 
@@ -78,7 +72,6 @@ module.exports = {
 
             const sourceFile = path.join(tempDir, downloadedFile);
 
-            // Atualiza status informando a conversão
             try {
                 await statusMsg.edit(
                     `🎵 *YukonBot Music*\n` +
@@ -86,7 +79,6 @@ module.exports = {
                 );
             } catch (e) {}
 
-            // Conversão otimizada com FFmpeg para garantir compatibilidade e tamanho ideal
             await new Promise((resolve, reject) => {
                 ffmpeg(sourceFile)
                     .audioCodec('libmp3lame')
@@ -97,12 +89,10 @@ module.exports = {
                     .save(finalOutputPath);
             });
 
-            // Verifica se o arquivo final existe
             if (!await fs.pathExists(finalOutputPath)) {
                 throw new Error("CONVERSION_FAILED");
             }
 
-            // Envio via whatsapp-web.js
             const media = MessageMedia.fromFilePath(finalOutputPath);
             const pushName = msg._data?.notifyName || senderRaw.split('@')[0];
 
@@ -112,10 +102,7 @@ module.exports = {
                 mentions: [senderRaw]
             });
 
-            // Limpeza bem-sucedida do diretório temporário
             await fs.remove(tempDir);
-
-            // Tenta remover a mensagem de status
             try { await statusMsg.delete(); } catch (e) {}
 
         } catch (error) {
