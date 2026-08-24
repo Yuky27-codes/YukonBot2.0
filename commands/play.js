@@ -60,7 +60,8 @@ module.exports = {
                 noCheckCertificates: true,
                 noWarnings: true,
                 preferFreeFormats: true,
-                addMetadata: true
+                addMetadata: true,
+                extractorArgs: 'youtube:player_client=web_safari' // Corrigido para burlar a verificação de bot do YouTube
             });
 
             const files = await fs.readdir(tempDir);
