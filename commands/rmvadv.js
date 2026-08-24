@@ -39,7 +39,7 @@ module.exports = {
                     const updatedUser = await User.findOneAndUpdate(
                         { userId: targetStr, groupId: chatId },
                         { $inc: { advs: -1 } },
-                        { new: true }
+                        { returnDocument: 'after' }
                     );
                     relatorio += `• @${targetStr.split('@')[0]} ➔ *${updatedUser.advs}/3*\n`;
                 } else {

@@ -26,7 +26,7 @@ module.exports = {
             const atualizado = await Modo.findOneAndUpdate(
                 { groupId: chatId, nome: { $regex: new RegExp(`^${nomeModo}$`, 'i') } },
                 { $set: { descricao: novaDesc } },
-                { new: true }
+                { returnDocument: 'after' }
             );
 
             if (!atualizado) return await msg.reply("⚠️ Modo não encontrado.");

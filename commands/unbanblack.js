@@ -27,7 +27,7 @@ module.exports = {
             const update = await User.findOneAndUpdate(
                 { userId: targetStr, groupId: chatId },
                 { $set: { isBlacklisted: false }, $unset: { blacklistReason: "" } }, // Remove o motivo também para limpar o banco
-                { new: true }
+                { returnDocument: 'after' }
             );
 
             if (update) {

@@ -43,7 +43,7 @@ module.exports = {
             const authUpdate = await AuthorizedGroup.findOneAndUpdate(
                 { groupId: grupoId },
                 { $set: { authorizedBy: donoId } },
-                { new: true }
+                { returnDocument: 'after' }
             );
 
             if (!authUpdate) {

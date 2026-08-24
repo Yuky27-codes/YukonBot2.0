@@ -28,7 +28,7 @@ module.exports = {
             const userAtualizado = await User.findOneAndUpdate(
                 { userId: alvoId, groupId: chatId },
                 { $inc: { coins: -valorFinal } },
-                { new: true }
+                { returnDocument: 'after' }
             );
 
             const textoSucesso = `
