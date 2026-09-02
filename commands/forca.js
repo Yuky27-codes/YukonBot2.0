@@ -83,7 +83,12 @@ module.exports = {
     name: 'forca',
     async execute(client, msg, { chatId, senderRaw, args, groq }) { //[cite: 8]
         try {
-            const tema = args.join(' ').trim() || ''; //[cite: 8]
+            // 🔒 Bloqueia qualquer argumento — o tema agora é sempre sorteado pelo bot.
+            // Isso evita que membros burlem o jogo mandando "/forca [a palavra que eles querem]"
+            // e "adivinhando" de propósito a palavra que eles mesmos escolheram.
+            if (args.length > 0) {
+                return await client.sendMessage(chatId, "❌ Formato inválido!\n\nO */forca* não aceita nenhuma palavra ou número junto.\n👉 Use apenas: */forca*");
+            }
 
             if (sessoesForca.has(chatId)) { //[cite: 8]
                 const s = sessoesForca.get(chatId); //[cite: 8]
@@ -93,8 +98,7 @@ module.exports = {
 
             try { await msg.react('⚙️'); } catch {} // Blindagem contra erros de reação do Puppeteer[cite: 5, 8]
 
-            const categoriaAleatoria = CATEGORIAS_FORCA[Math.floor(Math.random() * CATEGORIAS_FORCA.length)]; //[cite: 8]
-            const temaFinal = tema || categoriaAleatoria; //[cite: 8]
+            const temaFinal = CATEGORIAS_FORCA[Math.floor(Math.random() * CATEGORIAS_FORCA.length)]; //[cite: 8]
             const seed = Math.floor(Math.random() * 999999); //[cite: 8]
 
             let palavra = ''; //[cite: 8]
