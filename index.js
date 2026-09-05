@@ -79,7 +79,10 @@ global.antiFlood = {};
 global.sessoesAtendimento = {};
 
 const LISTA_ADMS = [
-    '143130204626959@lid'
+    '143130204626959@lid',
+    '43830678139070@lid', //anne
+    '53111632707782@lid', //lices
+    '123687105773625@lid' //bea
 ]; 
 global.LISTA_ADMS = LISTA_ADMS;
 
