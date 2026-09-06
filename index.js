@@ -199,6 +199,31 @@ const modoSchema = new mongoose.Schema({
 
 const Modo = mongoose.model('Modo', modoSchema);
 
+// --- SCHEMA PARA COMANDOS DO PAINEL ---
+const botCommandSchema = new mongoose.Schema({
+    type: { 
+        type: String, 
+        enum: ['ban', 'banblack', 'mute', 'desmute'],
+        required: true 
+    },
+    groupId: { type: String, required: true, index: true },
+    targetUserId: { type: String, default: null },
+    motivo: { type: String, default: null },
+    status: { 
+        type: String, 
+        enum: ['pending', 'executed', 'failed'],
+        default: 'pending',
+        index: true
+    },
+    errorMessage: { type: String, default: null },
+    executedAt: { type: Date, default: null }
+}, { timestamps: true, collection: 'bot_commands' });
+
+botCommandSchema.index({ status: 1, createdAt: 1 });
+botCommandSchema.index({ groupId: 1, status: 1 });
+
+const BotCommand = mongoose.models.BotCommand || mongoose.model('BotCommand', botCommandSchema);
+
 // --- NOVO SCHEMA PARA PARCERIAS ---
 
 
@@ -1629,5 +1654,61 @@ cron.schedule('0 0 * * *', async () => {
         console.log("✅ Reset diário e snapshot de CHS concluídos. Histórico mantido (7 dias diários, 90 dias CHS).");
     } catch (e) {
         console.error("❌ Erro no cron de reset diário:", e);
+    }
+});
+
+// --- SISTEMA PARA PROCESSAR COMANDOS DO PAINEL ---
+cron.schedule('*/10 * * * *', async () => {
+    try {
+        const pendingCommands = await BotCommand.find({ status: 'pending' }).limit(10);
+        
+        for (const command of pendingCommands) {
+            try {
+                const chatId = command.groupId;
+                const chat = await client.getChatById(chatId);
+                
+                if (command.type === 'ban' && command.targetUserId) {
+                    // Banir usuário do grupo
+                    await chat.removeParticipants([command.targetUserId]);
+                    await BotCommand.findByIdAndUpdate(command._id, {
+                        status: 'executed',
+                        executedAt: new Date()
+                    });
+                    console.log(`✅ Comando ban executado: ${command.targetUserId} de ${chatId}`);
+                } else if (command.type === 'banblack' && command.targetUserId) {
+                    // Banir permanentemente (blacklist)
+                    await chat.removeParticipants([command.targetUserId]);
+                    await BotCommand.findByIdAndUpdate(command._id, {
+                        status: 'executed',
+                        executedAt: new Date()
+                    });
+                    console.log(`✅ Comando banblack executado: ${command.targetUserId} de ${chatId}`);
+                } else if (command.type === 'mute') {
+                    // Fechar grupo (apenas admins podem enviar)
+                    await chat.setMessagesAdminsOnly(true);
+                    await BotCommand.findByIdAndUpdate(command._id, {
+                        status: 'executed',
+                        executedAt: new Date()
+                    });
+                    console.log(`✅ Comando mute executado: ${chatId}`);
+                } else if (command.type === 'desmute') {
+                    // Abrir grupo (todos podem enviar)
+                    await chat.setMessagesAdminsOnly(false);
+                    await BotCommand.findByIdAndUpdate(command._id, {
+                        status: 'executed',
+                        executedAt: new Date()
+                    });
+                    console.log(`✅ Comando desmute executado: ${chatId}`);
+                }
+            } catch (error) {
+                console.error(`❌ Erro ao executar comando ${command._id}:`, error);
+                await BotCommand.findByIdAndUpdate(command._id, {
+                    status: 'failed',
+                    errorMessage: error.message
+                });
+            }
+        }
+    } catch (error) {
+        console.error("❌ Erro no cron de processamento de comandos do painel:", error);
     }
 });
