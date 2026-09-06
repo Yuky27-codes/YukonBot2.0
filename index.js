@@ -27,6 +27,7 @@ const qrcode = require('qrcode-terminal');
 const fs = require('fs-extra');
 const path = require('path');
 const cron = require('node-cron');
+const express = require('express');
 const { Groq } = require('groq-sdk');
 const partidasAtivas = {};
 const groq = new Groq({
@@ -1711,4 +1712,64 @@ cron.schedule('*/10 * * * *', async () => {
     } catch (error) {
         console.error("❌ Erro no cron de processamento de comandos do painel:", error);
     }
+});
+// --- SERVIDOR HTTP PARA EXECUÇÃO IMEDIATA DE COMANDOS ---
+const app = express();
+app.use(express.json());
+
+// Middleware de autenticação simples (verifica se a requisição vem do backend)
+const BOT_API_SECRET = process.env.BOT_API_SECRET || 'yukon-bot-secret-2024';
+
+app.use((req, res, next) => {
+    const authHeader = req.headers.authorization;
+    if (authHeader !== BOT_API_SECRET) {
+        return res.status(401).json({ error: 'Unauthorized' });
+    }
+    next();
+});
+
+// Endpoint para executar comando de ban imediatamente
+app.post('/api/commands/ban', async (req, res) => {
+    try {
+        const { groupId, targetUserId } = req.body;
+        
+        if (!groupId || !targetUserId) {
+            return res.status(400).json({ error: 'Missing required fields: groupId, targetUserId' });
+        }
+        
+        const chat = await client.getChatById(groupId);
+        await chat.removeParticipants([targetUserId]);
+        
+        console.log(`✅ Ban imediato executado: ${targetUserId} de ${groupId}`);
+        res.json({ success: true, message: 'Ban executed immediately' });
+    } catch (error) {
+        console.error('❌ Erro ao executar ban imediato:', error);
+        res.status(500).json({ error: 'Failed to execute ban', details: error.message });
+    }
+});
+
+// Endpoint para executar comando de mute/desmute imediatamente
+app.post('/api/commands/mute', async (req, res) => {
+    try {
+        const { groupId, muted } = req.body;
+        
+        if (!groupId || typeof muted !== 'boolean') {
+            return res.status(400).json({ error: 'Missing required fields: groupId, muted' });
+        }
+        
+        const chat = await client.getChatById(groupId);
+        await chat.setMessagesAdminsOnly(muted);
+        
+        console.log(`✅ Mute imediato executado: ${groupId} -> ${muted ? 'fechado' : 'aberto'}`);
+        res.json({ success: true, message: 'Mute executed immediately' });
+    } catch (error) {
+        console.error('❌ Erro ao executar mute imediato:', error);
+        res.status(500).json({ error: 'Failed to execute mute', details: error.message });
+    }
+});
+
+// Iniciar servidor HTTP
+const BOT_PORT = process.env.BOT_PORT || 3001;
+app.listen(BOT_PORT, () => {
+    console.log(`🚀 Servidor HTTP do bot rodando na porta ${BOT_PORT}`);
 });

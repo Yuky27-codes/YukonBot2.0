@@ -34,14 +34,39 @@ module.exports = {
                 // Buscamos o usuário no banco
                 const userDb = await User.findOne({ userId: targetStr, groupId: chatId });
 
-                if (userDb && userDb.advs > 0) {
-                    // Remove 1 advertência e retorna o dado atualizado
+                if (userDb) {
+                    const atual = {
+                        1: userDb.advsNivel1 || 0,
+                        2: userDb.advsNivel2 || 0,
+                        3: userDb.advsNivel3 || 0
+                    };
+                    
+                    // Remove do nível mais alto que tem advertências
+                    if (atual[3] > 0) {
+                        atual[3]--;
+                    } else if (atual[2] > 0) {
+                        atual[2]--;
+                    } else if (atual[1] > 0) {
+                        atual[1]--;
+                    }
+                    
+                    const totalAdvs = atual[1] + atual[2] + atual[3];
+                    
+                    // Atualiza no banco
                     const updatedUser = await User.findOneAndUpdate(
                         { userId: targetStr, groupId: chatId },
-                        { $inc: { advs: -1 } },
-                        { returnDocument: 'after' }
+                        {
+                            $set: {
+                                advsNivel1: atual[1],
+                                advsNivel2: atual[2],
+                                advsNivel3: atual[3],
+                                advs: totalAdvs
+                            }
+                        },
+                        { new: true }
                     );
-                    relatorio += `• @${targetStr.split('@')[0]} ➔ *${updatedUser.advs}/3*\n`;
+                    
+                    relatorio += `• @${targetStr.split('@')[0]} ➔ 🟡${atual[1]}/5 🟠${atual[2]}/3 🔴${atual[3]}/3\n`;
                 } else {
                     relatorio += `• @${targetStr.split('@')[0]} ➔ *Ficha limpa*\n`;
                 }
