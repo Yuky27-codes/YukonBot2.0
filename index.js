@@ -1767,6 +1767,19 @@ app.post('/api/commands/mute', async (req, res) => {
         res.status(500).json({ error: 'Failed to execute mute', details: error.message });
     }
 });
+// Endpoint para verificar status do bot
+app.get('/api/status', (req, res) => {
+    const isReady = client.info !== undefined;
+    res.json({ 
+        status: isReady ? 'connected' : 'disconnected',
+        ready: isReady,
+        info: isReady ? {
+            platform: client.info?.platform,
+            pushname: client.info?.pushname,
+            connected: client.info?.connected
+        } : null
+    });
+});
 
 // Iniciar servidor HTTP
 const BOT_PORT = process.env.BOT_PORT || 3001;
