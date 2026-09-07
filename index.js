@@ -1713,6 +1713,7 @@ cron.schedule('*/10 * * * *', async () => {
         console.error("❌ Erro no cron de processamento de comandos do painel:", error);
     }
 });
+
 // --- SERVIDOR HTTP PARA EXECUÇÃO IMEDIATA DE COMANDOS ---
 const app = express();
 app.use(express.json());
@@ -1767,9 +1768,17 @@ app.post('/api/commands/mute', async (req, res) => {
         res.status(500).json({ error: 'Failed to execute mute', details: error.message });
     }
 });
+
 // Endpoint para verificar status do bot
 app.get('/api/status', (req, res) => {
-    const isReady = client.info !== undefined;
+    // Verifica se o client existe e está conectado
+    const isReady = client && client.info !== undefined && client.info?.connected === true;
+    console.log('[BOT STATUS] Checking bot status:', {
+        hasClient: !!client,
+        hasInfo: client?.info !== undefined,
+        connected: client?.info?.connected,
+        isReady
+    });
     res.json({ 
         status: isReady ? 'connected' : 'disconnected',
         ready: isReady,
