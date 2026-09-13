@@ -1,44 +1,56 @@
 module.exports = {
-    name: 'ia',
-    aliases: ['bot'],
-    async execute(client, msg, { args, chatId, groq }) {
-        const pergunta = args.join(' ');
-
-        if (!pergunta) {
-            return await client.sendMessage(chatId, "🤖 *YUKON IA:* O setor de comunicação está aberto. O que deseja perguntar? \n\nEx: */ia como funciona um buraco negro?*", { sendSeen: false });
-        }
-
+    name: 'id',
+    async execute(client, msg, { chatId, User }) {
         try {
-            // Feedback Visual: Reage com engrenagem enquanto processa
-            await msg.react('⚙️');
+            // --- 🟢 MODO PV: mostra o próprio ID de quem está falando com a bot ---
+            // Em PV não dá pra marcar/responder ninguém (só tem a pessoa e a bot na
+            // conversa), então o "ID do cliente" aqui só pode ser o dela mesma.
+            if (!chatId.endsWith('@g.us')) {
+                const meuId = String(msg.from).trim();
+                return await client.sendMessage(chatId, `🆔 *SEU ID NA YUKON* 🆔
+━━━━━━━━━━━━━━━━━━━━━
+👤 *Seu ID:* \`${meuId}\`
 
-            const completion = await groq.chat.completions.create({
-                messages: [
-                    { 
-                        role: "system", 
-                        content: "Você é a YukonBot, uma inteligência artificial criada pelo desenvolvedor YukyDev.Seu papel é ajudar, responder dúvidas e interagir com os usuários de forma natural e inteligente.Seja direta, clara e objetiva, mas sem parecer robótica demais.Mantenha um tom equilibrado entre profissional e amigável.Evite temas fixos ou repetitivos. Não mencione espaço, universo ou coisas do tipo. Use emojis com moderação.Prefira respostas úteis ao invés de respostas longas." 
-                    },
-                    { role: "user", content: pergunta }
-                ],
-                model: "openai/gpt-oss-120b", 
-                temperature: 0.7,
-                reasoning_effort: "low", 
-            });
+_Esse é o identificador que a Yukon usa pra te reconhecer nos grupos. Envie esse código pra administração se precisar de suporte (troca de número, transferência de plano, etc.)._
+━━━━━━━━━━━━━━━━━━━━━`);
+            }
 
-            const respostaIA = completion.choices[0]?.message?.content;
-            
-            if (!respostaIA) throw new Error("Resposta nula");
+            let targetId;
 
-            // Envio da resposta formatada
-            await client.sendMessage(chatId, `🤖 *YUKON IA*\n\n${respostaIA}`, { sendSeen: false });
+            // 1. Identificação do Alvo (Resposta ou Menção)
+            if (msg.hasQuotedMsg) {
+                const quotedMsg = await msg.getQuotedMessage();
+                // author é o remetente da mensagem citada em grupos
+                targetId = (quotedMsg.author || quotedMsg.from).toString(); 
+            } else if (msg.mentionedIds && msg.mentionedIds.length > 0) {
+                targetId = (msg.mentionedIds[0]._serialized || msg.mentionedIds[0]).toString();
+            } else {
+                return await client.sendMessage(chatId, "❓ *ERRO:* Marque alguém ou responda a uma mensagem para consultar o ID.");
+            }
 
-            // Troca a reação para indicar sucesso
-            await msg.react('✅');
+            // 2. Busca no Banco de Dados
+            const targetData = await User.findOne({ userId: targetId, groupId: chatId });
 
-        } catch (e) { 
-            console.error("❌ ERRO NA IA (GROQ):", e.message);
-            await msg.react('❌');
-            await client.sendMessage(chatId, "⚠️ *COMUNICAÇÃO INTERROMPIDA:* Tive um problema ao processar sua consulta nos servidores da Groq. Tente novamente.", { sendSeen: false }); 
+            if (!targetData) {
+                return await client.sendMessage(chatId, `⚠️ O tripulante @${targetId.split('@')[0]} não possui registros ativos no banco de dados da Yukon.`, { 
+                    mentions: [targetId] 
+                });
+            }
+
+            // 3. Formatação da "Identidade Estelar"
+            const infoMsg = `🆔 *IDENTIDADE ESTELAR - YUKON* 🆔
+━━━━━━━━━━━━━━━━━━━━━
+👤 *User ID:* \`${targetData.userId}\`
+
+💍 *Vínculo Matrimonial:* ${targetData.marriedWith ? `\`${targetData.marriedWith}\`` : "_Nenhum registro encontrado_"}
+━━━━━━━━━━━━━━━━━━━━━
+🛰️ *Status:* Dados recuperados com sucesso.`;
+
+            await client.sendMessage(chatId, infoMsg, { mentions: [targetId] });
+
+        } catch (e) {
+            console.error("❌ ERRO NO ID:", e.message);
+            await client.sendMessage(chatId, "⚠️ Falha ao acessar os arquivos de identificação.");
         }
     }
 };
