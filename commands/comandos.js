@@ -18,12 +18,8 @@ const TODOS_COMANDOS = {
 
 // Comandos que requerem permissão especial (sensíveis)
 const COMANDOS_SENSIVEIS = [
-    'addcoins', 'adv', 'auth', 'ban', 'banblack', 'blacklist', 'broadcast',
-    'checkauth', 'codigo', 'comecar', 'confirmar', 'confirmarp', 'cupom',
-    'desmute', 'desmutep', 'finalizar', 'grupos', 'limpar', 'lock', 'mute',
-    'mutep', 'parceriadel', 'perfilv', 'promover', 'rebaixar', 'resetar',
-    'rmvadv', 'rmvcoins', 'sairgrupo', 'simbolo', 'todos', 'transferirplano',
-    'unbanblack', 'unlock'
+    'auth', 'broadcast','checkauth', 'codigo','confirmarp', 'cupom','grupos', 'limpar',
+    'perfilv','promover','rebaixar','sairgrupo','transferirplano','setmidia'
 ];
 
 module.exports = {
