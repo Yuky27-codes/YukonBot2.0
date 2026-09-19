@@ -122,17 +122,22 @@ if (!fs.existsSync(FUNCIONARIOS_PERMS_PATH)) {
     fs.writeFileSync(FUNCIONARIOS_PERMS_PATH, JSON.stringify(permsIniciais, null, 2));
 }
 
+// Inicializa o cache de permissões na memória
+global.cachePermissoesFuncionarios = {};
+try {
+    global.cachePermissoesFuncionarios = JSON.parse(fs.readFileSync(FUNCIONARIOS_PERMS_PATH, 'utf8'));
+} catch (e) {
+    console.error("Erro ao ler permissões de funcionárias no boot:", e.message);
+}
+
 function lerPermissoesFuncionarios() {
-    try {
-        return JSON.parse(fs.readFileSync(FUNCIONARIOS_PERMS_PATH, 'utf8'));
-    } catch {
-        return {};
-    }
+    return global.cachePermissoesFuncionarios || {};
 }
 
 function salvarPermissoesFuncionarios(data) {
     try {
         fs.writeFileSync(FUNCIONARIOS_PERMS_PATH, JSON.stringify(data, null, 2));
+        global.cachePermissoesFuncionarios = data; // Atualiza o cache na memória instantaneamente
     } catch (e) {
         console.error('❌ Erro ao salvar permissões de funcionárias:', e.message);
     }
@@ -504,8 +509,7 @@ const client = new Client({
             '--disable-setuid-sandbox',
             '--disable-dev-shm-usage',
             '--disable-gpu',
-            '--no-zygote',
-            '--single-process'
+            '--no-zygote'
         ]
     }
 });
@@ -572,12 +576,18 @@ function iniciarVerificadorDeSessoes() {
 /**********************************************************
  * 6. FUNÇÕES AUXILIARES GLOBAIS
  **********************************************************/
-function lerSuperUsers() {
-    try {
-        return JSON.parse(fs.readFileSync(SUPER_USERS_PATH, 'utf8'));
-    } catch {
-        return [];
+// Inicializa o cache de super users na memória
+global.cacheSuperUsers = [];
+try {
+    if (fs.existsSync(SUPER_USERS_PATH)) {
+        global.cacheSuperUsers = JSON.parse(fs.readFileSync(SUPER_USERS_PATH, 'utf8'));
     }
+} catch (e) {
+    console.error("Erro ao ler superusers.json no boot:", e.message);
+}
+
+function lerSuperUsers() {
+    return global.cacheSuperUsers || [];
 }
 
 function isAdminUser(userId) {
@@ -880,7 +890,7 @@ Para reativar a licença, fale com o suporte.`);
 
         // --- 🟢 3. FILTRO DE MODO LOCK (APENAS ADMS DO GRUPO) ---
         if (chatId.endsWith('@g.us')) {
-            const config = await GroupConfig.findOne({ groupId: chatId }).lean();
+            const config = configBarreira; // ⚡ Otimizado: reutilizando a consulta feita acima
             if (config && config.onlyAdms && !isAdmin) {
                 if (body.startsWith(prefix)) return; 
             }
@@ -899,16 +909,18 @@ Para reativar a licença, fale com o suporte.`);
                         timestamp: new Date()
                     });
 
-                    // --- CAPTURA DE MENSAGENS DIÁRIAS ---
+                    // --- CAPTURA DE MENSAGENS E COINS ---
                     const today = getCurrentDateSP();
+                    const xpGanho = 1; 
+                    const coinGanho = 1; // 1 coin por mensagem
+
+                    // ⚡ Otimizado: Combina 2 updates em 1 única ida ao banco
                     await GroupDailyStats.findOneAndUpdate(
                         { groupId: chatId, date: today },
-                        { $inc: { messagesCount: 1 } },
+                        { $inc: { messagesCount: 1, coinsGenerated: coinGanho } },
                         { upsert: true }
                     );
 
-                    const xpGanho = 1; 
-                    const coinGanho = 1; // 1 coin por mensagem
                     const userUpdate = await User.findOneAndUpdate(
                         { userId: senderRaw, groupId: groupId },
                         { 
@@ -918,13 +930,6 @@ Para reativar a licença, fale com o suporte.`);
                         },
                         { upsert: true, returnDocument: 'after' }
                     ).lean();
-
-                    // Capturar coins gerados (recompensa de mensagem)
-                    await GroupDailyStats.findOneAndUpdate(
-                        { groupId: chatId, date: today },
-                        { $inc: { coinsGenerated: coinGanho } },
-                        { upsert: true }
-                    );
 
                     if (userUpdate.xp >= 100) {
                         await User.updateOne(
@@ -1086,7 +1091,7 @@ let chat = null;
 } catch (e) {
     console.warn("⚠️ Não foi possível obter dados do chat/participantes (usando cache):", e.message);
 
-    const configGrupo = await GroupConfig.findOne({ groupId: chatId }).lean();
+    const configGrupo = configBarreira; // ⚡ Otimizado
     if (configGrupo?.cachedAdmins?.includes(senderRaw)) {
         isGroupAdmins = true;
     }
@@ -1105,11 +1110,9 @@ const MAPA_BLOQUEIOS = {
 };
 
 // --- 🟢 BARREIRA DE SEGURANÇA INTEGRADA ---
-const configGrupo = await GroupConfig.findOne({ groupId: chatId }).lean();
+const configGrupo = configBarreira; // ⚡ Otimizado
 // Verifique se o 'commandName' realmente está batendo com os nomes no MAPA_BLOQUEIOS
 if (chatId.endsWith('@g.us') && !isAdmin) {
-    const configGrupo = await GroupConfig.findOne({ groupId: chatId }).lean();
-    
     if (configGrupo) {
         // Log de debug para ver se o comando está chegando aqui
         // console.log("Verificando comando:", commandName); 
