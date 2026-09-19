@@ -352,9 +352,23 @@ const userProfileSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now },
     descontoAtivo: { type: Number, default: 0 },
     cupomExpiraEm: { type: Date, default: null },
+    planoValidoAte: { type: Date, default: null }, // Fonte da verdade da assinatura — setado quando o Pix é confirmado
 });
 
 mongoose.model('UserProfile', userProfileSchema);
+
+// --- SISTEMA DE PAGAMENTO VIA PIX (Efí) — ponte com o SaaS Yukon Platform
+const pixChargeSchema = new mongoose.Schema({
+    userId: { type: String, required: true }, // Dono do plano (msg.from de quem pediu)
+    txid: { type: String, required: true, unique: true }, // ID da cobrança na Efí, devolvido pelo painel
+    valor: { type: Number, required: true },
+    planoPreco: { type: Number, required: true },
+    pixCopiaECola: { type: String, required: true },
+    status: { type: String, default: 'pendente' }, // pendente | pago | expirado
+    createdAt: { type: Date, default: Date.now },
+    paidAt: { type: Date, default: null }
+});
+const PixCharge = mongoose.models.PixCharge || mongoose.model('PixCharge', pixChargeSchema);
 
 // --- SISTEMA DOS PETS
 
@@ -1766,6 +1780,76 @@ app.post('/api/commands/mute', async (req, res) => {
     } catch (error) {
         console.error('❌ Erro ao executar mute imediato:', error);
         res.status(500).json({ error: 'Failed to execute mute', details: error.message });
+    }
+});
+
+// Duração da assinatura ativada por cada Pix confirmado (dias)
+const DIAS_VALIDADE_PIX = parseInt(process.env.PIX_DIAS_VALIDADE) || 30;
+
+// Endpoint chamado pelo PAINEL quando a Efí confirma um pagamento Pix (via webhook do lado do painel).
+// O painel nunca fala com a Efí "pelo bot" — só avisa aqui que um txid específico foi pago.
+app.post('/api/pix/confirmar', async (req, res) => {
+    try {
+        const { txid } = req.body;
+        if (!txid) {
+            return res.status(400).json({ error: 'Missing required field: txid' });
+        }
+
+        const PixCharge = mongoose.model('PixCharge');
+        const UserProfile = mongoose.model('UserProfile');
+
+        const cobranca = await PixCharge.findOne({ txid });
+        if (!cobranca) {
+            return res.status(404).json({ error: 'txid não encontrado' });
+        }
+
+        // Idempotência — se o painel reenviar o webhook (comum na Efí), não processa de novo
+        if (cobranca.status === 'pago') {
+            return res.json({ success: true, message: 'Já processado anteriormente' });
+        }
+
+        cobranca.status = 'pago';
+        cobranca.paidAt = new Date();
+        await cobranca.save();
+
+        const perfil = await UserProfile.findOne({ userId: cobranca.userId });
+        if (!perfil) {
+            console.error(`❌ [PIX] txid ${txid} pago, mas UserProfile de ${cobranca.userId} não existe mais.`);
+            return res.json({ success: true, warning: 'Perfil do usuário não encontrado, plano não ativado automaticamente' });
+        }
+
+        // Se já tinha validade futura (renovação), soma a partir dela — não perde dias pagos.
+        // Se estava vencido ou nunca teve, conta a partir de agora.
+        const baseData = (perfil.planoValidoAte && perfil.planoValidoAte > new Date()) ? perfil.planoValidoAte : new Date();
+        const novaValidade = new Date(baseData.getTime() + DIAS_VALIDADE_PIX * 24 * 60 * 60 * 1000);
+
+        perfil.planoValidoAte = novaValidade;
+        await perfil.save();
+
+        // Aplica a validade nova em todos os grupos já vinculados
+        for (const groupId of (perfil.gruposVinculados || [])) {
+            await AuthorizedGroup.updateOne(
+                { groupId },
+                { $set: { isAuthorized: true, expiresAt: novaValidade, authorizedBy: 'pix-automatico' } },
+                { upsert: true }
+            );
+            try {
+                await client.sendMessage(groupId, `🚀 *YUKON STATION REATIVADA*\n━━━━━━━━━━━━━━━━━━━━━\n✅ Pagamento confirmado! Este grupo está liberado até *${novaValidade.toLocaleDateString('pt-BR')}*.`);
+            } catch {}
+        }
+
+        try {
+            await client.sendMessage(cobranca.userId, `✅ *PAGAMENTO CONFIRMADO!*\n━━━━━━━━━━━━━━━━━━━━━\n💰 *Valor:* ${cobranca.valor.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}\n📅 *Válido até:* ${novaValidade.toLocaleDateString('pt-BR')}\n\n_Obrigado por fazer parte da Yukon! 🛰️_`);
+        } catch (e) {
+            console.error(`⚠️ [PIX] Não consegui notificar ${cobranca.userId} no WhatsApp:`, e.message);
+        }
+
+        console.log(`✅ [PIX] txid ${txid} confirmado — plano de ${cobranca.userId} válido até ${novaValidade.toISOString()}`);
+        res.json({ success: true, planoValidoAte: novaValidade });
+
+    } catch (error) {
+        console.error('❌ Erro ao confirmar pagamento Pix:', error);
+        res.status(500).json({ error: 'Failed to confirm pix payment', details: error.message });
     }
 });
 
