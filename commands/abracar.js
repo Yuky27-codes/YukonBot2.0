@@ -23,17 +23,34 @@ module.exports = {
 
             if (fs.existsSync(caminho)) {
                 const media = MessageMedia.fromFilePath(caminho);
-                await client.sendMessage(chatId, media, {
-                    caption: texto,
-                    mentions: [autorId, alvoId],
-                    sendVideoAsGif: true
-                });
+
+                // 🔁 Retry: falhas do tipo "Evaluation failed: r" costumam ser
+                // intermitentes no Puppeteer/WhatsApp Web — uma segunda tentativa
+                // geralmente resolve. Só cai pro texto puro se as duas falharem.
+                let enviado = false;
+                for (let tentativa = 1; tentativa <= 2 && !enviado; tentativa++) {
+                    try {
+                        await client.sendMessage(chatId, media, {
+                            caption: texto,
+                            mentions: [autorId, alvoId],
+                            sendVideoAsGif: true
+                        });
+                        enviado = true;
+                    } catch (erroEnvio) {
+                        console.error(`❌ [ABRACAR] Tentativa ${tentativa} falhou:`, erroEnvio?.message, erroEnvio?.stack || erroEnvio);
+                        if (tentativa === 2) throw erroEnvio;
+                        await new Promise(r => setTimeout(r, 1000)); // pequena pausa antes de tentar de novo
+                    }
+                }
             } else {
                 console.error(`❌ Vídeo de abraço não encontrado em: ${caminho}`);
                 await client.sendMessage(chatId, texto, { mentions: [autorId, alvoId] });
             }
         } catch (e) { 
-            console.error("❌ ERRO NO ABRACAR:", e.message); 
+            console.error("❌ ERRO NO ABRACAR:", e?.message, e?.stack || e); 
+            try {
+                await client.sendMessage(chatId, "⚠️ Não consegui enviar o abraço agora. Tente novamente em instantes.");
+            } catch {}
         }
     }
 };
