@@ -1,8 +1,8 @@
 // Todos os comandos do bot agrupados por categoria
 const TODOS_COMANDOS = {
     '🔧 Moderação': ['adv', 'rmvadv', 'listaadv', 'ban', 'banblack', 'unbanblack', 'blacklist', 'mute', 'desmute', 'mutep', 'desmutep', 'promover', 'rebaixar', 'imune', 'protecao'],
-    '⚙️ Administração': ['addcoins', 'rmvcoins', 'lock', 'unlock', 'todos', 'manutencao', 'monitorar', 'resetar', 'resetconf', 'editarconf', 'prefixo', 'simbolo'],
-    '📡 Sistema Yukon': ['auth', 'checkauth', 'broadcast', 'grupos', 'setmidia', 'sairgrupo', 'limpar', 'transferirplano', 'confirmar', 'codigo', 'perfilv', 'dono'],
+    '⚙️ Administração': ['addcoins', 'rmvcoins', 'lock', 'unlock', 'todos', 'manutencao', 'monitorar', 'resetar', 'resetconf', 'editarconf', 'prefixo', 'simbolo', 'setmidia'],
+    '📡 Sistema Yukon': ['auth', 'checkauth', 'broadcast', 'grupos', 'sairgrupo', 'limpar', 'transferirplano', 'confirmar', 'codigo', 'perfilv', 'dono'],
     '🎟️ Financeiro': ['cupom', 'cupomp', 'pix', 'meu_plano'],
     '📅 Eventos': ['evento', 'listaevento', 'finalizar', 'participar', 'confirmarp'],
     '🤝 Parceria': ['parceria', 'parcerias', 'parceriaCode', 'parceriadel'],
@@ -18,8 +18,12 @@ const TODOS_COMANDOS = {
 
 // Comandos que requerem permissão especial (sensíveis)
 const COMANDOS_SENSIVEIS = [
-    'auth', 'broadcast','checkauth', 'codigo','confirmarp', 'cupom','grupos', 'limpar',
-    'perfilv','promover','rebaixar','sairgrupo','transferirplano','setmidia'
+    'addcoins', 'adv', 'auth', 'ban', 'banblack', 'blacklist', 'broadcast',
+    'checkauth', 'codigo', 'comecar', 'confirmar', 'confirmarp', 'cupom',
+    'desmute', 'desmutep', 'finalizar', 'grupos', 'limpar', 'lock', 'mute',
+    'mutep', 'parceriadel', 'perfilv', 'promover', 'rebaixar', 'resetar',
+    'rmvadv', 'rmvcoins', 'sairgrupo', 'setmidia', 'simbolo', 'todos', 'transferirplano',
+    'unbanblack', 'unlock'
 ];
 
 module.exports = {

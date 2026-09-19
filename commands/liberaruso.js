@@ -1,10 +1,10 @@
-// Lista de todos os comandos sensíveis (que requerem isAdmin)
+// Comandos que requerem permissão especial (sensíveis)
 const COMANDOS_SENSIVEIS = [
     'addcoins', 'adv', 'auth', 'ban', 'banblack', 'blacklist', 'broadcast',
     'checkauth', 'codigo', 'comecar', 'confirmar', 'confirmarp', 'cupom',
     'desmute', 'desmutep', 'finalizar', 'grupos', 'limpar', 'lock', 'mute',
     'mutep', 'parceriadel', 'perfilv', 'promover', 'rebaixar', 'resetar',
-    'rmvadv', 'rmvcoins', 'sairgrupo', 'simbolo', 'todos', 'transferirplano',
+    'rmvadv', 'rmvcoins', 'sairgrupo', 'setmidia', 'simbolo', 'todos', 'transferirplano',
     'unbanblack', 'unlock'
 ];
 
