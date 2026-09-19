@@ -2,7 +2,7 @@
 const TODOS_COMANDOS = {
     '🔧 Moderação': ['adv', 'rmvadv', 'listaadv', 'ban', 'banblack', 'unbanblack', 'blacklist', 'mute', 'desmute', 'mutep', 'desmutep', 'promover', 'rebaixar', 'imune', 'protecao'],
     '⚙️ Administração': ['addcoins', 'rmvcoins', 'lock', 'unlock', 'todos', 'manutencao', 'monitorar', 'resetar', 'resetconf', 'editarconf', 'prefixo', 'simbolo'],
-    '📡 Sistema Yukon': ['auth', 'checkauth', 'broadcast', 'grupos', 'sairgrupo', 'limpar', 'transferirplano', 'confirmar', 'codigo', 'perfilv', 'dono'],
+    '📡 Sistema Yukon': ['auth', 'checkauth', 'broadcast', 'grupos', 'setmidia', 'sairgrupo', 'limpar', 'transferirplano', 'confirmar', 'codigo', 'perfilv', 'dono'],
     '🎟️ Financeiro': ['cupom', 'cupomp', 'pix', 'meu_plano'],
     '📅 Eventos': ['evento', 'listaevento', 'finalizar', 'participar', 'confirmarp'],
     '🤝 Parceria': ['parceria', 'parcerias', 'parceriaCode', 'parceriadel'],
