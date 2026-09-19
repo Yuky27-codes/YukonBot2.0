@@ -1029,7 +1029,7 @@ if (global.desafiosAtivos) {
 // ADICIONE ENTRE A LINHA 520 E 522:
 
 // --- SISTEMA ANTI-FLOOD ---
-if (chatId.endsWith('@g.us') && !isAdmin) {
+if (chatId.endsWith('@g.us')) {
     const chaveFlood = `${senderRaw}:${chatId}`;
     const agoraFlood = Date.now();
     const JANELA_MS = 10000; // 10 segundos
