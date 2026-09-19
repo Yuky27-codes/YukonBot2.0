@@ -79,13 +79,19 @@ global.desafiosAtivos = {};
 global.antiFlood = {};
 global.sessoesAtendimento = {};
 
+// ✅ Apenas o DONO — acesso irrestrito a todos os comandos
 const LISTA_ADMS = [
-    '143130204626959@lid',
-    '43830678139070@lid', //anne
-    '53111632707782@lid', //lices
-    '123687105773625@lid' //bea
-]; 
+    '143130204626959@lid', //Matheus
+];
 global.LISTA_ADMS = LISTA_ADMS;
+
+// 👩‍💼 Funcionárias — acesso a comandos comuns + sensíveis que o dono liberar
+const LISTA_FUNCIONARIOS = [
+    '43830678139070@lid',  //Anne
+    '53111632707782@lid',  //Lices
+    '123687105773625@lid', //Bea
+];
+global.LISTA_FUNCIONARIOS = LISTA_FUNCIONARIOS;
 
 /**********************************************************
  * 2. CAMINHOS FIXOS
@@ -102,6 +108,54 @@ if (!fs.existsSync(DATABASE_DIR)) {
 if (!fs.existsSync(SUPER_USERS_PATH)) {
     fs.writeFileSync(SUPER_USERS_PATH, JSON.stringify([]));
 }
+
+// --- 👩‍💼 SISTEMA DE PERMISSÕES DE FUNCIONÁRIAS ---
+const FUNCIONARIOS_PERMS_PATH = path.join(DATABASE_DIR, 'funcionarios_permissoes.json');
+
+// Garante arquivo de permissões com as funcionárias já pré-cadastradas
+if (!fs.existsSync(FUNCIONARIOS_PERMS_PATH)) {
+    const permsIniciais = {
+        '43830678139070@lid':  { nome: 'Anne',  comandosLiberados: [] },
+        '53111632707782@lid':  { nome: 'Lices', comandosLiberados: [] },
+        '123687105773625@lid': { nome: 'Bea',   comandosLiberados: [] }
+    };
+    fs.writeFileSync(FUNCIONARIOS_PERMS_PATH, JSON.stringify(permsIniciais, null, 2));
+}
+
+function lerPermissoesFuncionarios() {
+    try {
+        return JSON.parse(fs.readFileSync(FUNCIONARIOS_PERMS_PATH, 'utf8'));
+    } catch {
+        return {};
+    }
+}
+
+function salvarPermissoesFuncionarios(data) {
+    try {
+        fs.writeFileSync(FUNCIONARIOS_PERMS_PATH, JSON.stringify(data, null, 2));
+    } catch (e) {
+        console.error('❌ Erro ao salvar permissões de funcionárias:', e.message);
+    }
+}
+
+function isFuncionario(userId) {
+    if (!userId) return false;
+    return LISTA_FUNCIONARIOS.includes(userId.toString().trim());
+}
+
+function funcionarioPodeUsar(userId, commandName) {
+    if (!userId || !commandName) return false;
+    const perms = lerPermissoesFuncionarios();
+    const dados = perms[userId.toString().trim()];
+    if (!dados || !Array.isArray(dados.comandosLiberados)) return false;
+    return dados.comandosLiberados.includes(commandName.toLowerCase());
+}
+
+global.FUNCIONARIOS_PERMS_PATH = FUNCIONARIOS_PERMS_PATH;
+global.lerPermissoesFuncionarios = lerPermissoesFuncionarios;
+global.salvarPermissoesFuncionarios = salvarPermissoesFuncionarios;
+global.isFuncionario = isFuncionario;
+global.funcionarioPodeUsar = funcionarioPodeUsar;
 
 /**********************************************************
  * 3. CONEXÃO COM MONGO
@@ -948,6 +1002,11 @@ const commandName = args.shift()?.toLowerCase(); // Adicionamos ? para evitar er
 // VALIDAÇÃO DE SEGURANÇA
 if (!commandName || commandName === "") return;
 
+// --- 👩‍💼 PERMISSÃO EFETIVA (eleva isAdmin para funcionárias com acesso liberado) ---
+const isFuncionarioAutorizado = isFuncionario(senderRaw) && funcionarioPodeUsar(senderRaw, commandName);
+const isAdminEfetivo = isAdmin || isFuncionarioAutorizado;
+
+
 // Verifica desafio diário ativo
 if (global.desafiosAtivos) {
     const chave = `${senderRaw}:${chatId}`;
@@ -1073,7 +1132,8 @@ if (chatId.endsWith('@g.us') && !isAdmin) {
                     args,
                     chatId,
                     senderRaw,
-                    isAdmin,
+                    isAdmin: isAdminEfetivo,          // ← efetivo: inclui funcionárias com permissão
+                    isFuncionarioAutorizado,           // ← true se for funcionária com permissão liberada
                     isGroupAdmins, 
                     groupId,
                     Modo,

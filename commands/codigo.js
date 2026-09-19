@@ -1,11 +1,6 @@
-// Mesma lista usada no index.js pra liberar acesso total ao dono da Yukon.
-// Mantenha sincronizada - idealmente mover pra um arquivo de config compartilhado
-// (ex: config/admins.js) e importar dos dois lugares.
-const LISTA_ADMS = ['143130204626959@lid'];
-
 module.exports = {
   name: 'código',
-  async execute(client, msg, { chatId, senderRaw }) {
+  async execute(client, msg, { chatId, senderRaw, isFuncionarioAutorizado }) {
     try {
       const mongoose = require('mongoose');
       const LinkCode = mongoose.model('LinkCode');
@@ -28,11 +23,6 @@ module.exports = {
       // eslint-disable-next-line no-console
       console.log('[código] groupAuth:', groupAuth, '| hasActiveSubscription calculado:', hasActiveSubscription);
 
-      // GroupChat.owner (a fonte "oficial" do WhatsApp) já se mostrou não confiável -
-      // chegou a apontar pra uma dona antiga do grupo. Por isso o /dono existe: ele
-      // grava manualmente o dono correto em AuthorizedGroup.authorizedBy, e essa é
-      // agora a fonte prioritária. chat.owner só entra como fallback caso o grupo
-      // ainda não tenha passado por /dono.
       const chatOwnerId =
         typeof chat.owner === 'string'
           ? chat.owner
@@ -45,8 +35,8 @@ module.exports = {
         return msg.reply(`❌ Não foi possível identificar o dono deste grupo.\n\nPeça pro suporte definir o dono com o comando \`/dono\`.`);
       }
 
-      // Apenas o dono do grupo (ou o dono da Yukon, via LISTA_ADMS) pode gerar o código
-      const isSuperAdmin = LISTA_ADMS.includes(senderRaw);
+      // Apenas o dono do grupo, dono da Yukon (LISTA_ADMS) ou funcionária autorizada pode gerar o código
+      const isSuperAdmin = (global.LISTA_ADMS || []).includes(senderRaw) || isFuncionarioAutorizado;
       const isOwner = senderRaw === ownerId;
 
       if (!isOwner && !isSuperAdmin) {

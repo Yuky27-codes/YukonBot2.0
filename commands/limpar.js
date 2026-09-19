@@ -1,13 +1,13 @@
 module.exports = {
     name: 'limpar',
-    async execute(client, msg, { chatId }) {
+    async execute(client, msg, { chatId, isFuncionarioAutorizado }) {
         try {
-            // 1. Verificação de Permissão — só quem está na LISTA_ADMS (acesso master)
+            // 1. Verificação de Permissão — só quem está na LISTA_ADMS (acesso master) ou funcionária autorizada
             const senderRaw = msg.author || msg.from;
             const senderStr = String(senderRaw).trim();
             const listaMasters = global.LISTA_ADMS || [];
 
-            if (!listaMasters.includes(senderStr)) {
+            if (!listaMasters.includes(senderStr) && !isFuncionarioAutorizado) {
                 return msg.reply("❌ Apenas a equipe master da Yukon pode usar este comando.");
             }
 
