@@ -1206,7 +1206,7 @@ O sistema detectou a entrada do número banido: @${participantId.split('@')[0]}.
 Olá, ${mencaoTexto}! Um novo tripulante acaba de acoplar na nossa base.
 
 🛰️ *DIRETRIZES DA MISSÃO:*
-1. Explore os comandos usando */ajuda*.
+1. Explore os comandos usando */painel*.
 2. Verifique sua ficha técnica em */perfil*.
 3. Registre seu ciclo em */meu_aniver* para bônus.
 

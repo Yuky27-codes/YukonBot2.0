@@ -20,7 +20,7 @@ Digite */duvida [número]* para obter a resposta imediata.
 5️⃣ Enviei o comprovante, quanto tempo demora?
 6️⃣ O bot não responde aos comandos no grupo.
 7️⃣ Como renovar minha assinatura?
-8️⃣ Como migrar meus dias do sistema antigo? 🔄
+8️⃣ Como migrar meus dias do sistema antigo?
 9️⃣ Como gerar um cupom de desconto?
 🔟 Esqueci de colocar a legenda no comprovante.
 

@@ -50,8 +50,7 @@ ${diasRestantes}
 
 🛰️ *DETALHES DAS ESTAÇÕES:*
 ${listaGrupos}
-━━━━━━━━━━━━━━━━━━━━━
-💡 _Precisa de ajuda? Use */suporte* ou */admin*._`);
+━━━━━━━━━━━━━━━━━━━━━`);
 
         } catch (err) {
             console.error("❌ Erro no /meu_plano:", err);
