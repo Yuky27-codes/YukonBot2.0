@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "postinstall": "npx puppeteer browsers install chrome"
+    "postinstall": "patch-package && npx puppeteer browsers install chrome"
   },
   "keywords": [],
   "author": "yukydev",
@@ -31,5 +31,8 @@
     "yt-dlp-exec": "^1.0.2",
     "yt-search": "^2.13.1",
     "ytdl-core": "^4.11.5"
+  },
+  "devDependencies": {
+    "patch-package": "^8.0.1"
   }
 }

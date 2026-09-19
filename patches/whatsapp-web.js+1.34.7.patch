@@ -1,0 +1,61 @@
+diff --git a/node_modules/whatsapp-web.js/src/util/Injected/Utils.js b/node_modules/whatsapp-web.js/src/util/Injected/Utils.js
+index b7e23bc..351bbad 100644
+--- a/node_modules/whatsapp-web.js/src/util/Injected/Utils.js
++++ b/node_modules/whatsapp-web.js/src/util/Injected/Utils.js
+@@ -458,30 +458,32 @@ exports.LoadUtils = () => {
+             .getEphemeralFields(chat);
+ 
+         const message = {
+-            ...options,
+-            id: newMsgKey,
+-            ack: 0,
+-            body: content,
+-            from: from,
+-            to: chat.id,
+-            local: true,
+-            self: 'out',
+-            t: parseInt(new Date().getTime() / 1000),
+-            isNewMsg: true,
+-            type: 'chat',
+-            ...ephemeralFields,
+-            ...mediaOptions,
+-            ...(mediaOptions.toJSON ? mediaOptions.toJSON() : {}),
+-            ...quotedMsgOptions,
+-            ...locationOptions,
+-            ...pollOptions,
+-            ...eventOptions,
+-            ...vcardOptions,
+-            ...buttonOptions,
+-            ...listOptions,
+-            ...botOptions,
+-            ...extraOptions,
+-        };
++    ...options,
++    id: newMsgKey,
++    ack: 0,
++    body: content,
++    from: from,
++    to: chat.id,
++    local: true,
++    self: 'out',
++    t: parseInt(new Date().getTime() / 1000),
++    isNewMsg: true,
++    type: 'chat',
++    ...ephemeralFields,
++    ...mediaOptions,
++    ...(mediaOptions.toJSON ? mediaOptions.toJSON() : {}),
++    ...quotedMsgOptions,
++    ...locationOptions,
++    ...pollOptions,
++    ...eventOptions,
++    ...vcardOptions,
++    ...buttonOptions,
++    ...listOptions,
++    ...botOptions,
++    ...extraOptions,
++};
++
++delete message.__x_id; 
+ 
+         // Bot's won't reply if canonicalUrl is set (linking)
+         if (botOptions) {
