@@ -811,7 +811,7 @@ Você recebeu um convite especial!
 2. Digite aqui no PV: \`/cupomp ${codigo} [ID_DO_GRUPO]\``);
 }
 
-        // --- 🟢 RECEPTOR DE COMPROVANTES (VERSÃO PERFIL) ---
+        // --- 🟢 RECEPTOR DE COMPROVANTES (VERSÃO SEGURA / SEM FORWARD) ---
 if (msg.hasMedia && msg.type === 'image' && !msg.from.endsWith('@g.us')) {
     const caption = msg.body ? msg.body.toLowerCase() : "";
     
@@ -819,7 +819,7 @@ if (msg.hasMedia && msg.type === 'image' && !msg.from.endsWith('@g.us')) {
         try {
             const mongoose = require('mongoose');
             const UserProfile = mongoose.model('UserProfile');
-            const meuNumero = "120363423062556856@g.us";
+            const meuNumero = "120363423062556856@g.us"; 
 
             // Busca os dados do cliente que enviou a foto
             const perfil = await UserProfile.findOne({ userId: msg.from });
@@ -828,13 +828,17 @@ if (msg.hasMedia && msg.type === 'image' && !msg.from.endsWith('@g.us')) {
                 return msg.reply("⚠️ *ERRO:* Você não vinculou nenhum grupo ao seu perfil antes de enviar o comprovante. Use /vincular [ID].");
             }
 
-            // Encaminha a foto para você
-            await msg.forward(meuNumero);
+            // Baixa a mídia da imagem enviada pelo cliente
+            const media = await msg.downloadMedia();
             
+            if (!media) {
+                return msg.reply("⚠️ Não foi possível baixar a imagem do comprovante. Tente enviá-la novamente.");
+            }
+
             // Formata a lista de IDs para você apenas copiar e colar
             let listaIds = perfil.gruposVinculados.map(id => `\`/confirmar ${id}\``).join('\n');
 
-            await client.sendMessage(meuNumero, `💳 *PAGAMENTO DE CLIENTE*
+            const textoNotificacao = `💳 *PAGAMENTO DE CLIENTE*
 ━━━━━━━━━━━━━━━━━━━━━
 👤 Dono: @${msg.from.split('@')[0]}
 📦 Plano: ${perfil.planoPreco === 10 ? 'Recruta' : perfil.planoPreco === 30 ? 'Astronauta' : 'Intergaláctico'}
@@ -842,12 +846,18 @@ if (msg.hasMedia && msg.type === 'image' && !msg.from.endsWith('@g.us')) {
 
 ${listaIds}
 
-_Clique em um comando acima para ativar o grupo correspondente._`, { mentions: [msg.from] });
+_Clique em um comando acima para ativar o grupo correspondente._`;
+
+            // Envia a imagem baixada diretamente para o grupo de destino com a legenda
+            await client.sendMessage(meuNumero, media, {
+                caption: textoNotificacao,
+                mentions: [msg.from]
+            });
 
             return msg.reply("✅ *RECEBIDO!* Seu comprovante e os grupos vinculados foram enviados para análise. Aguarde a ativação.");
 
         } catch (err) {
-            console.error(err);
+            console.error("❌ Erro ao processar comprovante:", err);
             return msg.reply("⚠️ Erro ao processar comprovante.");
         }
     }
