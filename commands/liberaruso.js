@@ -1,6 +1,6 @@
 // Comandos que requerem permissão especial (sensíveis)
 const COMANDOS_SENSIVEIS = [
-    'auth','broadcast','checkauth', 'codigo', 'confirmarp', 'cupom','grupos', 'limpar',
+    'auth','broadcast','checkauth', 'codigo', 'confirmar', 'cupom','grupos', 'limpar',
     'promover', 'rebaixar','sairgrupo', 'setmidia','transferirplano',
 ];
 
