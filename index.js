@@ -819,7 +819,7 @@ if (msg.hasMedia && msg.type === 'image' && !msg.from.endsWith('@g.us')) {
         try {
             const mongoose = require('mongoose');
             const UserProfile = mongoose.model('UserProfile');
-            const meuNumero = "120363423062556856@g.us"; 
+            const meuNumero = "120363423062556856@g.us";
 
             // Busca os dados do cliente que enviou a foto
             const perfil = await UserProfile.findOne({ userId: msg.from });
