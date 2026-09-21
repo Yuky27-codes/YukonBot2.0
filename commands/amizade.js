@@ -58,12 +58,8 @@ module.exports = {
 ━━━━━━━━━━━━━━━━━━
 _Dica: Responda as mensagens um do outro para aumentar este nível!_`;
         
-            // Menções formatadas para o WhatsApp reconhecer o @
-            const m1 = senderId.split('@')[0] + '@c.us';
-            const m2 = targetAmigo.split('@')[0] + '@c.us';
-
+            // Envia a mensagem sem o vetor de menções problemático para evitar o erro interno do Puppeteer
             await client.sendMessage(chatId, msgAmizade, { 
-                mentions: [m1, m2],
                 sendSeen: false 
             });
 
