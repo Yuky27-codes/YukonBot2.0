@@ -7,8 +7,16 @@ module.exports = {
                 return await client.sendMessage(chatId, "❗ *RADAR:* Marque alguém para calcular a compatibilidade estelar!", { sendSeen: false });
             }
 
-            // Padronização de IDs: @lid para o banco e @c.us para menções visuais
-            const targetRaw = msg.mentionedIds[0]._serialized || msg.mentionedIds[0];
+            // 🛡️ Extração segura do ID (igual fizemos no amizade.js)
+            const rawMention = msg.mentionedIds[0];
+            const targetRaw = (typeof rawMention === 'object' && rawMention !== null) 
+                ? (rawMention._serialized || rawMention.toString()) 
+                : String(rawMention);
+
+            if (!targetRaw || !targetRaw.includes('@')) {
+                return await client.sendMessage(chatId, "⚠️ Não foi possível identificar o usuário mencionado.", { sendSeen: false });
+            }
+
             const loveTargetLid = targetRaw.split('@')[0] + '@lid';
             const senderLid = senderRaw.split('@')[0] + '@lid';
 
@@ -63,17 +71,13 @@ _(${baseChance}% base + ${bonusInteracao}% bônus de conversa)_
 💬 ${comentario}
 ━━━━━━━━━━━━━━━━━━`;
         
-            // Menções seguras para o front-end do WhatsApp
-            const m1 = senderLid.split('@')[0] + '@c.us';
-            const m2 = loveTargetLid.split('@')[0] + '@c.us';
-
+            // Envia sem o vetor de mentions problemático para evitar o travamento do Puppeteer
             await client.sendMessage(chatId, textoShip, { 
-                mentions: [m1, m2],
                 sendSeen: false 
             });
 
         } catch (e) {
-            console.error("❌ ERRO NO SHIP:", e.message);
+            console.error("❌ ERRO NO SHIP:", e);
             await client.sendMessage(chatId, "⚠️ Erro no sensor de batimentos cardíacos.", { sendSeen: false });
         }
     }
