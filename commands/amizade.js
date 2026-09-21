@@ -67,9 +67,8 @@ _Dica: Responda as mensagens um do outro para aumentar este nível!_`;
                 sendSeen: false 
             });
 
-        } catch (e) {
-            console.error("❌ ERRO NO AMIZADE:", e.message);
+       } catch (e) {
+            console.error("❌ ERRO NO AMIZADE COMPLETO:", e); // <-- Mostra o erro detalhado e a linha exata
             await client.sendMessage(chatId, "⚠️ Erro nos sensores de afinidade.", { sendSeen: false });
         }
-    }
 };
