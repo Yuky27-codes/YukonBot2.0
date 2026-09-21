@@ -7,8 +7,16 @@ module.exports = {
                 return await client.sendMessage(chatId, "❗ *RADAR:* Marque um tripulante para medir a sincronia!", { sendSeen: false });
             }
 
-            // Padronização de IDs para consistência no banco (LID para busca, C.US para menção)
-            const targetRaw = msg.mentionedIds[0]._serialized || msg.mentionedIds[0];
+            // 🛡️ Blindagem: extração segura do ID independentemente do formato recebido
+            const rawMention = msg.mentionedIds[0];
+            const targetRaw = (typeof rawMention === 'object' && rawMention !== null) 
+                ? (rawMention._serialized || rawMention.toString()) 
+                : String(rawMention);
+
+            if (!targetRaw || !targetRaw.includes('@')) {
+                return await client.sendMessage(chatId, "⚠️ Não foi possível identificar o usuário mencionado.", { sendSeen: false });
+            }
+
             const targetAmigo = targetRaw.split('@')[0] + '@lid';
             const senderId = senderRaw.split('@')[0] + '@lid';
 
