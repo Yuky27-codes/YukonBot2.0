@@ -7,7 +7,7 @@ module.exports = {
                 return await client.sendMessage(chatId, "❗ *RADAR:* Marque um tripulante para medir a sincronia!", { sendSeen: false });
             }
 
-            // 🛡️ Blindagem: extração segura do ID independentemente do formato recebido
+            // Extração segura do ID
             const rawMention = msg.mentionedIds[0];
             const targetRaw = (typeof rawMention === 'object' && rawMention !== null) 
                 ? (rawMention._serialized || rawMention.toString()) 
@@ -27,7 +27,7 @@ module.exports = {
             // Busca os dados do remetente para ver a lista de amigos dele
             const dataUser = await User.findOne({ userId: senderId, groupId: chatId });
             
-            // Pega a porcentagem (usando apenas os números do ID como chave)
+            // Pega a porcentagem
             const chaveAmigo = targetAmigo.replace(/\D/g, '');
             let porcentagem = (dataUser && dataUser.friends && dataUser.friends[chaveAmigo]) ? dataUser.friends[chaveAmigo] : 0;
             
@@ -67,8 +67,9 @@ _Dica: Responda as mensagens um do outro para aumentar este nível!_`;
                 sendSeen: false 
             });
 
-       } catch (e) {
-            console.error("❌ ERRO NO AMIZADE COMPLETO:", e); // <-- Mostra o erro detalhado e a linha exata
+        } catch (e) {
+            console.error("❌ ERRO NO AMIZADE COMPLETO:", e);
             await client.sendMessage(chatId, "⚠️ Erro nos sensores de afinidade.", { sendSeen: false });
         }
+    }
 };
