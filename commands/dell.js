@@ -1,13 +1,7 @@
 module.exports = {
     name: 'dell',
     async execute(client, msg, { chatId, senderRaw, isAdmin, User, args }) {
-        // Restringe o comando apenas para o grupo universal especificado
-        const GRUPO_UNIVERSAL = "120363423062556856@g.us";
-        if (chatId !== GRUPO_UNIVERSAL) {
-            return await msg.reply("❌ *ACESSO NEGADO:* Este comando só pode ser executado no grupo universal da Yukon.");
-        }
-
-        // Mantém a trava de segurança para administradores
+        // Mantém a trava de segurança para administradores globais/do bot
         if (!isAdmin) {
             return await msg.reply("❌ *ACESSO NEGADO:* Você não tem autorização para executar este comando de limpeza em massa.");
         }
@@ -30,7 +24,7 @@ module.exports = {
 \`/dell (ID, ID, ID...), (remover coins [valor] ou [tudo]), (cargo1, cargo2 - OPCIONAL), (valor deixado - OPCIONAL)\`
 
 *Exemplo:*
-\`/dell (xxxxxxxxxxxx, xxxxxxxxxxxx), (remover coins tudo), (), (10000)\``);
+\`/dell (xxxxxxxxxxxx), (remover coins tudo), (), (10000)\``);
             }
 
             // Bloco 1: Extrai apenas os números puros de cada ID enviado
@@ -70,9 +64,9 @@ module.exports = {
             let totalAfetados = 0;
 
             for (const num of numerosBrutos) {
-                // Tenta buscar o usuário aceitando tanto @lid quanto @s.whatsapp.net para o mesmo número
-                const possiveisIds = [`${num}@lid`, `${num}@s.whatsapp.net`];
-                let alvoData = await User.findOne({ userId: { $in: possiveisIds }, groupId: chatId });
+                // Busca o usuário pelo ID independente do groupId, testando as variações de sufixo
+                const possiveisIds = [`${num}@lid`, `${num}@s.whatsapp.net`, num];
+                let alvoData = await User.findOne({ userId: { $in: possiveisIds } });
 
                 if (!alvoData) {
                     relatorioProcessamento += `⚠️ \`${num}\`: Não encontrado nos registros.\n`;
@@ -103,10 +97,10 @@ module.exports = {
                     updateOps.roles = novosCargos.length > 0 ? novosCargos : ["Tripulante"];
                 }
 
-                // Aplica alterações no banco de dados usando o ID real que foi encontrado
+                // Aplica alterações no banco de dados usando o ID exato encontrado no documento
                 if (Object.keys(updateOps).length > 0) {
                     await User.findOneAndUpdate(
-                        { userId: alvoData.userId, groupId: chatId },
+                        { _id: alvoData._id },
                         { $set: updateOps }
                     );
                 }
