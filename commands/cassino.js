@@ -119,26 +119,46 @@ module.exports = {
                     }
                     break;
                 }
+                case 'rolea': // mantido caso use sem 't' ou corrigido para 'roleta' abaixo
                 case 'roleta': {
-                    // Base: 1 em 6 chances de perder. sorteBonus reduz essa chance (mínimo 2%).
-                    const chancePerda = Math.max(0.02, (1 / 6) - atributos.sorteBonus / 100);
-                    const perdeu = isComandante ? false : Math.random() < chancePerda;
-                    if (perdeu) {
-                        const perda = Math.floor(player.coins * 0.8);
-                        await User.updateOne({ userId: senderId, groupId: chatId }, { $inc: { coins: -perda } });
-                        await client.sendMessage(chatId, `💀 *POW!* Perdeu 80%: -${perda.toLocaleString()} YC.`);
-                    } else {
-                        const lucroR = aplicarBonusCoins(Math.floor(valorAp * 0.5));
-                        await User.updateOne({ userId: senderId, groupId: chatId }, { $inc: { coins: lucroR } });
-                        await capturarCoinsGerados(lucroR);
-                        await client.sendMessage(chatId, `🔫 *CLACK!* Ganhou ${lucroR.toLocaleString()} YC!`);
+                    if (isComandante) {
+                        const premioCmd = aplicarBonusCoins(valorAp * 2);
+                        await User.updateOne({ userId: senderId, groupId: chatId }, { $inc: { coins: premioCmd } });
+                        await capturarCoinsGerados(premioCmd);
+                        return await client.sendMessage(chatId, `👑 *COMANDANTE:* Vitória garantida! Ganhou +${premioCmd.toLocaleString()} YC!`);
+                    }
+
+                    const roll = Math.random(); // Número aleatório entre 0.0 e 1.0
+
+                    if (roll < 0.90) {
+                        // 90% de chance: Perde apenas o valor apostado
+                        await User.updateOne({ userId: senderId, groupId: chatId }, { $inc: { coins: -valorAp } });
+                        await client.sendMessage(chatId, `💀 *POW!* A roleta falhou. Perdeu: -${valorAp.toLocaleString()} YC.`);
+                    } 
+                    else if (roll < 0.97) {
+                        // 7% de chance (de 0.90 até 0.97): Não acontece nada (devolve o valor descontado ou mantém saldo)
+                        // Como o saldo já havia sido validado, se não acontece nada, estornamos o valorap tirado ou simplesmente não debitamos. 
+                        // Aqui trataremos como "nada alterado" na carteira.
+                        await client.sendMessage(chatId, `🌀 *PASSOU RASGANDO!* A arma travou e nada aconteceu. Sua aposta de ${valorAp.toLocaleString()} YC foi estornada.`);
+                    } 
+                    else if (roll < 0.99) {
+                        // 2% de chance (de 0.97 até 0.99): Perde TUDO da carteira
+                        const saldoTotalPerdido = player.coins;
+                        await User.updateOne({ userId: senderId, groupId: chatId }, { $set: { coins: 0 } });
+                        await client.sendMessage(chatId, `💥 *DESASTRE TOTAL!* Deu pane crítica na nave e você perdeu *tudo* o que tinha na carteira: -${saldoTotalPerdido.toLocaleString()} YC!`);
+                    } 
+                    else {
+                        // 1% de chance (de 0.99 até 1.0): Ganha com multiplicador de 2x
+                        const premio = aplicarBonusCoins(valorAp * 2);
+                        await User.updateOne({ userId: senderId, groupId: chatId }, { $inc: { coins: premio } });
+                        await capturarCoinsGerados(premio);
+                        await client.sendMessage(chatId, `🎯 *JACKPOT ESTELAR!* (1% de chance) Acertou o multiplicador de 2x! Ganhou +${premio.toLocaleString()} YC!`);
                     }
                     break;
                 }
                 case '21': {
                     const alvo = parseInt(parametroExtra);
                     const seuPonto = isComandante ? alvo : (Math.floor(Math.random() * 11) + 1) + (Math.floor(Math.random() * 11) + 1);
-                    // Acerto exato OU "salvamento de sorte" proporcional ao sorteBonus da patente
                     const salvouPelaSorte = !isComandante && seuPonto !== alvo && Math.random() < (atributos.sorteBonus / 100);
                     if (seuPonto === alvo || salvouPelaSorte) {
                         const premio = aplicarBonusCoins(valorAp * 5);
@@ -159,7 +179,6 @@ module.exports = {
                     setTimeout(async () => {
                         const podio = [...naves].sort(() => Math.random() - 0.5);
                         let msgF = `🏁 1º: ${podio[0]} | 2º: ${podio[1]} | 3º: ${podio[2]}\n`;
-                        // Se não bateu na cara, ainda tem chance de vitória proporcional ao sorteBonus
                         const venceuPelaSorte = minhaNave !== podio[0] && Math.random() < (atributos.sorteBonus / 100);
                         if (isComandante || minhaNave === podio[0] || venceuPelaSorte) {
                             const winC = aplicarBonusCoins(valorAp * 3);
