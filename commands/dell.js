@@ -30,14 +30,11 @@ module.exports = {
 \`/dell (ID, ID, ID...), (remover coins [valor] ou [tudo]), (cargo1, cargo2 - OPCIONAL), (valor deixado - OPCIONAL)\`
 
 *Exemplo:*
-\`/dell (xxxxxxxxxxxx, xxxxxxxxxxxx), (remover coins tudo), (Tripulante, Veterano), (500)\``);
+\`/dell (xxxxxxxxxxxx, xxxxxxxxxxxx), (remover coins tudo), (), (10000)\``);
             }
 
-            // Bloco 1: IDs dos usuários adaptados para o formato @lid
-            const idsBrutos = blocos[0].split(',').map(id => {
-                const numeroLimpo = id.replace(/\D/g, '');
-                return `${numeroLimpo}@lid`;
-            });
+            // Bloco 1: Extrai apenas os números puros de cada ID enviado
+            const numerosBrutos = blocos[0].split(',').map(id => id.replace(/\D/g, '')).filter(Boolean);
             
             // Bloco 2: Configuração de Coins
             const instrucaoCoins = blocos[1].toLowerCase();
@@ -62,10 +59,6 @@ module.exports = {
 
             // Bloco 4: Valor que vai ser deixado na conta (Opcional)
             let valorDeixado = null;
-            // Se o bloco 3 foi usado para valor deixado (caso o bloco de cargos tenha sido omitido) ou se existe o bloco 4
-            const indiceValor = blocos[3] !== undefined ? 3 : (cargosRemover.length === 0 && blocos[2] && /\d+/.test(blocos[2]) ? 2 : null);
-            
-            // Verificação direta do quarto bloco se houver
             if (blocos[3]) {
                 const valNum = parseInt(blocos[3].replace(/\D/g, ''));
                 if (!isNaN(valNum)) {
@@ -76,11 +69,13 @@ module.exports = {
             let relatorioProcessamento = `⚙️ *RELATÓRIO DE REMOÇÃO EM MASSA* ⚙️\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
             let totalAfetados = 0;
 
-            for (const alvoId of idsBrutos) {
-                const alvoData = await User.findOne({ userId: alvoId, groupId: chatId });
+            for (const num of numerosBrutos) {
+                // Tenta buscar o usuário aceitando tanto @lid quanto @s.whatsapp.net para o mesmo número
+                const possiveisIds = [`${num}@lid`, `${num}@s.whatsapp.net`];
+                let alvoData = await User.findOne({ userId: { $in: possiveisIds }, groupId: chatId });
 
                 if (!alvoData) {
-                    relatorioProcessamento += `⚠️ \`${alvoId}\`: Não encontrado nos registros.\n`;
+                    relatorioProcessamento += `⚠️ \`${num}\`: Não encontrado nos registros.\n`;
                     continue;
                 }
 
@@ -99,7 +94,7 @@ module.exports = {
                     updateOps.coins = Math.min(alvoData.coins || 0, valorDeixado);
                 }
 
-                // 2. Lógica de Cargos (Roles) — Apenas se houver cargos informados para remoção
+                // 2. Lógica de Cargos (Roles)
                 if (cargosRemover.length > 0) {
                     const cargosAtuais = alvoData.roles || ["Tripulante"];
                     const novosCargos = cargosAtuais.filter(cargo => 
@@ -108,16 +103,16 @@ module.exports = {
                     updateOps.roles = novosCargos.length > 0 ? novosCargos : ["Tripulante"];
                 }
 
-                // Aplica alterações no banco de dados se houver algo para atualizar
+                // Aplica alterações no banco de dados usando o ID real que foi encontrado
                 if (Object.keys(updateOps).length > 0) {
                     await User.findOneAndUpdate(
-                        { userId: alvoId, groupId: chatId },
+                        { userId: alvoData.userId, groupId: chatId },
                         { $set: updateOps }
                     );
                 }
 
                 totalAfetados++;
-                relatorioProcessamento += `✅ \`${alvoId}\` — Atualizado com sucesso.\n`;
+                relatorioProcessamento += `✅ \`${alvoData.userId}\` — Atualizado com sucesso.\n`;
             }
 
             relatorioProcessamento += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n📊 *Total de usuários processados:* ${totalAfetados}`;
