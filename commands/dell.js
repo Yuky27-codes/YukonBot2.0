@@ -11,7 +11,6 @@ module.exports = {
 
             // VERIFICAÇÃO ESPECIAL: Se o comando for /dell rankglobal
             if (textoCompleto.toLowerCase() === 'rankglobal') {
-                // 1. Busca os TOP 10 globais com mais coins na database inteira
                 const topGeral = await User.find({ userId: { $ne: null } })
                     .sort({ coins: -1 })
                     .limit(10);
@@ -26,13 +25,12 @@ module.exports = {
                 for (const alvoData of topGeral) {
                     const saldoAtual = alvoData.coins || 0;
                     
-                    // Se o saldo for maior que 10.000, reduz para o teto de 10.000 coins
                     if (saldoAtual > 10000) {
                         await User.findOneAndUpdate(
                             { _id: alvoData._id },
                             { $set: { coins: 10000 } }
                         );
-                        relatorio += `✅ \`${alvoData.userId}\` (Grupo: ${alvoData.groupId}) — Reduzido de${saldoAtual.toLocaleString('pt-BR')} para *10.000* coins.\n`;
+                        relatorio += `✅ \`${alvoData.userId}\` — Reduzido de ${saldoAtual.toLocaleString('pt-BR')} para *10.000* coins.\n`;
                         processados++;
                     } else {
                         relatorio += `ℹ️ \`${alvoData.userId}\` — Já possui menos de 10k (${saldoAtual.toLocaleString('pt-BR')}), ignorado.\n`;
@@ -58,16 +56,17 @@ module.exports = {
                 return await msg.reply(`❓ *COMO USAR O COMANDO EM MASSA:*
 \`/dell rankglobal\`
 _ou_
-\`/dell (ID, ID...), (remover coins [valor] ou [tudo]), (cargo1, cargo2 - OPCIONAL), (valor deixado - OPCIONAL)\``);
+\`/dell (ID, ID...), (tudo ou valor p/ remover), (cargo1, cargo2 - OPCIONAL), (valor fixo que sobra - OPCIONAL)\``);
             }
 
             const numerosBrutos = blocos[0].split(',').map(id => id.replace(/\D/g, '')).filter(Boolean);
             
+            // Bloco 2: Configuração de Coins corrigida
             const instrucaoCoins = blocos[1].toLowerCase();
             let acaoCoins = 'nada'; 
             let valorCoinsRemover = 0;
 
-            if (instrucaoCoins.includes('tudo')) {
+            if (instrucaoCoins.includes('tudo') || instrucaoCoins === 'all' || instrucaoCoins === '0') {
                 acaoCoins = 'tudo';
             } else {
                 const numMatch = instrucaoCoins.match(/\d+/);
@@ -77,13 +76,15 @@ _ou_
                 }
             }
 
+            // Bloco 3: Cargos a remover (Opcional)
             let cargosRemover = [];
             if (blocos[2] && blocos[2].length > 0) {
                 cargosRemover = blocos[2].split(',').map(c => c.trim()).filter(Boolean);
             }
 
+            // Bloco 4: Valor fixo deixado na conta (Opcional)
             let valorDeixado = null;
-            if (blocos[3]) {
+            if (blocos[3] && blocos[3].length > 0) {
                 const valNum = parseInt(blocos[3].replace(/\D/g, ''));
                 if (!isNaN(valNum)) {
                     valorDeixado = valNum;
@@ -102,19 +103,24 @@ _ou_
                     continue;
                 }
 
-                let updateOps = {};
+                let saldoAtual = alvoData.coins || 0;
+                let novoSaldo = saldoAtual;
 
-                if (acaoCoins === 'tudo') {
-                    updateOps.coins = 0;
-                } else if (acaoCoins === 'valor' && valorCoinsRemover > 0) {
-                    const novoSaldo = Math.max(0, (alvoData.coins || 0) - valorCoinsRemover);
-                    updateOps.coins = novoSaldo;
-                }
-
+                // 1. Aplicação estrita da lógica de coins
                 if (valorDeixado !== null) {
-                    updateOps.coins = Math.min(alvoData.coins || 0, valorDeixado);
+                    // Se foi definido um teto/valor fixo para restar na conta
+                    novoSaldo = Math.min(saldoAtual, valorDeixado);
+                } else if (acaoCoins === 'tudo') {
+                    // Zera tudo
+                    novoSaldo = 0;
+                } else if (acaoCoins === 'valor' && valorCoinsRemover > 0) {
+                    // Subtrai o valor especificado, garantindo que nunca fique abaixo de 0
+                    novoSaldo = Math.max(0, saldoAtual - valorCoinsRemover);
                 }
 
+                let updateOps = { coins: novoSaldo };
+
+                // 2. Lógica de Cargos (Roles)
                 if (cargosRemover.length > 0) {
                     const cargosAtuais = alvoData.roles || ["Tripulante"];
                     const novosCargos = cargosAtuais.filter(cargo => 
@@ -123,15 +129,14 @@ _ou_
                     updateOps.roles = novosCargos.length > 0 ? novosCargos : ["Tripulante"];
                 }
 
-                if (Object.keys(updateOps).length > 0) {
-                    await User.findOneAndUpdate(
-                        { _id: alvoData._id },
-                        { $set: updateOps }
-                    );
-                }
+                // Salva as alterações no banco de dados
+                await User.findOneAndUpdate(
+                    { _id: alvoData._id },
+                    { $set: updateOps }
+                );
 
                 totalAfetados++;
-                relatorioProcessamento += `✅ \`${alvoData.userId}\` — Atualizado com sucesso.\n`;
+                relatorioProcessamento += `✅ \`${alvoData.userId}\` — Coins atualizados (${saldoAtual} ➔ ${novoSaldo}).\n`;
             }
 
             relatorioProcessamento += `━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n📊 *Total de usuários processados:* ${totalAfetados}`;
