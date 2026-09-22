@@ -1,16 +1,51 @@
 module.exports = {
     name: 'dell',
-    async execute(client, msg, { chatId, senderRaw, isAdmin, User, args }) {
-        // Mantém a trava de segurança para administradores globais/do bot
+    async execute(client, msg, { chatId, isAdmin, User, args }) {
+        // Mantém a trava de segurança para administradores
         if (!isAdmin) {
             return await msg.reply("❌ *ACESSO NEGADO:* Você não tem autorização para executar este comando de limpeza em massa.");
         }
 
         try {
-            // Junta todos os argumentos em uma única string para processar os parênteses
-            const textoCompleto = args.join(" ");
+            const textoCompleto = args.join(" ").trim();
 
-            // Expressão regular para capturar os blocos entre parênteses
+            // VERIFICAÇÃO ESPECIAL: Se o comando for /dell rankglobal
+            if (textoCompleto.toLowerCase() === 'rankglobal') {
+                // 1. Busca os TOP 10 globais com mais coins na database inteira
+                const topGeral = await User.find({ userId: { $ne: null } })
+                    .sort({ coins: -1 })
+                    .limit(10);
+
+                if (!topGeral || topGeral.length === 0) {
+                    return await msg.reply("🌌 Nenhum usuário encontrado no ranking global para limpar.");
+                }
+
+                let relatorio = `⚙️ *RELATÓRIO: LIMPEZA DO RANKGLOBAL* ⚙️\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+                let processados = 0;
+
+                for (const alvoData of topGeral) {
+                    const saldoAtual = alvoData.coins || 0;
+                    
+                    // Se o saldo for maior que 10.000, reduz para o teto de 10.000 coins
+                    if (saldoAtual > 10000) {
+                        await User.findOneAndUpdate(
+                            { _id: alvoData._id },
+                            { $set: { coins: 10000 } }
+                        );
+                        relatorio += `✅ \`${alvoData.userId}\` (Grupo: ${alvoData.groupId}) — Reduzido de${saldoAtual.toLocaleString('pt-BR')} para *10.000* coins.\n`;
+                        processados++;
+                    } else {
+                        relatorio += `ℹ️ \`${alvoData.userId}\` — Já possui menos de 10k (${saldoAtual.toLocaleString('pt-BR')}), ignorado.\n`;
+                    }
+                }
+
+                relatorio += `━━━━━━━━━━━━━━━━━━━━━\n📊 *Total ajustados:* ${processados}`;
+                return await client.sendMessage(chatId, relatorio);
+            }
+
+            // ==========================================
+            // FLUXO NORMAL DO COMANDO /dell EM MASSA
+            // ==========================================
             const regexBlocos = /\(([^)]*)\)/g;
             const blocos = [];
             let match;
@@ -21,16 +56,13 @@ module.exports = {
 
             if (blocos.length < 2) {
                 return await msg.reply(`❓ *COMO USAR O COMANDO EM MASSA:*
-\`/dell (ID, ID, ID...), (remover coins [valor] ou [tudo]), (cargo1, cargo2 - OPCIONAL), (valor deixado - OPCIONAL)\`
-
-*Exemplo:*
-\`/dell (xxxxxxxxxxxx), (remover coins tudo), (), (10000)\``);
+\`/dell rankglobal\`
+_ou_
+\`/dell (ID, ID...), (remover coins [valor] ou [tudo]), (cargo1, cargo2 - OPCIONAL), (valor deixado - OPCIONAL)\``);
             }
 
-            // Bloco 1: Extrai apenas os números puros de cada ID enviado
             const numerosBrutos = blocos[0].split(',').map(id => id.replace(/\D/g, '')).filter(Boolean);
             
-            // Bloco 2: Configuração de Coins
             const instrucaoCoins = blocos[1].toLowerCase();
             let acaoCoins = 'nada'; 
             let valorCoinsRemover = 0;
@@ -45,13 +77,11 @@ module.exports = {
                 }
             }
 
-            // Bloco 3: Cargos a remover (Opcional)
             let cargosRemover = [];
             if (blocos[2] && blocos[2].length > 0) {
                 cargosRemover = blocos[2].split(',').map(c => c.trim()).filter(Boolean);
             }
 
-            // Bloco 4: Valor que vai ser deixado na conta (Opcional)
             let valorDeixado = null;
             if (blocos[3]) {
                 const valNum = parseInt(blocos[3].replace(/\D/g, ''));
@@ -64,7 +94,6 @@ module.exports = {
             let totalAfetados = 0;
 
             for (const num of numerosBrutos) {
-                // Busca o usuário pelo ID independente do groupId, testando as variações de sufixo
                 const possiveisIds = [`${num}@lid`, `${num}@s.whatsapp.net`, num];
                 let alvoData = await User.findOne({ userId: { $in: possiveisIds } });
 
@@ -75,7 +104,6 @@ module.exports = {
 
                 let updateOps = {};
 
-                // 1. Lógica de Coins
                 if (acaoCoins === 'tudo') {
                     updateOps.coins = 0;
                 } else if (acaoCoins === 'valor' && valorCoinsRemover > 0) {
@@ -83,12 +111,10 @@ module.exports = {
                     updateOps.coins = novoSaldo;
                 }
 
-                // Sobrescreve caso tenha um valor fixo definido para restar na conta
                 if (valorDeixado !== null) {
                     updateOps.coins = Math.min(alvoData.coins || 0, valorDeixado);
                 }
 
-                // 2. Lógica de Cargos (Roles)
                 if (cargosRemover.length > 0) {
                     const cargosAtuais = alvoData.roles || ["Tripulante"];
                     const novosCargos = cargosAtuais.filter(cargo => 
@@ -97,7 +123,6 @@ module.exports = {
                     updateOps.roles = novosCargos.length > 0 ? novosCargos : ["Tripulante"];
                 }
 
-                // Aplica alterações no banco de dados usando o ID exato encontrado no documento
                 if (Object.keys(updateOps).length > 0) {
                     await User.findOneAndUpdate(
                         { _id: alvoData._id },
@@ -115,7 +140,7 @@ module.exports = {
 
         } catch (e) {
             console.error("Erro no comando /dell:", e);
-            await msg.reply("❌ Falha crítica ao processar a remoção em massa.");
+            await msg.reply("❌ Falha crítica ao processar a limpeza.");
         }
     }
 };
