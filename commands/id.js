@@ -2,6 +2,19 @@ module.exports = {
     name: 'id',
     async execute(client, msg, { chatId, User }) {
         try {
+            // --- 🟢 MODO PV: mostra o próprio ID de quem está falando com a bot ---
+            // Em PV não dá pra marcar/responder ninguém (só tem a pessoa e a bot na
+            // conversa), então o "ID do cliente" aqui só pode ser o dela mesma.
+            if (!chatId.endsWith('@g.us')) {
+                const meuId = String(msg.from).trim();
+                return await client.sendMessage(chatId, `🆔 *SEU ID NA YUKON* 🆔
+━━━━━━━━━━━━━━━━━━━━━
+👤 *Seu ID:* \`${meuId}\`
+
+_Esse é o identificador que a Yukon usa pra te reconhecer nos grupos. Envie esse código pra administração se precisar de suporte (troca de número, transferência de plano, etc.)._
+━━━━━━━━━━━━━━━━━━━━━`);
+            }
+
             let targetId;
 
             // 1. Identificação do Alvo (Resposta ou Menção)
