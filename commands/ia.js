@@ -20,7 +20,7 @@ module.exports = {
                     },
                     { role: "user", content: pergunta }
                 ],
-                model: "llama-3.3-70b-versatile",
+                model: "llama-3.1-70b-versatile", // Modelo atualizado e compatível
                 temperature: 0.7,
             });
 
