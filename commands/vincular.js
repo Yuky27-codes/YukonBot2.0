@@ -3,15 +3,31 @@ module.exports = {
     async execute(client, msg, { args, chatId }) {
         if (chatId.endsWith('@g.us')) return msg.reply("❌ Use este comando apenas no meu *Privado*.");
 
-        const idGrupo = args[0];
-        if (!idGrupo || !idGrupo.includes('@g.us')) {
-            return msg.reply("⚠️ Use: `/vincular [ID_DO_GRUPO]`\n\n_Para pegar o ID do grupo, use */id_grupo* dentro do grupo._");
+        // Prova de autoridade sobre o grupo: o código de vinculação do /codigo. Só o dono do grupo
+        // (AuthorizedGroup.authorizedBy ou dono do chat) ou a equipe da Yukon consegue gerá-lo, e ele chega
+        // no privado de quem tem essa autoridade. É a mesma prova usada pelo painel.
+        // Aceita "/vincular CÓDIGO" ou "/vincular ID_DO_GRUPO CÓDIGO".
+        const informouId = Boolean(args[0] && args[0].includes('@g.us'));
+        const idInformado = informouId ? args[0] : null;
+        const codigo = String((informouId ? args[1] : args[0]) || '').trim().toUpperCase();
+
+        if (!codigo) {
+            return msg.reply("⚠️ Use: `/vincular [CÓDIGO]`\n\n_O dono do grupo deve enviar */codigo* dentro do grupo. O código chega no privado dele._");
         }
 
         try {
             const mongoose = require('mongoose');
             const UserProfile = mongoose.model('UserProfile');
-            const AuthorizedGroup = mongoose.model('AuthorizedGroup');
+            const LinkCode = mongoose.model('LinkCode');
+
+            const linkCode = await LinkCode.findOne({ code: codigo, expiresAt: { $gt: new Date() } });
+            if (!linkCode) {
+                return msg.reply("❌ Código inválido ou expirado.\n\n_Peça para o dono do grupo enviar */codigo* no grupo e use o código recebido no privado._");
+            }
+            if (idInformado && linkCode.groupId !== idInformado) {
+                return msg.reply("❌ Esse código não pertence ao grupo informado.");
+            }
+            const idGrupo = linkCode.groupId;
 
             let perfil = await UserProfile.findOne({ userId: msg.from });
 
@@ -31,52 +47,19 @@ module.exports = {
                 return msg.reply(`🚫 *LIMITE ATINGIDO*\nSeu plano *${nomePlano}* permite apenas *${limite} grupo(s)*.\n\nUse */upgrade* para aumentar o limite.`);
             }
 
-            // Adiciona o grupo ao perfil
+            // Adiciona o grupo ao perfil.
+            // Cada grupo tem a própria licença: o vínculo NÃO copia validade nem plano de outro grupo.
+            // A licença deste grupo só é ativada quando a equipe confirmar o pagamento (/pix + comprovante).
             perfil.gruposVinculados.push(idGrupo);
             await perfil.save();
-
-            // Verifica se já tem assinatura ativa em outro grupo
-            // Se sim, replica a validade para o novo grupo automaticamente
-            let msgExtra = "";
-            if (perfil.gruposVinculados.length > 1) {
-                // Busca a validade de um grupo já ativo
-                const gruposExistentes = perfil.gruposVinculados.filter(g => g !== idGrupo);
-                for (const gId of gruposExistentes) {
-                    const authExistente = await AuthorizedGroup.findOne({ groupId: gId, isAuthorized: true });
-                    if (authExistente && authExistente.expiresAt && new Date(authExistente.expiresAt) > new Date()) {
-                        // Replica a mesma validade para o novo grupo
-                        await AuthorizedGroup.updateOne(
-                            { groupId: idGrupo },
-                            {
-                                $set: {
-                                    isAuthorized: true,
-                                    expiresAt: authExistente.expiresAt,
-                                    authorizedBy: 'sistema'
-                                }
-                            },
-                            { upsert: true }
-                        );
-
-                        // Notifica o novo grupo
-                        try {
-                            await client.sendMessage(idGrupo, `🚀 *YUKON STATION ATIVADA*\n━━━━━━━━━━━━━━━━━━━━━\n✅ Este grupo foi vinculado ao plano *${nomePlano}*!\n📅 Validade: *${new Date(authExistente.expiresAt).toLocaleDateString('pt-BR')}*\n🎮 Comandos liberados! Divirtam-se.`);
-                        } catch {}
-
-                        msgExtra = `\n\n✅ *Boa notícia!* Você já tem uma assinatura ativa. O novo grupo foi ativado automaticamente com a mesma validade: *${new Date(authExistente.expiresAt).toLocaleDateString('pt-BR')}*`;
-                        break;
-                    }
-                }
-            }
-
-            if (!msgExtra) {
-                msgExtra = "\n\n📋 *Próximo passo:* Use */pix* para gerar os dados de pagamento e ativar sua assinatura.";
-            }
 
             return msg.reply(`✅ *GRUPO VINCULADO!*
 ━━━━━━━━━━━━━━━━━━━━━
 📍 *ID:* \`${idGrupo}\`
 📦 *Plano:* ${nomePlano}
-📊 *Vagas:* ${perfil.gruposVinculados.length}/${limite}${msgExtra}`);
+📊 *Vagas:* ${perfil.gruposVinculados.length}/${limite}
+
+📋 *Próximo passo:* Use */pix* para ver os dados de pagamento e envie o comprovante para ativar a licença deste grupo.`);
 
         } catch (err) {
             console.error("❌ Erro no /vincular:", err);

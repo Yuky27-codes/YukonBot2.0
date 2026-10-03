@@ -27,6 +27,8 @@ const qrcode = require('qrcode-terminal');
 const fs = require('fs-extra');
 const path = require('path');
 const cron = require('node-cron');
+// Plano pago da licença: gravado só na confirmação de pagamento (commands/_licenca_paga.js)
+const { camposPlanoPago } = require('./commands/_licenca_paga');
 const express = require('express');
 const { Groq } = require('groq-sdk');
 const partidasAtivas = {};
@@ -377,6 +379,12 @@ const authorizedGroupSchema = new mongoose.Schema({
     expiresAt: { type: Date, default: null },
     createdAt: { type: Date, default: Date.now },
     jaFezTeste: { type: Boolean, default: false },
+    // Plano efetivamente PAGO (ver commands/_licenca_paga.js). Só os fluxos de confirmação de pagamento gravam.
+    paidPlan: { type: String, default: null },
+    paidPlanExpiresAt: { type: Date, default: null },
+    paidPlanSource: { type: String, default: null },
+    paidPlanTxid: { type: String, default: null },
+    paidPlanConfirmedAt: { type: Date, default: null },
 });
 const AuthorizedGroup = mongoose.model('AuthorizedGroup', authorizedGroupSchema);
 
@@ -1147,6 +1155,7 @@ if (chatId.endsWith('@g.us') && !isAdmin) {
                     senderRaw,
                     isAdmin: isAdminEfetivo,          // ← efetivo: inclui funcionárias com permissão
                     isFuncionarioAutorizado,           // ← true se for funcionária com permissão liberada
+                    isSuperAdmin: isAdminUser(senderRaw), // ← dono/super users da Yukon (não inclui admins do bot por grupo)
                     isGroupAdmins, 
                     groupId,
                     Modo,
@@ -1903,7 +1912,8 @@ app.post('/api/pix/confirmar', async (req, res) => {
         for (const groupId of (perfil.gruposVinculados || [])) {
             await AuthorizedGroup.updateOne(
                 { groupId },
-                { $set: { isAuthorized: true, expiresAt: novaValidade, authorizedBy: 'pix-automatico' } },
+                // Pagamento confirmado: grava a validade e o plano pago da cobrança (preço base da cobrança, validado pelo painel)
+                { $set: { isAuthorized: true, expiresAt: novaValidade, authorizedBy: 'pix-automatico', ...camposPlanoPago({ precoBase: cobranca.planoPreco, validade: novaValidade, origem: 'pix', txid }) } },
                 { upsert: true }
             );
             try {

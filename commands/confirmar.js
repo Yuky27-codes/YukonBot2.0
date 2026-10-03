@@ -1,7 +1,13 @@
 module.exports = {
     name: 'confirmar',
-    async execute(client, msg, { args, isAdmin, User }) {
+    async execute(client, msg, { args, isAdmin, isSuperAdmin, isFuncionarioAutorizado, User }) {
         if (!isAdmin) return;
+
+        // Plano pago (o que conta no painel) só é registrado por quem confirma pagamento em nome da Yukon:
+        // dono/super users ou funcionária com o /confirmar liberado. Admins do bot por grupo (isBotAdmin)
+        // continuam podendo usar o comando, mas a licença fica sem plano pago.
+        const { camposPlanoPago } = require('./_licenca_paga');
+        const registrarPlanoPago = Boolean(isSuperAdmin || isFuncionarioAutorizado);
 
         const alvo = args[0];
         if (!alvo) {
@@ -66,7 +72,7 @@ module.exports = {
 
                     await AuthorizedGroup.updateOne(
                         { groupId: grupoIdFormatado },
-                        { $set: { isAuthorized: true, expiresAt: dataVencimento, authorizedBy: clienteId } },
+                        { $set: { isAuthorized: true, expiresAt: dataVencimento, authorizedBy: clienteId, ...(registrarPlanoPago ? camposPlanoPago({ precoBase: perfil.planoPreco, validade: dataVencimento, origem: 'manual' }) : {}) } },
                         { upsert: true }
                     );
 
@@ -143,7 +149,7 @@ _Use */meu_plano* para acompanhar sua assinatura._`);
 
                 await AuthorizedGroup.updateOne(
                     { groupId: idFormatado },
-                    { $set: { isAuthorized: true, expiresAt: dataVencimento, authorizedBy: dono ? dono.userId : "Sistema" } },
+                    { $set: { isAuthorized: true, expiresAt: dataVencimento, authorizedBy: dono ? dono.userId : "Sistema", ...(registrarPlanoPago && dono ? camposPlanoPago({ precoBase: dono.planoPreco, validade: dataVencimento, origem: 'manual' }) : {}) } },
                     { upsert: true }
                 );
 

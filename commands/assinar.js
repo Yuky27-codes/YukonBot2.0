@@ -55,8 +55,8 @@ ${desc > 0 ? `🔥 *CUPOM DE ${desc}% APLICADO!* (Válido por tempo limitado)\n`
 ━━━━━━━━━━━━━━━━━━━━━
 📌 *COMO ASSINAR:*
 1️⃣ Digite */assinar [número]* para escolher o plano
-2️⃣ Use */id_grupo* no grupo para pegar o ID
-3️⃣ Use */vincular [ID]* aqui no PV
+2️⃣ O dono do grupo envia */codigo* no grupo (o código chega no privado)
+3️⃣ Use */vincular [CÓDIGO]* aqui no PV
 4️⃣ Use */pix* para pagar`);
             }
 
@@ -74,6 +74,8 @@ ${desc > 0 ? `🔥 *CUPOM DE ${desc}% APLICADO!* (Válido por tempo limitado)\n`
             // Calcula o valor final com base no desconto ativo (se houver)
             const valorFinalCalculado = precoEscolhido * (1 - desc / 100);
 
+            // planoPreco = plano ESCOLHIDO (pendente de pagamento). Não concede licença nem plano pago:
+            // o plano pago fica em AuthorizedGroup.paidPlan e só é gravado na confirmação do pagamento.
             await UserProfile.updateOne(
                 { userId: msg.from },
                 { $set: { planoPreco: valorFinalCalculado } },
@@ -87,8 +89,8 @@ ${desc > 0 ? `🔥 *CUPOM DE ${desc}% APLICADO!* (Válido por tempo limitado)\n`
 📅 *Duração:* ${diasPlano} dias
 
 🚀 *PRÓXIMOS PASSOS:*
-1️⃣ Use */id_grupo* no grupo que deseja adicionar
-2️⃣ Use */vincular [ID]* aqui no PV
+1️⃣ O dono do grupo envia */codigo* no grupo que deseja adicionar
+2️⃣ Use */vincular [CÓDIGO]* aqui no PV
 3️⃣ Use */pix* para pagar e envie o comprovante`);
 
         } catch (err) {

@@ -35,6 +35,7 @@ module.exports = {
                 return msg.reply(`⚠️ Você tem *${gruposAtuais} grupo(s)* vinculados mas o plano *${nomePlano}* permite apenas *${limite}*.\n\nRemova alguns grupos antes de fazer o downgrade.`);
             }
 
+            // Só registra o plano ESCOLHIDO (pendente). O plano pago só muda na confirmação do pagamento.
             await UserProfile.updateOne(
                 { userId: msg.from },
                 { $set: { planoPreco: preco } },
