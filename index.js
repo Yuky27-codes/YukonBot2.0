@@ -380,6 +380,11 @@ const authorizedGroupSchema = new mongoose.Schema({
     expiresAt: { type: Date, default: null },
     createdAt: { type: Date, default: Date.now },
     jaFezTeste: { type: Boolean, default: false },
+    // Teste grátis em andamento (/teste): dados não ficam no fim (commands/_teste_gratis.js)
+    emTeste: { type: Boolean, default: false },
+    testeExpiraEm: { type: Date, default: null },
+    testeLimpoEm: { type: Date, default: null },
+    testeConvertidoEm: { type: Date, default: null },
     // Plano efetivamente PAGO (ver commands/_licenca_paga.js). Só os fluxos de confirmação de pagamento gravam.
     paidPlan: { type: String, default: null },
     paidPlanExpiresAt: { type: Date, default: null },
@@ -1355,6 +1360,22 @@ client.on('group_leave', async (notification) => {
 
     } catch (err) {
         console.error("❌ Erro ao registrar saída no banco:", err.message);
+    }
+});
+
+// ============================================================
+// TESTE GRÁTIS: dados do grupo apagados quando o teste acaba sem assinatura
+// ============================================================
+
+cron.schedule('*/15 * * * *', async () => {
+    try {
+        const { processarTestes } = require('./commands/_teste_gratis');
+        const r = await processarTestes(mongoose);
+        if (r.limpos || r.convertidos) {
+            console.log(`🧪 [CRON TESTE] ${r.limpos} teste(s) encerrado(s) e limpo(s) (${r.documentos} registros), ${r.convertidos} convertido(s) em assinatura.`);
+        }
+    } catch (e) {
+        console.error("❌ Erro no cron de limpeza dos testes:", e);
     }
 });
 

@@ -2,32 +2,51 @@ module.exports = {
     name: 'menu_cliente',
     async execute(client, msg) {
         try {
+            // Endereço do painel web (variável PAINEL_URL do Bot); sem ela, só o nome
+            const painel = process.env.PAINEL_URL ? `*${process.env.PAINEL_URL}*` : '*Painel Yukon* (site)';
+
             const txtCliente = `╭━━━〔 🛰️ CENTRAL DO CLIENTE YUKON 〕━━━╮
-◇ */id_grupo* ➜ Obter ID do grupo (no grupo)
+◇ */id_grupo* ➜ Ver o ID do grupo (no grupo)
 
 ◇ */teste* ➜ Testar a Yukon por 24h grátis
 
-◇ */vincular* ➜ Vincular grupo ao perfil
+◇ */codigo* ➜ Código para vincular o grupo (dono, no grupo)
 
-◇ */meu_plano* ➜ Ver plano e grupos vinculados
+◇ */assinar* ➜ Ver planos e assinar pelo WhatsApp
 
-◇ */assinar* ➜ Escolher plano de assinatura
+◇ */vincular* ➜ Vincular grupo à assinatura do WhatsApp
 
-◇ */upgrade* ➜ Aumentar limite de grupos
+◇ */pix* ➜ Gerar o Pix da assinatura do WhatsApp
 
-◇ */indicar* ➜ Indicar a Yukon para um grupo e ganhar dias
+◇ */meu_plano* ➜ Ver plano, validade e grupos
 
-◇ */pix* ➜ Gerar pagamento via PIX
+◇ */upgrade* ➜ Mudar para um plano maior
+
+◇ */indicar* ➜ Indicar a Yukon e ganhar dias
 
 ◇ */suporte* ➜ FAQ e central de ajuda
 ╰━━━━━━━━━━━━━━━━━━━━━━╯
 
-📌 **COMO TESTAR GRÁTIS (24H):**
+🖥️ **ASSINAR PELO PAINEL (RECOMENDADO):**
+1️⃣ Crie sua conta em ${painel} e confirme o e-mail.
+2️⃣ No grupo, o dono envia */codigo* (o código chega no privado).
+3️⃣ No painel, cole o código para vincular o grupo.
+4️⃣ Escolha o plano e pague por Pix: a liberação é automática.
+_Planos com painel: Astronauta, Intergaláctico e Cósmico._
+
+📱 **ASSINAR PELO WHATSAPP:**
+1️⃣ */assinar* para ver os planos e escolher.
+2️⃣ No grupo, o dono envia */codigo*.
+3️⃣ Aqui no PV: */vincular [CÓDIGO]*.
+4️⃣ */pix* para pagar e envie o comprovante.
+_O plano Recruta é vendido só pelo WhatsApp e não inclui o painel._
+
+🧪 **COMO TESTAR GRÁTIS (24H):**
 1️⃣ Adicione a Yukon no seu grupo.
 2️⃣ Digite */id_grupo* lá dentro e copie o ID.
 3️⃣ Envie aqui no PV: */teste [ID_DO_GRUPO]*
 
-_Nota: O teste gratuito de 24h é válido apenas uma única vez por grupo._
+_Nota: o teste vale uma única vez por grupo, só para grupos que nunca tiveram licença, e precisa ser pedido pelo dono ou por um administrador do grupo. Durante o teste o grupo não entra no /rankglobal, e o que for feito nele é apagado quando o teste acaba (assinando antes, tudo é mantido)._
 `;
 
             if (typeof global.enviarMenuComFoto === 'function') {

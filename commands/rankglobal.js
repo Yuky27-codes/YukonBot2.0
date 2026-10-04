@@ -4,7 +4,10 @@ module.exports = {
     async execute(client, msg, { chatId, User }) {
         try {
             // 1. Busca os TOP 10 globais (ordenado por coins em toda a database)
-            const topGeral = await User.find({ userId: { $ne: null } })
+            // Grupos em teste grátis não entram no ranking (as moedas do teste são apagadas no fim dele)
+            const { gruposSoTeste } = require('./_teste_gratis');
+            const emTeste = await gruposSoTeste(require('mongoose'));
+            const topGeral = await User.find({ userId: { $ne: null }, ...(emTeste.length ? { groupId: { $nin: emTeste } } : {}) })
                 .sort({ coins: -1 })
                 .limit(10)
                 .lean();
