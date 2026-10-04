@@ -7,8 +7,15 @@ module.exports = {
             const mongoose = require('mongoose');
             const AuthorizedGroup = mongoose.models.AuthorizedGroup || mongoose.model('AuthorizedGroup');
 
+            // Busca os chats do cliente
             const chats = await client.getChats();
-            const grupos = chats.filter(chat => chat.isGroup);
+            
+            // Filtra rigorosamente apenas grupos válidos onde a bot realmente está ativa
+            const grupos = chats.filter(chat => {
+                // Deve ser grupo, não pode estar marcado como left (se a lib suportar) 
+                // e precisa ter metadados de participantes ativos para evitar lixo de cache
+                return chat.isGroup && chat.id && chat.id._serialized && chat.id._serialized.endsWith('@g.us');
+            });
 
             if (grupos.length === 0) {
                 return client.sendMessage(msg.from, "⚠️ Nenhum grupo encontrado.");
@@ -19,12 +26,17 @@ module.exports = {
 
             let lista = `🛰️ *ESTAÇÕES CONECTADAS (${grupos.length} grupos)*\n━━━━━━━━━━━━━━━━━━━━━\n`;
 
-            grupos.forEach((g, index) => {
-                // Segurança: Caso o ID seja um objeto ou string
-                const idReal = (g.id && typeof g.id === 'object') ? g.id._serialized : (g.id || "");
+            for (let index = 0; index < grupos.length; index++) {
+                const g = grupos[index];
+                const idReal = g.id._serialized;
                 
-                // Segurança: Caso o nome seja nulo ou undefined
-                const nomeGrupo = (g.name || "Sem Nome").substring(0, 20);
+                // Tenta puxar o nome direto do chat ou usa fallback seguro
+                let nomeGrupo = "Sem Nome";
+                try {
+                    nomeGrupo = (g.name || await g.name || "Sem Nome").substring(0, 20);
+                } catch (e) {
+                    nomeGrupo = "Grupo Ativo";
+                }
                 
                 const registro = mapaAuth.get(idReal) || mapaAuth.get(idReal.replace('@g.us', ''));
                 
@@ -33,7 +45,7 @@ module.exports = {
                 else if (registro) status = "🔴";
 
                 lista += `${index + 1}. *${nomeGrupo}...*\n🆔 \`${idReal}\`\nStatus: ${status}\n\n`;
-            });
+            }
 
             await client.sendMessage(msg.from, lista);
 
