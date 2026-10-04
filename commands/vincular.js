@@ -1,3 +1,6 @@
+// Limite e nome do plano vêm do catálogo central publicado pelo painel (commands/_catalogo.js).
+const { planoDoPerfil } = require('./_catalogo');
+
 module.exports = {
     name: 'vincular',
     async execute(client, msg, { args, chatId }) {
@@ -35,9 +38,13 @@ module.exports = {
                 return msg.reply("⚠️ Você precisa escolher um plano primeiro!\nUse **/assinar** para ver os planos disponíveis.");
             }
 
-            // Limite por plano
-            const limite = perfil.planoPreco === 10 ? 1 : perfil.planoPreco === 30 ? 2 : 3;
-            const nomePlano = perfil.planoPreco === 10 ? 'Recruta' : perfil.planoPreco === 30 ? 'Astronauta' : 'Intergaláctico';
+            // Limite por plano (catálogo central)
+            const plano = await planoDoPerfil(perfil);
+            if (!plano) {
+                return msg.reply("⚠️ Você precisa escolher um plano primeiro!\nUse **/assinar** para ver os planos disponíveis.");
+            }
+            const limite = plano.groupLimit;
+            const nomePlano = plano.label;
 
             if (perfil.gruposVinculados.includes(idGrupo)) {
                 return msg.reply("⚠️ Este grupo já está vinculado ao seu perfil.");

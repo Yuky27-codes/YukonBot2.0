@@ -1,3 +1,6 @@
+// Plano, nome e limite vêm do catálogo central publicado pelo painel (commands/_catalogo.js).
+const { planoDoPerfil } = require('./_catalogo');
+
 module.exports = {
     name: 'pix',
     async execute(client, msg) {
@@ -12,8 +15,9 @@ module.exports = {
 
             const perfil = await UserProfile.findOne({ userId: msg.from });
 
-            if (!perfil || !perfil.planoPreco) {
-                return msg.reply("⚠️ *PLANO NÃO SELECIONADO*\nEscolha um plano primeiro com **/assinar [1, 2 ou 3]**.");
+            const plano = await planoDoPerfil(perfil);
+            if (!perfil || !perfil.planoPreco || !plano) {
+                return msg.reply("⚠️ *PLANO NÃO SELECIONADO*\nEscolha um plano primeiro com **/assinar [número]**.");
             }
 
             // ✅ CORRIGIDO: busca cupom pelos grupos vinculados do cliente
@@ -25,8 +29,8 @@ module.exports = {
                 }
             }
 
-            const nomePlano = perfil.planoPreco === 10 ? "RECRUTA" : perfil.planoPreco === 30 ? "ASTRONAUTA" : "INTERGALÁCTICO";
-            const limiteGrupos = perfil.planoPreco === 10 ? 1 : perfil.planoPreco === 30 ? 2 : 3;
+            const nomePlano = plano.label.toUpperCase();
+            const limiteGrupos = plano.groupLimit;
             const valorFinal = perfil.planoPreco * (1 - desc / 100);
             const valorFormatado = valorFinal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
 

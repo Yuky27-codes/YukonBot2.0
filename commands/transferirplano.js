@@ -1,3 +1,6 @@
+// Nome do plano vem do catálogo central publicado pelo painel (commands/_catalogo.js).
+const { planoDoPerfil } = require('./_catalogo');
+
 module.exports = {
     name: 'transferirplano',
     async execute(client, msg, { args, isAdmin }) {
@@ -34,12 +37,12 @@ module.exports = {
 
             // 🔁 Troca só o "dono" do perfil — plano, validade e grupos vinculados continuam intactos
             const gruposAntes = [...(perfilAntigo.gruposVinculados || [])];
-            const planoAntes = perfilAntigo.planoPreco;
+            const planoAntes = await planoDoPerfil(perfilAntigo);
 
             perfilAntigo.userId = idNovo;
             await perfilAntigo.save();
 
-            const nomePlano = planoAntes === 10 ? 'Recruta' : planoAntes === 30 ? 'Astronauta' : 'Intergaláctico';
+            const nomePlano = planoAntes ? planoAntes.label : 'Plano não identificado';
 
             return client.sendMessage(msg.from, `✅ *TRANSFERÊNCIA CONCLUÍDA*
 ━━━━━━━━━━━━━━━━━━━━━

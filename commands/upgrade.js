@@ -1,44 +1,48 @@
+// Planos, preços e limites vêm do catálogo central publicado pelo painel (commands/_catalogo.js).
+const { listarPlanos, planoPorNumero, planoDoPerfil, formatarPreco, MENSAGEM_CATALOGO_INDISPONIVEL } = require('./_catalogo');
+
 module.exports = {
     name: 'upgrade',
     async execute(client, msg, { args }) {
         if (msg.from.endsWith('@g.us')) return msg.reply("❌ Use este comando no meu PV.");
 
-        const novoPlano = parseInt(args[0]);
-        if (!novoPlano || ![1, 2, 3].includes(novoPlano)) {
-            return msg.reply("⚠️ Escolha o nível do upgrade:\n`/upgrade 1` — Recruta (R$10)\n`/upgrade 2` — Astronauta (R$30)\n`/upgrade 3` — Intergaláctico (R$75)");
-        }
-
         try {
+            const planos = await listarPlanos();
+            if (!planos) return msg.reply(MENSAGEM_CATALOGO_INDISPONIVEL);
+
+            const novoPlano = await planoPorNumero(parseInt(args[0]));
+            if (!novoPlano) {
+                const opcoes = planos.map((p, i) => `\`/upgrade ${i + 1}\` — ${p.label} (${formatarPreco(p.priceBRL)})`).join('\n');
+                return msg.reply(`⚠️ Escolha o nível do upgrade:\n${opcoes}`);
+            }
+
             const mongoose = require('mongoose');
             const UserProfile = mongoose.model('UserProfile');
 
-            const preco = novoPlano === 1 ? 10 : novoPlano === 2 ? 30 : 75;
-            const nomePlano = novoPlano === 1 ? "RECRUTA" : novoPlano === 2 ? "ASTRONAUTA" : "INTERGALÁCTICO";
-            const limite = novoPlano === 1 ? 1 : novoPlano === 2 ? 2 : 3;
-
+            const nomePlano = novoPlano.label.toUpperCase();
             const perfil = await UserProfile.findOne({ userId: msg.from });
-            const precoAtual = perfil?.planoPreco || 0;
-            const nomeAtual = precoAtual === 10 ? "Recruta" : precoAtual === 30 ? "Astronauta" : precoAtual === 75 ? "Intergaláctico" : "Nenhum";
+            const planoAtual = await planoDoPerfil(perfil);
+            const nomeAtual = planoAtual ? planoAtual.label : "Nenhum";
             const gruposAtuais = perfil?.gruposVinculados?.length || 0;
 
-            // ✅ CORRIGIDO: impede downgrade
-            if (preco < precoAtual) {
+            // Impede downgrade (comparação pelo nível do plano)
+            if (planoAtual && novoPlano.rank < planoAtual.rank) {
                 return msg.reply(`⚠️ *DOWNGRADE NÃO PERMITIDO*\nVocê já está no plano *${nomeAtual}*.\nNão é possível escolher um plano inferior.\n\nSe precisar de ajuda, use */admin*.`);
             }
 
-            if (preco === precoAtual) {
+            if (planoAtual && novoPlano.id === planoAtual.id) {
                 return msg.reply(`ℹ️ Você já está no plano *${nomePlano}*.`);
             }
 
             // Verifica se os grupos atuais cabem no novo plano
-            if (gruposAtuais > limite) {
-                return msg.reply(`⚠️ Você tem *${gruposAtuais} grupo(s)* vinculados mas o plano *${nomePlano}* permite apenas *${limite}*.\n\nRemova alguns grupos antes de fazer o downgrade.`);
+            if (gruposAtuais > novoPlano.groupLimit) {
+                return msg.reply(`⚠️ Você tem *${gruposAtuais} grupo(s)* vinculados mas o plano *${nomePlano}* permite apenas *${novoPlano.groupLimit}*.\n\nRemova alguns grupos antes de fazer o downgrade.`);
             }
 
             // Só registra o plano ESCOLHIDO (pendente). O plano pago só muda na confirmação do pagamento.
             await UserProfile.updateOne(
                 { userId: msg.from },
-                { $set: { planoPreco: preco } },
+                { $set: { planoPreco: novoPlano.priceBRL, planoEscolhido: novoPlano.id } },
                 { upsert: true }
             );
 
@@ -46,7 +50,7 @@ module.exports = {
 ━━━━━━━━━━━━━━━━━━━━━
 📦 *Plano anterior:* ${nomeAtual}
 📦 *Novo plano:* ${nomePlano}
-📍 *Novo limite:* ${limite} grupo(s)
+📍 *Novo limite:* ${novoPlano.groupLimit} grupo(s)
 
 🚀 *PRÓXIMOS PASSOS:*
 1️⃣ Use */vincular [ID]* para adicionar novos grupos

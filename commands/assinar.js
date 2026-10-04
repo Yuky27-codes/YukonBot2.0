@@ -1,3 +1,8 @@
+// Planos, preços, durações e limites vêm do catálogo central publicado pelo painel (commands/_catalogo.js).
+const { listarPlanos, planoPorNumero, formatarPreco, MENSAGEM_CATALOGO_INDISPONIVEL } = require('./_catalogo');
+
+const NUMEROS = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣'];
+
 module.exports = {
     name: 'assinar',
     async execute(client, msg, { args, chatId }) {
@@ -8,6 +13,9 @@ module.exports = {
         try {
             const mongoose = require('mongoose');
             const UserProfile = mongoose.model('UserProfile');
+
+            const planos = await listarPlanos();
+            if (!planos) return client.sendMessage(msg.from, MENSAGEM_CATALOGO_INDISPONIVEL);
 
             const escolha = parseInt(args[0]);
             const perfil = await UserProfile.findOne({ userId: msg.from });
@@ -27,30 +35,20 @@ module.exports = {
                 }
             }
 
-            const calc = (valor) => (valor * (1 - desc / 100)).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+            const comDesconto = (valor) => valor * (1 - desc / 100);
+            const grupos = (n) => (n === 1 ? '*1 Grupo* vinculado' : `*Até ${n} Grupos* vinculados`);
 
-            if (!escolha || ![1, 2, 3].includes(escolha)) {
-                const v10 = desc > 0 ? `~R$ 10,00~ por *${calc(10)}*` : `*R$ 10,00*`;
-                const v30 = desc > 0 ? `~R$ 30,00~ por *${calc(30)}*` : `*R$ 30,00*`;
-                const v75 = desc > 0 ? `~R$ 75,00~ por *${calc(75)}*` : `*R$ 75,00*`;
+            const plano = await planoPorNumero(escolha);
+            if (!plano) {
+                const lista = planos.map((p, i) => {
+                    const valor = desc > 0 ? `~${formatarPreco(p.priceBRL)}~ por *${formatarPreco(comDesconto(p.priceBRL))}*` : `*${formatarPreco(p.priceBRL)}*`;
+                    return `${NUMEROS[i] || `${i + 1}.`} *PLANO ${p.label.toUpperCase()}*\n💰 Valor: ${valor}\n📍 Limite: ${grupos(p.groupLimit)}\n📅 Duração: *${p.days} dias*${p.panelAccess ? '\n🖥️ Inclui o painel web' : ''}`;
+                }).join('\n\n');
 
                 return client.sendMessage(msg.from, `🛰️ *CATÁLOGO DE ASSINATURAS YUKON*
 ━━━━━━━━━━━━━━━━━━━━━
 ${desc > 0 ? `🔥 *CUPOM DE ${desc}% APLICADO!* (Válido por tempo limitado)\n` : ""}
-1️⃣ *PLANO RECRUTA*
-💰 Valor: ${v10}
-📍 Limite: *1 Grupo* vinculado
-📅 Duração: *10 dias*
-
-2️⃣ *PLANO ASTRONAUTA*
-💰 Valor: ${v30}
-📍 Limite: *Até 2 Grupos* vinculados
-📅 Duração: *30 dias*
-
-3️⃣ *PLANO INTERGALÁCTICO*
-💰 Valor: ${v75}
-📍 Limite: *Até 3 Grupos* vinculados
-📅 Duração: *90 dias*
+${lista}
 
 ━━━━━━━━━━━━━━━━━━━━━
 📌 *COMO ASSINAR:*
@@ -60,33 +58,29 @@ ${desc > 0 ? `🔥 *CUPOM DE ${desc}% APLICADO!* (Válido por tempo limitado)\n`
 4️⃣ Use */pix* para pagar`);
             }
 
-            const precoEscolhido = escolha === 1 ? 10 : escolha === 2 ? 30 : 75;
-            const nomePlano = escolha === 1 ? "RECRUTA" : escolha === 2 ? "ASTRONAUTA" : "INTERGALÁCTICO";
-            const limiteGrupos = escolha === 1 ? 1 : escolha === 2 ? 2 : 3;
-            const diasPlano = escolha === 1 ? 10 : escolha === 2 ? 30 : 90;
-
+            const nomePlano = plano.label.toUpperCase();
             const gruposAtuais = perfil?.gruposVinculados || [];
 
-            if (gruposAtuais.length > limiteGrupos) {
-                return client.sendMessage(msg.from, `⚠️ *ATENÇÃO:* Você já tem *${gruposAtuais.length} grupo(s)* vinculados.\nO plano *${nomePlano}* permite apenas *${limiteGrupos} grupo(s)*.\n\nEscolha um plano maior ou remova grupos antes de mudar.`);
+            if (gruposAtuais.length > plano.groupLimit) {
+                return client.sendMessage(msg.from, `⚠️ *ATENÇÃO:* Você já tem *${gruposAtuais.length} grupo(s)* vinculados.\nO plano *${nomePlano}* permite apenas *${plano.groupLimit} grupo(s)*.\n\nEscolha um plano maior ou remova grupos antes de mudar.`);
             }
 
             // Calcula o valor final com base no desconto ativo (se houver)
-            const valorFinalCalculado = precoEscolhido * (1 - desc / 100);
+            const valorFinalCalculado = comDesconto(plano.priceBRL);
 
-            // planoPreco = plano ESCOLHIDO (pendente de pagamento). Não concede licença nem plano pago:
+            // planoEscolhido/planoPreco = plano ESCOLHIDO (pendente de pagamento). Não concede licença nem plano pago:
             // o plano pago fica em AuthorizedGroup.paidPlan e só é gravado na confirmação do pagamento.
             await UserProfile.updateOne(
                 { userId: msg.from },
-                { $set: { planoPreco: valorFinalCalculado } },
+                { $set: { planoPreco: valorFinalCalculado, planoEscolhido: plano.id } },
                 { upsert: true }
             );
 
             return client.sendMessage(msg.from, `✅ *PLANO ${nomePlano} SELECIONADO!*
 ━━━━━━━━━━━━━━━━━━━━━
-💰 *Valor final:* ${calc(precoEscolhido)} ${desc > 0 ? `(Com ${desc}% de desconto)` : ""}
-📍 *Limite:* ${limiteGrupos} grupo(s)
-📅 *Duração:* ${diasPlano} dias
+💰 *Valor final:* ${formatarPreco(valorFinalCalculado)} ${desc > 0 ? `(Com ${desc}% de desconto)` : ""}
+📍 *Limite:* ${plano.groupLimit} grupo(s)
+📅 *Duração:* ${plano.days} dias
 
 🚀 *PRÓXIMOS PASSOS:*
 1️⃣ O dono do grupo envia */codigo* no grupo que deseja adicionar

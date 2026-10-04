@@ -7,6 +7,8 @@ module.exports = {
         // dono/super users ou funcionária com o /confirmar liberado. Admins do bot por grupo (isBotAdmin)
         // continuam podendo usar o comando, mas a licença fica sem plano pago.
         const { camposPlanoPago } = require('./_licenca_paga');
+        // Duração e nome do plano vêm do catálogo central publicado pelo painel (commands/_catalogo.js)
+        const { planoDoPerfil } = require('./_catalogo');
         const registrarPlanoPago = Boolean(isSuperAdmin || isFuncionarioAutorizado);
 
         const alvo = args[0];
@@ -19,8 +21,8 @@ module.exports = {
             const AuthorizedGroup = mongoose.models.AuthorizedGroup || mongoose.model('AuthorizedGroup');
             const UserProfile = mongoose.models.UserProfile || mongoose.model('UserProfile');
 
-            // ✅ Dias corretos por preço
-            const diasPorPlano = { 10: 10, 30: 30, 75: 90 };
+            // Sem plano identificado no perfil: 30 dias, sem plano pago (como antes)
+            const DIAS_SEM_PLANO = 30;
 
             // 🧠 INTELIGÊNCIA DE DETECÇÃO (Cliente vs Grupo)
             const apenasNumeros = alvo.replace(/\D/g, '');
@@ -41,11 +43,9 @@ module.exports = {
                     return client.sendMessage(msg.from, `⚠️ Cliente \`${clienteId}\` não encontrado ou sem grupos vinculados.`);
                 }
 
-                const dias = diasPorPlano[perfil.planoPreco] || 30;
-                let nomePlano = 'FREE';
-                if (perfil.planoPreco === 10) nomePlano = 'ASTRONAUTA';
-                if (perfil.planoPreco === 30) nomePlano = 'COMANDANTE';
-                if (perfil.planoPreco === 75) nomePlano = 'INTERGALÁCTICO';
+                const plano = await planoDoPerfil(perfil);
+                const dias = plano ? plano.days : DIAS_SEM_PLANO;
+                const nomePlano = plano ? plano.label.toUpperCase() : 'FREE';
 
                 let dataBase = new Date();
                 
@@ -72,7 +72,7 @@ module.exports = {
 
                     await AuthorizedGroup.updateOne(
                         { groupId: grupoIdFormatado },
-                        { $set: { isAuthorized: true, expiresAt: dataVencimento, authorizedBy: clienteId, ...(registrarPlanoPago ? camposPlanoPago({ precoBase: perfil.planoPreco, validade: dataVencimento, origem: 'manual' }) : {}) } },
+                        { $set: { isAuthorized: true, expiresAt: dataVencimento, authorizedBy: clienteId, ...(registrarPlanoPago ? await camposPlanoPago({ planoId: plano?.id, validade: dataVencimento, origem: 'manual' }) : {}) } },
                         { upsert: true }
                     );
 
@@ -131,12 +131,9 @@ _Use */meu_plano* para acompanhar sua assinatura._`);
                     ]
                 });
                 
-                let nomePlano = 'FREE';
-                const dias = diasPorPlano[dono?.planoPreco] || 30;
-                
-                if (dono?.planoPreco === 10) nomePlano = 'ASTRONAUTA';
-                if (dono?.planoPreco === 30) nomePlano = 'COMANDANTE';
-                if (dono?.planoPreco === 75) nomePlano = 'INTERGALÁCTICO';
+                const plano = await planoDoPerfil(dono);
+                const dias = plano ? plano.days : DIAS_SEM_PLANO;
+                const nomePlano = plano ? plano.label.toUpperCase() : 'FREE';
 
                 let dataBase = new Date();
                 const authAtual = await AuthorizedGroup.findOne({ groupId: idFormatado });
@@ -149,7 +146,7 @@ _Use */meu_plano* para acompanhar sua assinatura._`);
 
                 await AuthorizedGroup.updateOne(
                     { groupId: idFormatado },
-                    { $set: { isAuthorized: true, expiresAt: dataVencimento, authorizedBy: dono ? dono.userId : "Sistema", ...(registrarPlanoPago && dono ? camposPlanoPago({ precoBase: dono.planoPreco, validade: dataVencimento, origem: 'manual' }) : {}) } },
+                    { $set: { isAuthorized: true, expiresAt: dataVencimento, authorizedBy: dono ? dono.userId : "Sistema", ...(registrarPlanoPago && dono ? await camposPlanoPago({ planoId: plano?.id, validade: dataVencimento, origem: 'manual' }) : {}) } },
                     { upsert: true }
                 );
 

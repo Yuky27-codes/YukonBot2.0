@@ -29,6 +29,7 @@ const path = require('path');
 const cron = require('node-cron');
 // Plano pago da licença: gravado só na confirmação de pagamento (commands/_licenca_paga.js)
 const { camposPlanoPago } = require('./commands/_licenca_paga');
+const { planoDoPerfil } = require('./commands/_catalogo');
 const express = require('express');
 const { Groq } = require('groq-sdk');
 const partidasAtivas = {};
@@ -414,7 +415,8 @@ const Invite = mongoose.models.Invite || mongoose.model('Invite', inviteSchema);
 // --- SISTEMA DE PERFIL 
 const userProfileSchema = new mongoose.Schema({
     userId: { type: String, unique: true }, // WhatsApp do Dono
-    planoPreco: { type: Number }, // 10, 30 ou 75
+    planoPreco: { type: Number }, // valor do plano escolhido (com desconto, se houver)
+    planoEscolhido: { type: String, default: null }, // id do plano escolhido no catálogo central (perfis V1)
     gruposVinculados: [{ type: String }], // Array com os IDs (@g.us)
     createdAt: { type: Date, default: Date.now },
     descontoAtivo: { type: Number, default: 0 },
@@ -849,7 +851,7 @@ if (msg.hasMedia && msg.type === 'image' && !msg.from.endsWith('@g.us')) {
             const textoNotificacao = `💳 *PAGAMENTO DE CLIENTE*
 ━━━━━━━━━━━━━━━━━━━━━
 👤 Dono: @${msg.from.split('@')[0]}
-📦 Plano: ${perfil.planoPreco === 10 ? 'Recruta' : perfil.planoPreco === 30 ? 'Astronauta' : 'Intergaláctico'}
+📦 Plano: ${(await planoDoPerfil(perfil))?.label || 'Plano não identificado'}
 📍 Grupos Vinculados (${perfil.gruposVinculados.length}):
 
 ${listaIds}
@@ -1815,11 +1817,16 @@ const app = express();
 app.use(express.json());
 
 // Middleware de autenticação simples (verifica se a requisição vem do backend)
-const BOT_API_SECRET = process.env.BOT_API_SECRET || 'yukon-bot-secret-2024';
+// Sem BOT_API_SECRET configurado a API fica fechada (antes havia um segredo padrão fixo no código,
+// 'yukon-bot-secret-2024': quem o conhecesse banía membros, fechava grupos e confirmava Pix sem pagamento).
+const BOT_API_SECRET = process.env.BOT_API_SECRET || null;
+if (!BOT_API_SECRET) console.error('⚠️ BOT_API_SECRET não configurado: API HTTP do bot recusando todas as requisições.');
 
 app.use((req, res, next) => {
     const authHeader = req.headers.authorization;
-    if (authHeader !== BOT_API_SECRET) {
+    const esperado = BOT_API_SECRET ? Buffer.from(BOT_API_SECRET) : null;
+    const recebido = typeof authHeader === 'string' ? Buffer.from(authHeader) : null;
+    if (!esperado || !recebido || esperado.length !== recebido.length || !require('crypto').timingSafeEqual(esperado, recebido)) {
         return res.status(401).json({ error: 'Unauthorized' });
     }
     next();
@@ -1873,7 +1880,8 @@ const DIAS_VALIDADE_PIX = parseInt(process.env.PIX_DIAS_VALIDADE) || 30;
 app.post('/api/pix/confirmar', async (req, res) => {
     try {
         const { txid } = req.body;
-        if (!txid) {
+        // txid precisa ser texto: um objeto ({ "$ne": null }) viraria filtro e confirmaria a primeira cobrança achada
+        if (!txid || typeof txid !== 'string') {
             return res.status(400).json({ error: 'Missing required field: txid' });
         }
 
@@ -1903,7 +1911,10 @@ app.post('/api/pix/confirmar', async (req, res) => {
         // Se já tinha validade futura (renovação), soma a partir dela — não perde dias pagos.
         // Se estava vencido ou nunca teve, conta a partir de agora.
         const baseData = (perfil.planoValidoAte && perfil.planoValidoAte > new Date()) ? perfil.planoValidoAte : new Date();
-        const novaValidade = new Date(baseData.getTime() + DIAS_VALIDADE_PIX * 24 * 60 * 60 * 1000);
+        // Duração do plano escolhido (catálogo central); sem plano identificado, a duração padrão de antes
+        const planoPago = await planoDoPerfil(perfil);
+        const diasPlano = planoPago ? planoPago.days : DIAS_VALIDADE_PIX;
+        const novaValidade = new Date(baseData.getTime() + diasPlano * 24 * 60 * 60 * 1000);
 
         perfil.planoValidoAte = novaValidade;
         await perfil.save();
@@ -1913,7 +1924,7 @@ app.post('/api/pix/confirmar', async (req, res) => {
             await AuthorizedGroup.updateOne(
                 { groupId },
                 // Pagamento confirmado: grava a validade e o plano pago da cobrança (preço base da cobrança, validado pelo painel)
-                { $set: { isAuthorized: true, expiresAt: novaValidade, authorizedBy: 'pix-automatico', ...camposPlanoPago({ precoBase: cobranca.planoPreco, validade: novaValidade, origem: 'pix', txid }) } },
+                { $set: { isAuthorized: true, expiresAt: novaValidade, authorizedBy: 'pix-automatico', ...(await camposPlanoPago({ planoId: planoPago?.id, validade: novaValidade, origem: 'pix', txid })) } },
                 { upsert: true }
             );
             try {

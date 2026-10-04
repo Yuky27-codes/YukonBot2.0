@@ -1,3 +1,6 @@
+// Nome e limite do plano vêm do catálogo central publicado pelo painel (commands/_catalogo.js).
+const { planoDoPerfil, nomeComEmoji } = require('./_catalogo');
+
 module.exports = {
     name: 'meu_plano',
     async execute(client, msg) {
@@ -13,8 +16,9 @@ module.exports = {
             }
 
             // ✅ CORRIGIDO: mostra nome do plano em vez de só o preço
-            const nomePlano = perfil.planoPreco === 10 ? 'Recruta ⭐' : perfil.planoPreco === 30 ? 'Astronauta 🚀' : 'Intergaláctico 🌌';
-            const limiteGrupos = perfil.planoPreco === 10 ? 1 : perfil.planoPreco === 30 ? 2 : 3;
+            const plano = await planoDoPerfil(perfil);
+            const nomePlano = plano ? nomeComEmoji(plano) : 'Plano não identificado';
+            const limiteGrupos = plano ? plano.groupLimit : '-';
 
             let listaGrupos = "";
             let validadeGeral = null;

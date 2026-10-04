@@ -1,3 +1,6 @@
+// Nome e limite do plano vêm do catálogo central publicado pelo painel (commands/_catalogo.js).
+const { planoDoPerfil } = require('./_catalogo');
+
 module.exports = {
     name: 'desvincular',
     async execute(client, msg, { args, chatId }) {
@@ -45,9 +48,10 @@ Os comandos foram desativados imediatamente.
 _Para reativar, use */assinar* no PV do bot._`);
             } catch {}
 
-            const nomePlano = perfil.planoPreco === 10 ? 'Recruta' : perfil.planoPreco === 30 ? 'Astronauta' : 'Intergaláctico';
+            const plano = await planoDoPerfil(perfil);
+            const nomePlano = plano ? plano.label : 'Plano não identificado';
             const restantes = perfil.gruposVinculados.filter(g => g !== idGrupo).length;
-            const limite = perfil.planoPreco === 10 ? 1 : perfil.planoPreco === 30 ? 2 : 3;
+            const limite = plano ? plano.groupLimit : '-';
 
             return msg.reply(`✅ *GRUPO DESVINCULADO*
 ━━━━━━━━━━━━━━━━━━━━━

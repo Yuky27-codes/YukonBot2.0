@@ -3,21 +3,24 @@
 //   - Pix automático confirmado pelo painel (/api/pix/confirmar no index.js);
 //   - /confirmar executado pela equipe da Yukon (dono/super users ou funcionária com o comando liberado),
 //     depois de conferir o comprovante do Pix manual (/pix).
-// O planoPreco do perfil (gravado pelo /assinar) é apenas o plano ESCOLHIDO/pendente e nunca conta como pagamento.
+// O plano escolhido no perfil (/assinar, /upgrade) é só a escolha pendente e nunca conta como pagamento.
+//
+// O plano é identificado pelo id do catálogo central (commands/_catalogo.js) — recruta, astronauta,
+// intergalactico ou cosmico —, e não pelo preço pago (que pode ter desconto de cupom). Plano fora do
+// catálogo publicado => nada é gravado como plano pago (a licença em si continua sendo ativada).
 // Este arquivo fica em commands/ só para ser encontrado pelo index.js e pelos comandos; não é um comando de usuário.
 
-const PRECO_BASE_PARA_PLANO = { 10: 'recruta', 30: 'astronauta', 75: 'intergalactico' };
+const { planoPorId } = require('./_catalogo');
 
-function planoPagoPorPreco(precoBase) {
-    return PRECO_BASE_PARA_PLANO[precoBase] || null;
-}
-
-// Campos a gravar no AuthorizedGroup junto com a validade paga. Preço fora da tabela base => nada é gravado.
-function camposPlanoPago({ precoBase, validade, origem, txid }) {
-    const plano = planoPagoPorPreco(precoBase);
-    if (!plano) return {};
+// Campos a gravar no AuthorizedGroup junto com a validade paga.
+async function camposPlanoPago({ planoId, validade, origem, txid }) {
+    const plano = planoId ? await planoPorId(planoId) : null;
+    if (!plano) {
+        if (planoId) console.warn(`[licença paga] Plano "${planoId}" fora do catálogo publicado: plano pago não registrado.`);
+        return {};
+    }
     return {
-        paidPlan: plano,
+        paidPlan: plano.id,
         paidPlanExpiresAt: validade,
         paidPlanSource: origem,
         paidPlanTxid: txid || null,
@@ -26,7 +29,6 @@ function camposPlanoPago({ precoBase, validade, origem, txid }) {
 }
 
 module.exports = {
-    planoPagoPorPreco,
     camposPlanoPago,
     // Sem efeito se alguém digitar /_licenca_paga
     execute: async () => {},

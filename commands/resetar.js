@@ -27,7 +27,7 @@ module.exports = {
                 const menuAjuda = `⚙️ *CENTRAL DE RESET YUKON*
 ━━━━━━━━━━━━━━━━━━━━━
 Use: */resetar @pessoa [opção]*
-Ou: */resetar advs* (Para limpar todas as ADVs do grupo)
+Ou: */resetar advs* (Para o grupo todo)
 
 🔹 *Opções de Alvo:*
 • *civil:* Reseta casamento
@@ -37,7 +37,7 @@ Ou: */resetar advs* (Para limpar todas as ADVs do grupo)
 • *cargos:* Reseta patentes e inventário
 
 🔹 *Opções Globais:*
-• *advs:* Limpa e zera todas as ADVs (Nível 1, 2, 3 e Histórico) de TODO o grupo
+• *advs:* Limpa as ADVs de TODO o grupo
 • *tudo:* Apaga todos os dados do alvo
 ━━━━━━━━━━━━━━━━━━━━━`;
                 return await client.sendMessage(chatId, menuAjuda);
@@ -47,19 +47,11 @@ Ou: */resetar advs* (Para limpar todas as ADVs do grupo)
 
             switch (escolhaReset) {
                 case 'advs':
-                    // Zera os contadores de todos os níveis e limpa o histórico de advertências no grupo
                     await User.updateMany(
                         { groupId: chatId },
-                        { 
-                            $set: { 
-                                advsNivel1: 0, 
-                                advsNivel2: 0, 
-                                advsNivel3: 0,
-                                advHistory: [] 
-                            } 
-                        }
+                        { $set: { advs: 0 } }
                     );
-                    textoSucesso = "📢 *ANISTIA GERAL:* Todas as advertências (Leves, Moderadas e Pesadas) e históricos do grupo foram completamente apagados.";
+                    textoSucesso = "📢 *ANISTIA GERAL:* Todas as advertências do grupo foram revogadas.";
                     break;
 
                 case 'familia':
@@ -83,6 +75,7 @@ Ou: */resetar advs* (Para limpar todas as ADVs do grupo)
                     textoSucesso = "💰 Carteira de moedas zerada.";
                     break;
 
+                // ✅ CORRIGIDO: case 'nivel' estava no menu mas nunca implementado
                 case 'nivel':
                     await User.updateOne(
                         { userId: alvoIdLimpo, groupId: chatId },
@@ -103,21 +96,9 @@ Ou: */resetar advs* (Para limpar todas as ADVs do grupo)
                         await User.updateOne({ userId: uTudo.marriedWith, groupId: chatId }, { $set: { marriedWith: null } });
                     }
                     await User.updateOne({ userId: alvoIdLimpo, groupId: chatId }, {
-                        $set: { 
-                            coins: 0, 
-                            xp: 0, 
-                            level: 1, 
-                            roles: ["Tripulante"], 
-                            inventory: [], 
-                            marriedWith: null, 
-                            family: [], 
-                            advsNivel1: 0, 
-                            advsNivel2: 0, 
-                            advsNivel3: 0,
-                            advHistory: [] 
-                        }
+                        $set: { coins: 0, xp: 0, level: 1, roles: ["Tripulante"], inventory: [], marriedWith: null, family: [], advs: 0 }
                     });
-                    textoSucesso = "🧹 Protocolo de limpeza TOTAL aplicado (incluindo advertências do usuário).";
+                    textoSucesso = "🧹 Protocolo de limpeza TOTAL aplicado.";
                     break;
                 }
 
