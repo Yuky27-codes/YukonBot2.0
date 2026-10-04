@@ -26,7 +26,7 @@ module.exports = {
             }
 
             // Confirmação antes de enviar
-            await msg.reply(`📡 *BROADCAST YUKON*\n━━━━━━━━━━━━━━━━━━━━━\nEnviando para *${grupos.length} grupo(s)*...\n\n_Aguarde o relatório final._`);
+            await msg.reply(`📡 *BROADCAST YUKON*\n━━━━━━━━━━━━━━━━━━━━━\nEnviando para *${grupos.length} grupo(s)* com intervalo anti-ban...\n\n_Aguarde o relatório final._`);
 
             let enviados = 0;
             let falhas = 0;
@@ -34,14 +34,20 @@ module.exports = {
 
             for (const grupo of grupos) {
                 try {
+                    // Envia a mensagem usando o ID serializado correto do chat
                     await client.sendMessage(grupo.id._serialized, corpo);
                     enviados++;
-                    // Pequena pausa para não sobrecarregar o WhatsApp
-                    await new Promise(r => setTimeout(r, 1000));
+                    
+                    // Pausa aleatória entre 3 e 5 segundos para evitar ban e estabilizar o Puppeteer
+                    const tempoAleatorio = Math.floor(Math.random() * 2000) + 3000;
+                    await new Promise(r => setTimeout(r, tempoAleatorio));
                 } catch (e) {
                     falhas++;
                     falhasNomes.push(grupo.name || grupo.id._serialized);
-                    console.error(`❌ Falha ao enviar para ${grupo.name}:`, e.message);
+                    console.error(`❌ Falha ao enviar para ${grupo.name || grupo.id._serialized}:`, e.message);
+                    
+                    // Pausa de resgate extra caso ocorra erro, permitindo estabilizar o contexto
+                    await new Promise(r => setTimeout(r, 4000));
                 }
             }
 
@@ -49,15 +55,18 @@ module.exports = {
             let relatorio = `✅ *BROADCAST CONCLUÍDO*\n━━━━━━━━━━━━━━━━━━━━━\n📤 *Enviados:* ${enviados}/${grupos.length}\n`;
 
             if (falhas > 0) {
-                relatorio += `❌ *Falhas (${falhas}):*\n${falhasNomes.map(n => `• ${n}`).join('\n')}`;
+                relatorio += `❌ *Falhas (${falhas}):*\n${falhasNomes.slice(0, 10).map(n => `• ${n}`).join('\n')}`;
+                if (falhasNomes.length > 10) {
+                    relatorio += `\n_...e mais ${falhasNomes.length - 10} grupos._`;
+                }
             } else {
-                relatorio += `🎉 Todos os grupos receberam a mensagem!`;
+                relatorio += `🎉 Todos os grupos receberam a mensagem com segurança!`;
             }
 
             await msg.reply(relatorio);
 
         } catch (e) {
-            console.error("❌ Erro no /broadcast:", e);
+            console.error("❌ Erro fatal no /broadcast:", e);
             await msg.reply("⚠️ Erro ao processar o broadcast.");
         }
     }
