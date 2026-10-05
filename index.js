@@ -1778,9 +1778,17 @@ cron.schedule('0 0 * * *', async () => {
 });
 
 // --- SISTEMA PARA PROCESSAR COMANDOS DO PAINEL ---
-cron.schedule('*/10 * * * *', async () => {
+// Fila de comandos do painel (fechar/abrir grupo, banir...). Na hospedagem o painel não alcança a API HTTP do bot,
+// então tudo chega por aqui: verificada a cada 5 segundos (antes era a cada 10 minutos), em ordem de chegada,
+// sem duas verificações rodando ao mesmo tempo.
+const INTERVALO_FILA_PAINEL_MS = 5000;
+let processandoFilaPainel = false;
+setInterval(async () => {
+    // Só depois que o WhatsApp estiver conectado (senão os comandos falhariam durante a inicialização)
+    if (processandoFilaPainel || !client || !client.info) return;
+    processandoFilaPainel = true;
     try {
-        const pendingCommands = await BotCommand.find({ status: 'pending' }).limit(10);
+        const pendingCommands = await BotCommand.find({ status: 'pending' }).sort({ createdAt: 1 }).limit(10);
         
         for (const command of pendingCommands) {
             try {
@@ -1829,9 +1837,11 @@ cron.schedule('*/10 * * * *', async () => {
             }
         }
     } catch (error) {
-        console.error("❌ Erro no cron de processamento de comandos do painel:", error);
+        console.error("❌ Erro no processamento da fila de comandos do painel:", error);
+    } finally {
+        processandoFilaPainel = false;
     }
-});
+}, INTERVALO_FILA_PAINEL_MS);
 
 // --- SERVIDOR HTTP PARA EXECUÇÃO IMEDIATA DE COMANDOS ---
 const app = express();
