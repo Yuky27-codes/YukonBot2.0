@@ -2,51 +2,15 @@ const mongoose = require('mongoose');
 
 module.exports = {
     name: 'manutencao',
-    async execute(client, msg, { args, chatId, User }) {
+    async execute(client, msg, { args, isFuncionarioAutorizado }) {
         try {
-            const authorId = (msg.author || msg.from).toString();
-            
-            // Defina aqui o seu número com o DDI e DDD (ex: "5524999999999@c.us" ou apenas os números)
-            // Ou o bot libera automaticamente se for o chat privado com você / ou se estiver na lista de admins do banco
-            const meuNumeroBot = client.info.wid._serialized;
-            const souEuDono = authorId === meuNumeroBot; // Caso envie direto pro PV do bot (raro para comando de grupo)
-
-            let temPermissao = souEuDono;
-
-            // Se você mandou o comando num grupo, verifica se você é o dono/admin interno no banco
-            if (!temPermissao && User) {
-                const userData = await User.findOne({ userId: authorId, groupId: chatId });
-                if (userData && userData.isBotAdmin) {
-                    temPermissao = true;
-                }
-            }
-
-            // CORREÇÃO DEFINITIVA: Se você quiser garantir que o SEU número pessoal passe sempre, 
-            // basta colocar os dígitos do seu WhatsApp aqui embaixo na condição:
-            // Substitua 'SEU_NUMERO_AQUI' pelo seu número com DDI e DDD (Ex: '5524988888888')
-            const seuNumeroPessoalComDDI = '5524988268426'; // <-- (Opcional) Coloque seu número aqui se precisar
-            if (authorId.includes(seuNumeroPessoalComDDI) && seuNumeroPessoalComDDI.length > 3) {
-                temPermissao = true;
-            }
-
-            // Se mesmo assim quiser liberar temporariamente para testes enquanto ajusta o banco, 
-            // basta comentar a linha de permissão abaixo. Por segurança, vamos usar o padrão do banco + verificação de admin:
-            
-            // Vamos simplificar: se você tem cargo de admin no banco ou se for o autor principal, liberamos.
-            // Para garantir que você consiga ligar agora mesmo sem estresse:
-            const chat = await msg.getChat();
-            if (chat.isGroup) {
-                const participant = chat.participants.find(p => p.id._serialized === authorId);
-                if (participant && (participant.isAdmin || participant.isSuperAdmin)) {
-                    temPermissao = true;
-                }
-            } else {
-                // Se for no privado, libera para o dono
-                temPermissao = true;
-            }
-
-            if (!temPermissao) {
-                return msg.reply("❌ *ACESSO NEGADO:* Apenas administradores podem alterar o modo de manutenção.");
+            // Permissão: só a equipe master (LISTA_ADMS) ou funcionária com o comando liberado (/liberaruso).
+            // Antes qualquer admin de grupo, ou qualquer pessoa no privado do Bot, conseguia ligar a manutenção
+            // de TODOS os grupos.
+            const senderStr = String((msg.author || msg.from)._serialized || (msg.author || msg.from)).trim();
+            const listaMasters = global.LISTA_ADMS || [];
+            if (!listaMasters.includes(senderStr) && !isFuncionarioAutorizado) {
+                return msg.reply("❌ *ACESSO NEGADO:* Apenas a equipe da Yukon pode alterar o modo de manutenção.");
             }
 
             const acao = args[0] ? args[0].toLowerCase() : '';

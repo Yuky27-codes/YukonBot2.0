@@ -266,7 +266,8 @@ const Modo = mongoose.model('Modo', modoSchema);
 const botCommandSchema = new mongoose.Schema({
     type: { 
         type: String, 
-        enum: ['ban', 'banblack', 'mute', 'desmute'],
+        // broadcast: mensagem do painel do fundador para todos os grupos (texto em `motivo`, groupId 'all')
+        enum: ['ban', 'banblack', 'mute', 'desmute', 'broadcast'],
         required: true 
     },
     groupId: { type: String, required: true, index: true },
@@ -279,6 +280,7 @@ const botCommandSchema = new mongoose.Schema({
         index: true
     },
     errorMessage: { type: String, default: null },
+    resultado: { type: String, default: null },
     executedAt: { type: Date, default: null }
 }, { timestamps: true, collection: 'bot_commands' });
 
@@ -1777,6 +1779,25 @@ cron.schedule('0 0 * * *', async () => {
     }
 });
 
+// --- MODO MANUTENÇÃO: lido do banco (systemconfigs, chave status_sistema) ---
+// O /manutencao e o painel do fundador gravam a flag no banco; aqui ela é carregada na subida e relida a cada 15s,
+// para valer depois de reinícios e quando for ligada/desligada pelo painel.
+async function sincronizarModoManutencao() {
+    try {
+        if (mongoose.connection.readyState !== 1) return;
+        const doc = await mongoose.connection.collection('systemconfigs').findOne({ chave: 'status_sistema' });
+        const ativo = Boolean(doc && doc.manutencao);
+        if (global.modoManutencao !== ativo) {
+            console.log(`🛠️ Modo manutenção ${ativo ? 'ATIVADO' : 'desativado'} (banco)`);
+        }
+        global.modoManutencao = ativo;
+    } catch (e) {
+        console.error("⚠️ Falha ao ler o modo manutenção:", e.message);
+    }
+}
+setTimeout(sincronizarModoManutencao, 3000);
+setInterval(sincronizarModoManutencao, 15000);
+
 // --- SISTEMA PARA PROCESSAR COMANDOS DO PAINEL ---
 // Fila de comandos do painel (fechar/abrir grupo, banir...). Na hospedagem o painel não alcança a API HTTP do bot,
 // então tudo chega por aqui: verificada a cada 5 segundos (antes era a cada 10 minutos), em ordem de chegada,
@@ -1792,6 +1813,33 @@ setInterval(async () => {
         
         for (const command of pendingCommands) {
             try {
+                // Mensagem para todos os grupos (painel do fundador): mesmo envio do /broadcast, com pausa anti-ban
+                if (command.type === 'broadcast') {
+                    const texto = (command.motivo || '').trim();
+                    if (!texto) throw new Error('Mensagem vazia');
+                    const grupos = (await client.getChats()).filter(c => c.isGroup);
+                    let enviados = 0;
+                    let falhas = 0;
+                    for (const grupo of grupos) {
+                        try {
+                            await client.sendMessage(grupo.id._serialized, texto);
+                            enviados++;
+                            await new Promise(r => setTimeout(r, Math.floor(Math.random() * 2000) + 3000));
+                        } catch (e) {
+                            falhas++;
+                            console.error(`❌ [Broadcast painel] Falha em ${grupo.name || grupo.id._serialized}:`, e.message);
+                            await new Promise(r => setTimeout(r, 4000));
+                        }
+                    }
+                    await BotCommand.findByIdAndUpdate(command._id, {
+                        status: 'executed',
+                        executedAt: new Date(),
+                        resultado: `Enviado para ${enviados} de ${grupos.length} grupo(s)${falhas ? ` (${falhas} falha(s))` : ''}`
+                    });
+                    console.log(`✅ Broadcast do painel: ${enviados}/${grupos.length}`);
+                    continue;
+                }
+
                 const chatId = command.groupId;
                 const chat = await client.getChatById(chatId);
                 
