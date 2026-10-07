@@ -12,7 +12,8 @@ module.exports = {
         // Aceita "/vincular CÓDIGO" ou "/vincular ID_DO_GRUPO CÓDIGO".
         const informouId = Boolean(args[0] && args[0].includes('@g.us'));
         const idInformado = informouId ? args[0] : null;
-        const codigo = String((informouId ? args[1] : args[0]) || '').trim().toUpperCase();
+        // Só letras e números: ignora crases, asteriscos e espaços que vêm junto ao copiar do WhatsApp
+        const codigo = String((informouId ? args[1] : args[0]) || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
 
         if (!codigo) {
             return msg.reply("⚠️ Use: `/vincular [CÓDIGO]`\n\n_O dono do grupo deve enviar */codigo* dentro do grupo. O código chega no privado dele._");
@@ -25,7 +26,7 @@ module.exports = {
 
             const linkCode = await LinkCode.findOne({ code: codigo, expiresAt: { $gt: new Date() } });
             if (!linkCode) {
-                return msg.reply("❌ Código inválido ou expirado.\n\n_Peça para o dono do grupo enviar */codigo* no grupo e use o código recebido no privado._");
+                return msg.reply("❌ Código inválido ou expirado.\n\n_Peça para o *criador do grupo* enviar */codigo* no grupo e copie o código da mensagem que chega no privado dele (o código vale 1 hora)._");
             }
             if (idInformado && linkCode.groupId !== idInformado) {
                 return msg.reply("❌ Esse código não pertence ao grupo informado.");

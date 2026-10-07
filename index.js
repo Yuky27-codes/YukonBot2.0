@@ -885,7 +885,15 @@ const configBarreira = chatId.endsWith('@g.us') ? await GroupConfig.findOne({ gr
 const prefixoCustom = configBarreira?.prefixo || null;
 const usouQualquerPrefixo = body.startsWith(prefix) || (prefixoCustom && body.startsWith(prefixoCustom));
 
-if (usouQualquerPrefixo && chatId.endsWith('@g.us') && !body.startsWith('/id_grupo')) {
+// Comandos que funcionam mesmo em grupo SEM licença: /id_grupo (para o /teste e o suporte) e /codigo, que é o
+// primeiro passo para assinar (prova que é o criador do grupo; só ele ou a equipe gera o código).
+const textoSemPrefixo = body.startsWith(prefix)
+    ? body.slice(prefix.length)
+    : (prefixoCustom && body.startsWith(prefixoCustom) ? body.slice(prefixoCustom.length) : body);
+const comandoNaBarreira = (textoSemPrefixo.trim().split(/\s+/)[0] || '').toLowerCase();
+const COMANDOS_SEM_LICENCA = ['id_grupo', 'codigo', 'código'];
+
+if (usouQualquerPrefixo && chatId.endsWith('@g.us') && !COMANDOS_SEM_LICENCA.includes(comandoNaBarreira)) {
     const groupAuth = await AuthorizedGroup.findOne({ groupId: chatId }).lean();
     const ehDonoReal = isAdminUser(senderRaw); 
 

@@ -53,7 +53,7 @@ ${lista}
 ━━━━━━━━━━━━━━━━━━━━━
 📌 *COMO ASSINAR:*
 1️⃣ Digite */assinar [número]* para escolher o plano
-2️⃣ O dono do grupo envia */codigo* no grupo (o código chega no privado)
+2️⃣ Adicione a Yukon no grupo e o *criador do grupo* envia */codigo* lá (funciona antes de assinar; o código chega no privado dele)
 3️⃣ Use */vincular [CÓDIGO]* aqui no PV
 4️⃣ Use */pix* para pagar`);
             }
@@ -83,7 +83,7 @@ ${lista}
 📅 *Duração:* ${plano.days} dias
 
 🚀 *PRÓXIMOS PASSOS:*
-1️⃣ O dono do grupo envia */codigo* no grupo que deseja adicionar
+1️⃣ Adicione a Yukon no grupo e o *criador do grupo* envia */codigo* lá (funciona antes de assinar)
 2️⃣ Use */vincular [CÓDIGO]* aqui no PV
 3️⃣ Use */pix* para pagar e envie o comprovante`);
 

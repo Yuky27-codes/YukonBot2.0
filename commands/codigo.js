@@ -60,9 +60,9 @@ module.exports = {
         linkCode.subscriptionExpiresAt = subscriptionExpiresAt;
         await linkCode.save();
       } else {
-        // Gerar código único (6 caracteres alfanuméricos)
+        // Gerar código único (6 caracteres). Sem letras/números parecidos (O/0, I/1) para não errar ao digitar.
         const generateCode = () => {
-          const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+          const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
           let code = '';
           for (let i = 0; i < 6; i++) {
             code += chars.charAt(Math.floor(Math.random() * chars.length));
@@ -90,16 +90,14 @@ module.exports = {
 
       const minutosRestantes = Math.max(1, Math.round((linkCode.expiresAt.getTime() - Date.now()) / 60000));
 
+      // O código vai numa mensagem separada, só ele e sem formatação: é só copiar e colar
+      // (antes ia entre crases e a cópia levava as crases junto, dando "código não encontrado")
       const pvMessage = `🔗 *CÓDIGO DE VINCULAÇÃO*\n\n` +
-        `📋 *Código:* \`${linkCode.code}\`\n` +
         `📝 *Grupo:* ${groupName}\n` +
         `👥 *Membros:* ${memberCount}\n` +
         `⏰ *Expira em:* ${minutosRestantes} min\n\n` +
-        `📌 *Como usar:*\n` +
-        `1. Acesse o painel SaaS\n` +
-        `2. Vá para a tela de vincular grupos\n` +
-        `3. Cole este código no campo indicado\n` +
-        `4. Clique em "Verificar Grupos"\n\n` +
+        `📌 *Como usar:* copie o código da *próxima mensagem* e cole no painel (tela de vincular grupo) ` +
+        `ou aqui no privado com */vincular CÓDIGO*.\n\n` +
         `_Este código é pessoal e intransferível._`;
 
       // Enviar código no PV do dono do grupo. Se quem rodou o comando for o dono da
@@ -112,6 +110,7 @@ module.exports = {
       for (const recipient of recipients) {
         try {
           await client.sendMessage(recipient, pvMessage);
+          await client.sendMessage(recipient, linkCode.code);
         } catch (sendError) {
           console.error(`[código] Falha ao enviar PV para ${recipient}:`, sendError.message, '\n', sendError.stack);
           // Se falhar justamente pro dono (o authorizedBy salvo pode estar com ID
