@@ -267,7 +267,8 @@ const botCommandSchema = new mongoose.Schema({
     type: { 
         type: String, 
         // broadcast: mensagem do painel do fundador para todos os grupos (texto em `motivo`, groupId 'all')
-        enum: ['ban', 'banblack', 'mute', 'desmute', 'broadcast'],
+        // leave_group / set_owner / transfer_plan: /sairgrupo, /dono e /transferirplano pedidos pelo painel (dados em `payload`)
+        enum: ['ban', 'banblack', 'mute', 'desmute', 'broadcast', 'leave_group', 'set_owner', 'transfer_plan'],
         required: true 
     },
     groupId: { type: String, required: true, index: true },
@@ -281,6 +282,7 @@ const botCommandSchema = new mongoose.Schema({
     },
     errorMessage: { type: String, default: null },
     resultado: { type: String, default: null },
+    payload: { type: mongoose.Schema.Types.Mixed, default: null },
     executedAt: { type: Date, default: null }
 }, { timestamps: true, collection: 'bot_commands' });
 
@@ -1845,6 +1847,19 @@ setInterval(async () => {
                         resultado: `Enviado para ${enviados} de ${grupos.length} grupo(s)${falhas ? ` (${falhas} falha(s))` : ''}`
                     });
                     console.log(`✅ Broadcast do painel: ${enviados}/${grupos.length}`);
+                    continue;
+                }
+
+                // /sairgrupo, /dono e /transferirplano pedidos pelo painel do fundador (commands/_acoes_painel.js)
+                if (['leave_group', 'set_owner', 'transfer_plan'].includes(command.type)) {
+                    const acoes = require(path.join(__dirname, 'commands', '_acoes_painel.js'));
+                    const dados = command.payload || {};
+                    let resultado;
+                    if (command.type === 'leave_group') resultado = await acoes.sairDoGrupo(client, command.groupId);
+                    else if (command.type === 'set_owner') resultado = await acoes.definirDono(client, dados.dono, command.groupId);
+                    else resultado = await acoes.transferirPlano(client, dados.antigo, dados.novo);
+                    await BotCommand.findByIdAndUpdate(command._id, { status: 'executed', executedAt: new Date(), resultado });
+                    console.log(`✅ [Painel] ${command.type}: ${resultado}`);
                     continue;
                 }
 
