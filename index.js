@@ -77,6 +77,7 @@ const GroupConfig = mongoose.model('GroupConfig', groupConfigSchema);
 // VARIÁVEIS GLOBAIS DE ESTADO
 // ===============================
 global.codigosPorGrupo = {};
+global.nomeGrupoSalvoEm = {};
 global.modoCaosAtivo = {};
 global.desafiosAtivos = {};
 global.antiFlood = {};
@@ -342,7 +343,9 @@ const groupStatsSchema = new mongoose.Schema({
     totalBans: { type: Number, default: 0 }, // Banimentos totais (acumulado)
     totalParticipants: { type: Number, default: 0 }, // Total de participantes reais no grupo
     onlineParticipants: { type: Number, default: 0 }, // Participantes online agora
-    lastParticipantsUpdate: { type: Date, default: null } // Quando foi atualizado pela última vez
+    lastParticipantsUpdate: { type: Date, default: null }, // Quando foi atualizado pela última vez
+    groupName: { type: String, default: null }, // Nome atual do grupo no WhatsApp (mostrado no painel do dono/equipe)
+    groupNameUpdatedAt: { type: Date, default: null }
 });
 const GroupStats = mongoose.model('GroupStats', groupStatsSchema);
 
@@ -663,8 +666,8 @@ client.on('ready', () => {
 
 // --- JOB DE CAPTURA DE PARTICIPANTES (TOTAL) ---
 async function iniciarCapturaParticipantes() {
-    // Executa a cada 5 minutos
-    setInterval(async () => {
+    // Executa 1 minuto depois de conectar (nomes/membros já aparecem no painel) e depois a cada 5 minutos
+    const capturar = async () => {
         try {
             const chats = await client.getChats();
             const groupChats = chats.filter(chat => chat.isGroup);
@@ -681,13 +684,15 @@ async function iniciarCapturaParticipantes() {
                         // Contar administradores do grupo
                         const adminsCount = participants.filter(p => p.isAdmin || p.isSuperAdmin).length;
                         
+                        const nomeAtual = chatData.name || chat.name || null;
                         await GroupStats.findOneAndUpdate(
                             { groupId: chatId },
                             { 
                                 $set: { 
                                     totalParticipants,
                                     adminsCount,
-                                    lastParticipantsUpdate: new Date()
+                                    lastParticipantsUpdate: new Date(),
+                                    ...(nomeAtual ? { groupName: nomeAtual, groupNameUpdatedAt: new Date() } : {})
                                 } 
                             },
                             { upsert: true }
@@ -702,7 +707,9 @@ async function iniciarCapturaParticipantes() {
         } catch (e) {
             console.error("❌ Erro no job de captura de participantes:", e.message);
         }
-    }, 5 * 60 * 1000); // 5 minutos
+    };
+    setTimeout(capturar, 60 * 1000);
+    setInterval(capturar, 5 * 60 * 1000); // 5 minutos
 }
 
 // --- EVENTO DE BOAS-VINDAS (NOVOS MEMBROS) ---
@@ -1124,6 +1131,16 @@ let chat = null;
             } },
             { upsert: true }
         );
+        // Nome do grupo para o painel (no máximo 1 gravação a cada 30 min por grupo)
+        const ultimoNome = global.nomeGrupoSalvoEm[chatId];
+        if (chat.name && (!ultimoNome || ultimoNome.nome !== chat.name || Date.now() - ultimoNome.em > 30 * 60 * 1000)) {
+            global.nomeGrupoSalvoEm[chatId] = { nome: chat.name, em: Date.now() };
+            GroupStats.updateOne(
+                { groupId: chatId },
+                { $set: { groupName: chat.name, groupNameUpdatedAt: new Date() } },
+                { upsert: true }
+            ).catch(e => console.warn('⚠️ Não foi possível salvar o nome do grupo:', e.message));
+        }
     }
 } catch (e) {
     console.warn("⚠️ Não foi possível obter dados do chat/participantes (usando cache):", e.message);
@@ -2010,8 +2027,6 @@ app.post('/api/pix/confirmar', async (req, res) => {
             return res.json({ success: true, warning: 'Perfil do usuário não encontrado, plano não ativado automaticamente' });
         }
 
-        // Se já tinha validade futura (renovação), soma a partir dela — não perde dias pagos.
-        // Se estava vencido ou nunca teve, conta a partir de agora.
         const baseData = (perfil.planoValidoAte && perfil.planoValidoAte > new Date()) ? perfil.planoValidoAte : new Date();
         // Duração do plano escolhido (catálogo central); sem plano identificado, a duração padrão de antes
         const planoPago = await planoDoPerfil(perfil);
