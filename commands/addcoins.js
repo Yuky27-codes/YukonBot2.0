@@ -1,6 +1,6 @@
 module.exports = {
     name: 'addcoins',
-    async execute(client, msg, { chatId, isAdmin, senderRaw, User, args }) {
+    async execute(client, msg, { chatId, isAdmin, isSuperAdmin, senderRaw, User, args }) {
         if (!isAdmin) return await msg.reply("❌ *ACESSO NEGADO:* Apenas oficiais de alta patente (ADMs) podem emitir moedas.");
 
         try {
@@ -10,10 +10,24 @@ module.exports = {
             const mencoes = msg.mentionedIds;
             const autorId = String(senderRaw).trim();
             
-            const valor = parseInt(args.find(arg => !arg.includes('@'))); 
+            const { LIMITES, EmissaoCoins, hojeSP, valorInteiro, emitidoHojeNoGrupo } = require('./_economia');
+            const valor = valorInteiro(args.find(arg => !arg.includes('@')));
 
-            if (isNaN(valor) || valor <= 0) {
+            if (isNaN(valor)) {
                 return await msg.reply("❓ *COMO USAR:*\n• Para você: `/addcoins 5000`\n• Para outro: `/addcoins @tripulante 5000`.");
+            }
+
+            // Tetos da economia (os admins globais da Yukon não têm teto)
+            if (!isSuperAdmin) {
+                if (valor > LIMITES.addcoinsPorUso) {
+                    return await msg.reply(`🚫 *LIMITE DO BANCO CENTRAL:* no máximo *${LIMITES.addcoinsPorUso.toLocaleString('pt-BR')} YC* por emissão.`);
+                }
+                const jaEmitido = await emitidoHojeNoGrupo(chatId);
+                if (jaEmitido + valor > LIMITES.addcoinsPorDiaGrupo) {
+                    const resta = Math.max(0, LIMITES.addcoinsPorDiaGrupo - jaEmitido);
+                    return await msg.reply(`🚫 *LIMITE DIÁRIO DO GRUPO:* o Banco Central já emitiu *${jaEmitido.toLocaleString('pt-BR')} YC* hoje aqui.
+Ainda dá para emitir *${resta.toLocaleString('pt-BR')} YC* até a meia-noite.`);
+                }
             }
 
             const alvoId = mencoes.length > 0 
@@ -22,10 +36,12 @@ module.exports = {
 
             const ehParaSiMesmo = (alvoId === autorId);
 
+            await EmissaoCoins.create({ groupId: chatId, por: autorId, para: alvoId, valor, dia: hojeSP(), superAdmin: Boolean(isSuperAdmin) });
+
             const update = await User.findOneAndUpdate(
                 { userId: alvoId, groupId: chatId },
                 { $inc: { coins: valor } },
-                { upsert: true, new: true }
+                { upsert: true, returnDocument: 'after' }
             );
 
             // Capturar coins gerados (injeção do Banco Central)

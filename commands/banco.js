@@ -40,7 +40,7 @@ module.exports = {
 ⚙️ *REGULAMENTO*
 　▸ Depósito máx.: *100.000 YC/dia*
 　▸ Saque máx.: *300.000 YC/operação*
-　▸ Rendimento: *1% a 3% ao dia*
+　▸ Rendimento: *1% a 3% ao dia* (até 5.000 YC/dia)
 　▸ Saque sem taxas
 ━━━━━━━━━━━━━━━━━━━━━
 _"Seu dinheiro seguro, sob a proteção da Yukon."_ 🛡️`;

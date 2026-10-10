@@ -47,6 +47,10 @@ module.exports = {
             if (isNaN(valorAp) || valorAp <= 0) {
                 return await client.sendMessage(chatId, "❌ Valor inválido. Digite um número maior que zero.");
             }
+            const { LIMITES } = require('./_economia');
+            if (!isComandante && valorAp > LIMITES.apostaMaxima) {
+                return await client.sendMessage(chatId, `🚫 Aposta máxima: *${LIMITES.apostaMaxima.toLocaleString('pt-BR')} YC* por jogada.`);
+            }
             if (player.coins < valorAp) {
                 return await client.sendMessage(chatId, `❌ Saldo insuficiente! Você tem ${player.coins.toLocaleString()} YC.`);
             }

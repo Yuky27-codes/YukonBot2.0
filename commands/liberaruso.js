@@ -2,6 +2,7 @@
 const COMANDOS_SENSIVEIS = [
     'auth','broadcast','checkauth', 'codigo', 'confirmar', 'cupom','grupos', 'limpar',
     'promover', 'rebaixar','sairgrupo', 'setmidia','transferirplano',
+    'juri', // júri dos eventos (Halloween 2026)
 ];
 
 module.exports = {

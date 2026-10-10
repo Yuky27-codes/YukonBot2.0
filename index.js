@@ -349,6 +349,27 @@ const groupStatsSchema = new mongoose.Schema({
 });
 const GroupStats = mongoose.model('GroupStats', groupStatsSchema);
 
+// --- USO DOS COMANDOS (painel do dono/equipe) ---
+// +1 por comando executado, por grupo e por dia (America/Sao_Paulo). Conta "/" e prefixo próprio. Não guarda texto.
+const commandUsageSchema = new mongoose.Schema({
+    groupId: { type: String, required: true },  // id do grupo, ou "privado" para o chat privado
+    date: { type: String, required: true },     // YYYY-MM-DD
+    command: { type: String, required: true },
+    count: { type: Number, default: 0 },
+}, { collection: 'command_usage' });
+commandUsageSchema.index({ groupId: 1, date: 1, command: 1 }, { unique: true });
+commandUsageSchema.index({ date: 1 });
+const CommandUsage = mongoose.models.CommandUsage || mongoose.model('CommandUsage', commandUsageSchema);
+
+function registrarUsoComando(chatId, commandName) {
+    const groupId = chatId.endsWith('@g.us') ? chatId : 'privado';
+    CommandUsage.updateOne(
+        { groupId, date: getCurrentDateSP(), command: commandName },
+        { $inc: { count: 1 } },
+        { upsert: true }
+    ).catch(e => console.warn('⚠️ Não foi possível contar o uso do comando:', e.message));
+}
+
 // --- NOVO SCHEMA PARA ESTATÍSTICAS DIÁRIAS DE GRUPO ---
 // Armazena contadores que resetam diariamente (fuso America/Sao_Paulo)
 const groupDailyStatsSchema = new mongoose.Schema({
@@ -1050,6 +1071,8 @@ const commandName = args.shift()?.toLowerCase(); // Adicionamos ? para evitar er
 
 // VALIDAÇÃO DE SEGURANÇA
 if (!commandName || commandName === "") return;
+// O nome vira caminho de arquivo (commands/<nome>.js): só letras, números e "_" (sem "../", sem arquivos internos "_x")
+if (!/^[\p{L}\p{N}][\p{L}\p{N}_]{0,39}$/u.test(commandName)) return;
 
 // --- 👩‍💼 PERMISSÃO EFETIVA (eleva isAdmin para funcionárias com acesso liberado) ---
 const isFuncionarioAutorizado = isFuncionario(senderRaw) && funcionarioPodeUsar(senderRaw, commandName);
@@ -1183,6 +1206,7 @@ if (chatId.endsWith('@g.us') && !isAdmin) {
         const commandPath = path.join(__dirname, 'commands', `${commandName}.js`);
         
         if (fs.existsSync(commandPath)) {
+            registrarUsoComando(chatId, commandName);
             try {
                 const commandFile = require(commandPath);
                 await commandFile.execute(client, msg, {
@@ -1489,7 +1513,9 @@ cron.schedule('0 0 * * *', async () => {
         for (const user of usuariosComSaldo) {
             // Rendimento aleatório entre 1% e 3%
             const percentual = (Math.random() * 2 + 1).toFixed(2); // 1.00 a 3.00
-            const rendimento = Math.floor(user.bankCoins * (percentual / 100));
+            // Teto diário (commands/_economia.js): sem ele, saldos grandes cresciam sem limite todo dia
+            const { LIMITES } = require(path.join(__dirname, 'commands', '_economia.js'));
+            const rendimento = Math.min(LIMITES.jurosMaximoDia, Math.floor(user.bankCoins * (percentual / 100)));
  
             if (rendimento <= 0) continue;
  
