@@ -683,6 +683,11 @@ client.on('ready', () => {
     
     // Iniciar job de captura de participantes dos grupos
     iniciarCapturaParticipantes();
+
+    // /play: deixa o yt-dlp oficial pronto (baixa/atualiza em bin/) para o primeiro pedido não esperar
+    require(path.join(__dirname, 'commands', '_musica.js')).instalarYtDlp()
+        .then((p) => console.log(`🎵 /play pronto (${p})`))
+        .catch((e) => console.warn('⚠️ /play: não consegui preparar o yt-dlp agora:', e.message));
 });
 
 // --- JOB DE CAPTURA DE PARTICIPANTES (TOTAL) ---

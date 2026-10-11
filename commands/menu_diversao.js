@@ -15,6 +15,8 @@ module.exports = {
 
 ◇ */f* ➜ Criar figurinhas
 
+◇ */play [música]* ➜ Tocar uma música
+
 ◇ */modo* ➜ Ver detalhes de um modo
 
 ◇ */modos* ➜ Listar modos disponíveis
