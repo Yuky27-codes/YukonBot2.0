@@ -690,13 +690,83 @@ client.on('ready', () => {
         .catch((e) => console.warn('⚠️ /play: não consegui preparar o yt-dlp agora:', e.message));
 });
 
+// --- 🧠 PROTEÇÃO DE MEMÓRIA ---
+// O Chrome do WhatsApp Web acumula memória com o tempo. Quando o container passa de 85% da RAM (ou todo dia às 5h),
+// a Yukon reinicia SÓ o WhatsApp (mesma sessão, sem QR Code): leva ~1 minuto e a memória volta ao normal.
+// Antes, a memória subia até o limite e a Yukon parava de responder sem cair (ficava "travada").
+const fsMem = require('fs');
+function lerNumero(arquivo) {
+    try { const v = fsMem.readFileSync(arquivo, 'utf8').trim(); return /^\d+$/.test(v) ? Number(v) : null; } catch { return null; }
+}
+// Memória realmente ocupada por processos ("anon"/"rss" do cgroup). O total do cgroup também conta cache de disco,
+// que o sistema libera sozinho e não deve disparar reinício.
+function memoriaOcupadaCgroup() {
+    for (const [arquivo, campo] of [['/sys/fs/cgroup/memory.stat', 'anon'], ['/sys/fs/cgroup/memory/memory.stat', 'total_rss']]) {
+        try {
+            const linha = fsMem.readFileSync(arquivo, 'utf8').split('\n').find(l => l.startsWith(`${campo} `));
+            if (linha) return Number(linha.split(' ')[1]);
+        } catch { /* sem cgroup */ }
+    }
+    return lerNumero('/sys/fs/cgroup/memory.current') ?? lerNumero('/sys/fs/cgroup/memory/memory.usage_in_bytes');
+}
+function memoriaDoContainer() {
+    // cgroup v2 e v1 (Linux / Square Cloud). Fora disso (Windows), só a memória do Node.
+    const usado = memoriaOcupadaCgroup();
+    const limite = lerNumero('/sys/fs/cgroup/memory.max') ?? lerNumero('/sys/fs/cgroup/memory/memory.limit_in_bytes');
+    if (usado && limite && limite < 1e12) return { usado, limite, fracao: usado / limite };
+    return { usado: process.memoryUsage().rss, limite: null, fracao: null };
+}
+const MEMORIA_LIMITE_FRACAO = 0.85;
+const REINICIO_WHATSAPP_INTERVALO_MIN_MS = 30 * 60 * 1000;
+let reiniciandoWhatsApp = false;
+let ultimoReinicioWhatsApp = 0;
+async function reiniciarWhatsApp(motivo) {
+    if (reiniciandoWhatsApp || Date.now() - ultimoReinicioWhatsApp < REINICIO_WHATSAPP_INTERVALO_MIN_MS) return false;
+    reiniciandoWhatsApp = true;
+    ultimoReinicioWhatsApp = Date.now();
+    const antes = memoriaDoContainer();
+    console.warn(`♻️ Reiniciando o WhatsApp da Yukon (${motivo}). Memória: ${Math.round(antes.usado / 1048576)} MB${antes.limite ? ` de ${Math.round(antes.limite / 1048576)} MB` : ''}`);
+    try {
+        await client.destroy().catch(e => console.warn('⚠️ destroy:', e.message));
+        await new Promise(r => setTimeout(r, 5000));
+        await client.initialize();
+    } catch (e) {
+        console.error('❌ Falha ao reiniciar o WhatsApp; encerrando para a Square Cloud religar:', e.message);
+        process.exit(1);
+    } finally {
+        reiniciandoWhatsApp = false;
+    }
+    return true;
+}
+global.reiniciarWhatsApp = reiniciarWhatsApp;
+setInterval(() => {
+    const m = memoriaDoContainer();
+    if (m.fracao !== null && m.fracao >= MEMORIA_LIMITE_FRACAO) {
+        reiniciarWhatsApp(`memória em ${Math.round(m.fracao * 100)}%`);
+    }
+}, 60 * 1000);
+setInterval(() => {
+    const m = memoriaDoContainer();
+    console.log(`🧠 Memória: ${Math.round(m.usado / 1048576)} MB${m.limite ? ` de ${Math.round(m.limite / 1048576)} MB (${Math.round(m.fracao * 100)}%)` : ''}`);
+}, 10 * 60 * 1000);
+cron.schedule('0 5 * * *', () => reiniciarWhatsApp('rotina diária das 5h'), { timezone: 'America/Sao_Paulo' });
+
 // --- JOB DE CAPTURA DE PARTICIPANTES (TOTAL) ---
 async function iniciarCapturaParticipantes() {
-    // Executa 1 minuto depois de conectar (nomes/membros já aparecem no painel) e depois a cada 5 minutos
+    // O 'ready' dispara de novo a cada reconexão do WhatsApp: agenda uma vez só (antes empilhava um job por reconexão)
+    if (global.capturaParticipantesAgendada) return;
+    global.capturaParticipantesAgendada = true;
+    // Executa 1 minuto depois de conectar (nomes/membros já aparecem no painel) e depois a cada 5 minutos.
+    // Só grupos com licença em vigor e um de cada vez: o client.getChats() carregava TODAS as conversas da Yukon
+    // (milhares de privados) no Chrome a cada rodada e fazia a memória subir até travar.
     const capturar = async () => {
+        if (!client.info || global.capturaParticipantesRodando) return;
+        global.capturaParticipantesRodando = true;
         try {
-            const chats = await client.getChats();
-            const groupChats = chats.filter(chat => chat.isGroup);
+            const licencas = await AuthorizedGroup.find({ isAuthorized: true, expiresAt: { $gt: new Date() } }, { groupId: 1 }).lean();
+            const groupChats = licencas
+                .filter(l => /^\d{10,30}(-\d+)?@g\.us$/.test(l.groupId))
+                .map(l => ({ id: { _serialized: l.groupId }, name: null }));
             
             for (const chat of groupChats) {
                 try {
@@ -732,6 +802,8 @@ async function iniciarCapturaParticipantes() {
             }
         } catch (e) {
             console.error("❌ Erro no job de captura de participantes:", e.message);
+        } finally {
+            global.capturaParticipantesRodando = false;
         }
     };
     setTimeout(capturar, 60 * 1000);
