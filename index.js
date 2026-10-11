@@ -552,7 +552,16 @@ const client = new Client({
             '--disable-setuid-sandbox',
             '--disable-dev-shm-usage',
             '--disable-gpu',
-            '--no-zygote'
+            '--no-zygote',
+            // Menos memória no Chrome do WhatsApp (nada disso é usado pela Yukon)
+            '--disable-extensions',
+            '--disable-background-networking',
+            '--disable-default-apps',
+            '--disable-sync',
+            '--mute-audio',
+            '--no-first-run',
+            '--disable-features=Translate,BackForwardCache,MediaRouter,OptimizationHints',
+            '--renderer-process-limit=2'
         ]
     }
 });
@@ -716,6 +725,46 @@ function memoriaDoContainer() {
     if (usado && limite && limite < 1e12) return { usado, limite, fracao: usado / limite };
     return { usado: process.memoryUsage().rss, limite: null, fracao: null };
 }
+// Raio-X da memória: quanto é Node, quanto é o Chrome do WhatsApp, quanto é cache de disco (que o sistema libera
+// sozinho e o painel da Square Cloud também soma). Usado no log a cada 10 min e no /memoria (só admins da Yukon).
+function raioXMemoria() {
+    const mb = (b) => Math.round((b || 0) / 1048576);
+    const node = process.memoryUsage();
+    const r = { nodeMB: mb(node.rss), heapMB: mb(node.heapUsed), chromeMB: 0, chromeProcessos: 0, outrosMB: 0, outros: [], ocupadaMB: null, cacheMB: null, totalMB: null, limiteMB: null };
+    try {
+        const stat = fsMem.readFileSync('/sys/fs/cgroup/memory.stat', 'utf8');
+        const campo = (n) => Number((stat.split('\n').find(l => l.startsWith(`${n} `)) || '').split(' ')[1] || 0);
+        r.ocupadaMB = mb(campo('anon'));
+        r.cacheMB = mb(campo('file'));
+    } catch { /* sem cgroup v2 */ }
+    r.totalMB = mb(lerNumero('/sys/fs/cgroup/memory.current') ?? lerNumero('/sys/fs/cgroup/memory/memory.usage_in_bytes'));
+    const limite = lerNumero('/sys/fs/cgroup/memory.max') ?? lerNumero('/sys/fs/cgroup/memory/memory.limit_in_bytes');
+    r.limiteMB = limite && limite < 1e12 ? mb(limite) : null;
+    try {
+        for (const pid of fsMem.readdirSync('/proc').filter(d => /^\d+$/.test(d))) {
+            if (Number(pid) === process.pid) continue;
+            let status;
+            try { status = fsMem.readFileSync(`/proc/${pid}/status`, 'utf8'); } catch { continue; }
+            const nome = (status.match(/^Name:\s+(.+)$/m) || [])[1] || '?';
+            const rssKb = Number((status.match(/^VmRSS:\s+(\d+)/m) || [])[1] || 0);
+            if (/chrom/i.test(nome)) { r.chromeMB += Math.round(rssKb / 1024); r.chromeProcessos++; }
+            else if (rssKb > 20 * 1024) { r.outrosMB += Math.round(rssKb / 1024); r.outros.push(`${nome} ${Math.round(rssKb / 1024)}MB`); }
+        }
+    } catch { /* fora do Linux */ }
+    return r;
+}
+global.raioXMemoria = raioXMemoria;
+function textoRaioX(r) {
+    return [
+        `Node ${r.nodeMB} MB (heap ${r.heapMB} MB)`,
+        `Chrome ${r.chromeMB} MB em ${r.chromeProcessos} processo(s)`,
+        r.outros.length ? `outros: ${r.outros.join(', ')}` : null,
+        r.ocupadaMB !== null ? `ocupada ${r.ocupadaMB} MB + cache de disco ${r.cacheMB} MB` : null,
+        r.totalMB ? `total ${r.totalMB} MB${r.limiteMB ? ` de ${r.limiteMB} MB` : ''}` : null,
+    ].filter(Boolean).join(' · ');
+}
+global.textoRaioXMemoria = textoRaioX;
+
 const MEMORIA_LIMITE_FRACAO = 0.85;
 const REINICIO_WHATSAPP_INTERVALO_MIN_MS = 30 * 60 * 1000;
 let reiniciandoWhatsApp = false;
@@ -745,10 +794,8 @@ setInterval(() => {
         reiniciarWhatsApp(`memória em ${Math.round(m.fracao * 100)}%`);
     }
 }, 60 * 1000);
-setInterval(() => {
-    const m = memoriaDoContainer();
-    console.log(`🧠 Memória: ${Math.round(m.usado / 1048576)} MB${m.limite ? ` de ${Math.round(m.limite / 1048576)} MB (${Math.round(m.fracao * 100)}%)` : ''}`);
-}, 10 * 60 * 1000);
+setInterval(() => console.log(`🧠 Memória: ${textoRaioX(raioXMemoria())}`), 10 * 60 * 1000);
+setTimeout(() => console.log(`🧠 Memória (3 min após ligar): ${textoRaioX(raioXMemoria())}`), 3 * 60 * 1000);
 cron.schedule('0 5 * * *', () => reiniciarWhatsApp('rotina diária das 5h'), { timezone: 'America/Sao_Paulo' });
 
 // --- JOB DE CAPTURA DE PARTICIPANTES (TOTAL) ---
